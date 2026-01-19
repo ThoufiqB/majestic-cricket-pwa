@@ -1,3 +1,7 @@
+export async function PATCH(req: NextRequest) {
+  // PATCH is identical to POST for profile update
+  return POST(req);
+}
 import { NextRequest } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";

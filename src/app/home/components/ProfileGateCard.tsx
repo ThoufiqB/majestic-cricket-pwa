@@ -34,7 +34,7 @@ type Props = {
 export function ProfileGateCard(p: Props) {
   return (
     <main className="min-h-screen p-6">
-      <div className="max-w-md mx-auto space-y-4">
+      <div className="max-w-md mx-auto">
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl flex items-center gap-2">
@@ -117,18 +117,6 @@ export function ProfileGateCard(p: Props) {
                   Save profile
                 </>
               )}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Account</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" onClick={p.onSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign out
             </Button>
           </CardContent>
         </Card>
