@@ -281,22 +281,10 @@ export default function PlayerHomePage() {
 
   // Needs profile setup
   if (needsProfile && !loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <ProfileGateCard
-          msg={msg}
-          profileGroup={profileGroup}
-          setProfileGroup={setProfileGroup}
-          profileMemberType={profileMemberType}
-          setProfileMemberType={setProfileMemberType}
-          profilePhone={profilePhone}
-          setProfilePhone={setProfilePhone}
-          savingProfile={savingProfile}
-          onSave={saveProfile}
-          onSignOut={signOut}
-        />
-      </div>
-    );
+    if (typeof window !== "undefined") {
+      window.location.href = "/complete-profile";
+    }
+    return null;
   }
 
   const kids: KidProfile[] = me?.kids_profiles || [];
