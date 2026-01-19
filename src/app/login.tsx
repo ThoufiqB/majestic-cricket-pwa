@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebaseClient";
-import { apiGet, apiPatch } from "@/app/client/api";
+import { apiGet, apiPatch, apiPost } from "@/app/client/api";
 import { ProfileSelector } from "@/app/components/ProfileSelector";
 import type { PlayerWithKids } from "@/lib/types/kids";
 
