@@ -64,7 +64,7 @@ export async function PATCH(
         linked_parents: FieldValue.arrayUnion({
           parent_uid: secondaryParentUid,
           linked_by: u.email || u.uid,
-          linked_at: FieldValue.serverTimestamp(),
+          linked_at: new Date().toISOString(),
         }),
         updated_at: FieldValue.serverTimestamp(),
       },
@@ -78,7 +78,7 @@ export async function PATCH(
         kids_profiles: FieldValue.arrayUnion(kidId),
         linked_parents: FieldValue.arrayUnion({
           parent_uid: kidData.player_id, // link back to primary parent
-          linked_at: FieldValue.serverTimestamp(),
+          linked_at: new Date().toISOString(),
           status: "active",
         }),
         updated_at: FieldValue.serverTimestamp(),
@@ -88,7 +88,7 @@ export async function PATCH(
 
     return ok({
       success: true,
-      linked_at: FieldValue.serverTimestamp(),
+      linked_at: new Date().toISOString(),
     });
   } catch (e: any) {
     return handleApiError(e);
