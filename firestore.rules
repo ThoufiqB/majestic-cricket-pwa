@@ -1,0 +1,114 @@
+/**
+ * Firestore Security Rules for Kids Cricket PWA
+ * 
+ * Deployment Instructions:
+ * 1. Go to Firebase Console > Firestore Database > Rules
+ * 2. Replace existing rules with content below
+ * 3. Click "Publish"
+ * 
+ * Note: These rules SUPPLEMENT existing player/event rules.
+ * Ensure all collections are properly secured before deployment.
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin(uid) {
+      return get(/databases/$(database)/documents/players/$(uid)).data.role == "admin";
+    }
+    
+    function getCurrentUserEmail() {
+      return get(/databases/$(database)/documents/players/$(request.auth.uid)).data.email;
+    }
+    
+    // ============================================
+    // KIDS PROFILES COLLECTION
+    // ============================================
+    
+    match /kids_profiles/{kidId} {
+      // READ: Parent can read own children, admin can read all
+      allow read: if isSignedIn() && (
+        // Primary parent owns this kid
+        request.auth.uid == resource.data.player_id ||
+        // Secondary parent linked to this kid
+        getCurrentUserEmail() in resource.data.parent_emails ||
+        // Admin can read all
+        isAdmin(request.auth.uid)
+      );
+      
+      // CREATE: Only parent creates own kid (validated in API)
+      allow create: if isSignedIn() && 
+                      request.resource.data.player_id == request.auth.uid;
+      
+      // UPDATE: Parent can update own kids (but not parent_emails), admin can update all
+      allow update: if isSignedIn() && (
+        (request.auth.uid == resource.data.player_id &&
+         !("parent_emails" in request.resource.data.diff.changedKeys())) ||
+        isAdmin(request.auth.uid)
+      );
+      
+      // DELETE: Only admin (soft delete via update preferred)
+      allow delete: if isAdmin(request.auth.uid);
+    }
+    
+    // ============================================
+    // KIDS ATTENDEES (in events subcollection)
+    // ============================================
+    
+    match /events/{eventId}/kids_attendees/{kidAttendId} {
+      // READ: Parent of the kid can read, admin can read all
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.parent_id ||
+        isAdmin(request.auth.uid)
+      );
+      
+      // CREATE: Parent creates for own kid
+      allow create: if isSignedIn() && 
+                      request.auth.uid == request.resource.data.parent_id;
+      
+      // UPDATE: Parent can update own kid's attendance (attending, payment_status),
+      //         admin can override attendance confirmation
+      allow update: if isSignedIn() && (
+        (request.auth.uid == resource.data.parent_id &&
+         !("attended_by_admin" in request.resource.data.diff.changedKeys()) &&
+         !("confirmed_by_admin" in request.resource.data.diff.changedKeys())) ||
+        isAdmin(request.auth.uid)
+      );
+      
+      // DELETE: Only admin (soft delete via update preferred)
+      allow delete: if isAdmin(request.auth.uid);
+    }
+    
+    // ============================================
+    // PLAYERS COLLECTION (extended for kids)
+    // ============================================
+    
+    match /players/{userId} {
+      // User can read/update own profile
+      // Admin can read all
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isAdmin(request.auth.uid)
+      );
+      
+      // User can update own profile (active_profile_id, kids_profiles, linked_parents)
+      allow update: if isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // ============================================
+    // EVENTS COLLECTION (existing rules, shown for reference)
+    // ============================================
+    
+    // Note: Existing event rules should be preserved
+    // Only showing kids_attendees access above
+  }
+}
