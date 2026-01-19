@@ -46,15 +46,15 @@ export async function GET(req: NextRequest) {
     const nowIso = now.toISOString();
 
     // Get user's profile to determine group (prefer 'players', fallback to 'profiles')
-    let profileData = {};
+    let profileData: { group?: string; name?: string; email?: string } = {};
     let userGroup = "men";
     let playerSnap = await adminDb.collection("players").doc(user.uid).get();
     if (playerSnap.exists) {
-      profileData = playerSnap.data() || {};
+      profileData = (playerSnap.data() || {}) as { group?: string; name?: string; email?: string };
       userGroup = profileData.group || "men";
     } else {
       const profileSnap = await adminDb.collection("profiles").doc(user.uid).get();
-      profileData = profileSnap.data() || {};
+      profileData = (profileSnap.data() || {}) as { group?: string; name?: string; email?: string };
       userGroup = profileData.group || "men";
     }
 
