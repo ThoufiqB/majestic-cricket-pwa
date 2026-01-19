@@ -117,25 +117,7 @@ export function Header({
             </Button>
           )}
 
-          {/* My Kids / My Parents Link (Player only) */}
-          {variant === "player" && (
-            isKidProfile ? (
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/my-parents">
-                  <UserCircle className="h-5 w-5" />
-                </Link>
-              </Button>
-            ) : kids.length > 0 ? (
-              <Button variant="ghost" size="icon" asChild className="relative">
-                <Link href="/my-kids">
-                  <Users className="h-5 w-5" />
-                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-medium">
-                    {kids.length}
-                  </span>
-                </Link>
-              </Button>
-            ) : null
-          )}
+          {/* My Kids / My Parents Link removed. Now accessible via Profile tab only. */}
 
           {/* Profile Link (Player only) */}
           {variant === "player" && (

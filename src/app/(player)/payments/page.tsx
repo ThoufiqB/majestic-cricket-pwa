@@ -52,7 +52,7 @@ export default function PaymentsPage() {
         totalPaid: data.summary?.total_paid || 0,
         totalPending: data.summary?.total_pending || 0,
         totalUnpaid: data.summary?.total_unpaid || 0,
-        recentPayments: (data.payments || []).slice(0, 20).map((p: any) => ({
+        recentPayments: (data.payments || []).slice(0, 5).map((p: any) => ({
           event_id: p.event_id,
           event_title: p.event_name || "Unknown Event",
           amount: p.amount || 0,
@@ -175,7 +175,7 @@ export default function PaymentsPage() {
         <CardContent>
           {summary?.recentPayments && summary.recentPayments.length > 0 ? (
             <div className="space-y-3">
-              {summary.recentPayments.map((payment, i) => {
+              {summary.recentPayments.slice(0, 5).map((payment, i) => {
                 // Allow marking paid for unpaid OR rejected status (if attended)
                 const canMarkPaid = (payment.status === "unpaid" || payment.status === "rejected") && payment.attended;
                 const isMarking = markingPaid === payment.event_id;
