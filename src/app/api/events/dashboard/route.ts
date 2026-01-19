@@ -45,10 +45,18 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const nowIso = now.toISOString();
 
-    // Get user's profile to determine group
-    const profileSnap = await adminDb.collection("profiles").doc(user.uid).get();
-    const profileData = profileSnap.data() || {};
-    const userGroup = profileData.group || "men";
+    // Get user's profile to determine group (prefer 'players', fallback to 'profiles')
+    let profileData = {};
+    let userGroup = "men";
+    let playerSnap = await adminDb.collection("players").doc(user.uid).get();
+    if (playerSnap.exists) {
+      profileData = playerSnap.data() || {};
+      userGroup = profileData.group || "men";
+    } else {
+      const profileSnap = await adminDb.collection("profiles").doc(user.uid).get();
+      profileData = profileSnap.data() || {};
+      userGroup = profileData.group || "men";
+    }
 
     // Get upcoming events (next 30 days)
     const futureLimit = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
