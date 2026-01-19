@@ -7,7 +7,7 @@ import { firebaseAuth } from "@/lib/firebaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClubLogo } from "@/components/ClubLogo";
-import { apiGet, apiPatch } from "@/app/client/api";
+import { apiGet, apiPatch, apiPost } from "@/app/client/api";
 import { ProfileSelector } from "@/app/components/ProfileSelector";
 import { Loader2 } from "lucide-react";
 import type { PlayerWithKids } from "@/lib/types/kids";
@@ -58,8 +58,13 @@ export default function LoginPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || "Login failed");
 
-      // Fetch user profile
-      const userProfile = await apiGet("/api/me");
+      // Always call /api/me POST to ensure profile is created
+      const userProfile = await apiPost("/api/me");
+      if (!userProfile || !userProfile.player_id) {
+        setError("Could not create user profile. Please try again or contact support.");
+        setSigningIn(false);
+        return;
+      }
       const playerWithKids = userProfile as PlayerWithKids;
 
       // Check if user has kids

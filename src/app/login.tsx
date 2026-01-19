@@ -31,8 +31,12 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || "Login failed");
 
-      // Fetch user profile
-      const userProfile = await apiGet("/api/me");
+      // Always call /api/me POST to ensure profile is created
+      const userProfile = await apiPost("/api/me");
+      if (!userProfile || !userProfile.player_id) {
+        setErr("Could not create user profile. Please try again or contact support.");
+        return;
+      }
       const playerWithKids = userProfile as PlayerWithKids;
 
       // Check if user has kids
