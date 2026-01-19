@@ -4,8 +4,8 @@ import { ProfileGateCard } from "@/app/home/components/ProfileGateCard";
 import { apiPatch } from "@/app/client/api";
 
 export default function CompleteProfilePage() {
-  const [profileGroup, setProfileGroup] = useState("");
-  const [profileMemberType, setProfileMemberType] = useState("");
+  const [profileGroup, setProfileGroup] = useState<"" | "men" | "women">("");
+  const [profileMemberType, setProfileMemberType] = useState<"" | "standard" | "student">("");
   const [profilePhone, setProfilePhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [msg, setMsg] = useState("");
