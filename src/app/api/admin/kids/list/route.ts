@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import admin from "firebase-admin";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
 import { handleApiError, ok } from "@/app/api/_util";
@@ -6,6 +7,14 @@ import { KidsProfile } from "@/lib/types/kids";
 
 function normEmail(s: string) {
   return String(s || "").trim().toLowerCase();
+}
+
+function toDateSafe(v: any): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  if (typeof v?.toDate === "function") return v.toDate(); // Firestore Timestamp
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 async function requireAdmin(uid: string) {
@@ -16,82 +25,73 @@ async function requireAdmin(uid: string) {
   return me;
 }
 
-// GET /api/admin/kids/list?parent_email=...
+// GET /api/admin/kids/list?parent_email=...&include_counts=1
 export async function GET(req: NextRequest) {
   try {
     const u = await requireSessionUser();
     await requireAdmin(u.uid);
 
     const { searchParams } = new URL(req.url);
+
     const parentEmail = searchParams.get("parent_email")
       ? normEmail(searchParams.get("parent_email") as string)
       : null;
 
-    // Query only by status, sort client-side to avoid composite index requirement
-    let q: FirebaseFirestore.Query = adminDb
-      .collection("kids_profiles")
-      .where("status", "==", "active");
+    const includeCounts = searchParams.get("include_counts") === "1";
 
-    const snap = await q.get();
+    const snap = await adminDb
+      .collection("kids_profiles")
+      .where("status", "==", "active")
+      .get();
+
     let kids = snap.docs.map((d) => {
       const data = d.data() as KidsProfile;
+      const anyData: any = data as any;
+
       return {
         ...data,
-        created_at: data.created_at instanceof Date ? data.created_at : new Date(data.created_at),
-        updated_at: data.updated_at instanceof Date ? data.updated_at : new Date(data.updated_at),
+        kid_id: anyData.kid_id ?? d.id,
+
+        // Return ISO strings so UI can't accidentally show 1970
+        created_at: toDateSafe(anyData.created_at)?.toISOString() ?? null,
+        updated_at: toDateSafe(anyData.updated_at)?.toISOString() ?? null,
       };
     });
 
-    // Sort by name client-side
-    kids.sort((a, b) => a.name.localeCompare(b.name));
+    kids.sort((a: any, b: any) => String(a.name || "").localeCompare(String(b.name || "")));
 
-    // Client-side filter by parent email if provided
     if (parentEmail) {
-      kids = kids.filter((k) => k.parent_emails.some((e) => normEmail(e) === parentEmail));
-    }
-
-    // Get event counts for each kid (optional - skip on error)
-    let kidsWithCounts = kids;
-    try {
-      kidsWithCounts = await Promise.all(
-        kids.map(async (kid) => {
-          try {
-            // Use simple query without composite index - filter by kid_id only
-            const eventsSnap = await adminDb
-              .collectionGroup("kids_attendance")
-              .where("kid_id", "==", kid.kid_id)
-              .get();
-
-            // Filter status client-side
-            const activeEvents = eventsSnap.docs.filter((doc) => {
-              const data = doc.data();
-              return data.status === "active";
-            });
-
-            return {
-              ...kid,
-              event_count: activeEvents.length,
-            };
-          } catch (e) {
-            console.error(`Error fetching events for kid ${kid.kid_id}:`, e);
-            // Return without event count on error
-            return {
-              ...kid,
-              event_count: 0,
-            };
-          }
-        })
+      kids = kids.filter((k: any) =>
+        Array.isArray(k.parent_emails) && k.parent_emails.some((e: string) => normEmail(e) === parentEmail)
       );
-    } catch (e) {
-      console.error("Error fetching event counts:", e);
-      // If event counting fails, just return kids without counts
-      kidsWithCounts = kids.map(k => ({ ...k, event_count: 0 }));
     }
 
-    return ok({
-      kids: kidsWithCounts,
-      count: kidsWithCounts.length,
-    });
+    if (!includeCounts) {
+      const kidsNoCounts = kids.map((k: any) => ({ ...k, event_count: 0 }));
+      return ok({ kids: kidsNoCounts, count: kidsNoCounts.length });
+    }
+
+    const FieldPath = admin.firestore.FieldPath;
+
+    const kidsWithCounts = await Promise.all(
+      kids.map(async (kid: any) => {
+        try {
+          const eventsSnap = await adminDb
+            .collectionGroup("kids_attendance")
+            .where(FieldPath.documentId(), "==", kid.kid_id)
+            .get();
+
+          // Count only where attending=true (matches your doc)
+          const attendingEvents = eventsSnap.docs.filter((doc) => doc.data()?.attending === true);
+
+          return { ...kid, event_count: attendingEvents.length };
+        } catch {
+          return { ...kid, event_count: 0 };
+        }
+      })
+    );
+
+    return ok({ kids: kidsWithCounts, count: kidsWithCounts.length });
   } catch (e: any) {
     return handleApiError(e);
   }

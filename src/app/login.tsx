@@ -16,7 +16,7 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
     setErr("");
     try {
       const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
+      provider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(firebaseAuth, provider);
 
       const idToken = await cred.user.getIdToken();
@@ -24,28 +24,30 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
       const r = await fetch("/api/auth/sessionLogin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // ✅ important for cookie-based auth standardization
+        credentials: "include", // cookie-based session
         body: JSON.stringify({ idToken }),
       });
 
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || "Login failed");
 
-      // Always call /api/me POST to ensure profile is created
-      const userProfile = await apiPost("/api/me");
-      if (!userProfile || !userProfile.player_id) {
-        setErr("Could not create user profile. Please try again or contact support.");
+      // Ensure profile exists
+      await apiPost("/api/me");
+
+      // IMPORTANT FIX:
+      // Fetch hydrated profile (kids_profiles as objects, not IDs)
+      const playerWithKids = (await apiGet("/api/me")) as PlayerWithKids;
+
+      if (!playerWithKids || !playerWithKids.player_id) {
+        setErr("Could not load user profile. Please try again or contact support.");
         return;
       }
-      const playerWithKids = userProfile as PlayerWithKids;
 
-      // Check if user has kids
-      if (playerWithKids.kids_profiles && playerWithKids.kids_profiles.length > 0) {
-        // Always show profile selector - never auto-select
+      // Show selector if user has kids
+      if (Array.isArray(playerWithKids.kids_profiles) && playerWithKids.kids_profiles.length > 0) {
         setUser(playerWithKids);
         setShowProfileSelector(true);
       } else {
-        // No kids, proceed directly
         onSignedIn();
       }
     } catch (e: any) {
@@ -55,20 +57,16 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
 
   async function handleSelectProfile(profileId: string) {
     try {
-      // Always call the switch-profile endpoint to set active_profile_id
-      // Works for both parent (player_id) and kid profiles
       await apiPatch(`/api/kids/${profileId}/switch-profile`, {
         active_profile_id: profileId,
       });
 
-      // Proceed to app
       onSignedIn();
     } catch (e: any) {
       throw new Error(e?.message || "Failed to select profile");
     }
   }
 
-  // Show profile selector if kids exist
   if (showProfileSelector && user) {
     return (
       <ProfileSelector
