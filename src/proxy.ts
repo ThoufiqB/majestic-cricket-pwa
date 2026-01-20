@@ -23,22 +23,18 @@ const PROTECTED_ROUTES = ["/admin"];
 // Routes that require admin role (subset of protected)
 const ADMIN_ROUTES = ["/admin"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
   // Check if this is a protected route
   const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
-  
   const isAdminRoute = ADMIN_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
-
   // Get session cookie - use same name as sessionLogin API
   const cookieName = process.env.SESSION_COOKIE_NAME || "mc_session";
   const sessionCookie = request.cookies.get(cookieName)?.value;
-
   // If no session and trying to access protected route, redirect to home
   if (isProtectedRoute && !sessionCookie) {
     const url = request.nextUrl.clone();
@@ -46,7 +42,6 @@ export function middleware(request: NextRequest) {
     url.searchParams.set("error", "auth_required");
     return NextResponse.redirect(url);
   }
-
   // For admin routes, we add a header that pages can check
   // Full role verification must happen in the page/API since
   // middleware can't access Firebase Admin SDK
@@ -55,11 +50,10 @@ export function middleware(request: NextRequest) {
     response.headers.set("x-admin-route", "true");
     return response;
   }
-
   return NextResponse.next();
 }
 
-// Configure which routes the middleware runs on
+// Configure which routes the proxy runs on
 export const config = {
   matcher: [
     /*

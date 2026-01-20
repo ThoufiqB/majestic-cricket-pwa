@@ -7,7 +7,7 @@ import { firebaseAuth } from "@/lib/firebaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClubLogo } from "@/components/ClubLogo";
-import { apiGet, apiPatch } from "@/app/client/api";
+import { apiGet, apiPatch, apiPost } from "@/app/client/api";
 import { ProfileSelector } from "@/app/components/ProfileSelector";
 import { Loader2 } from "lucide-react";
 import type { PlayerWithKids } from "@/lib/types/kids";
@@ -20,18 +20,16 @@ export default function LoginPage() {
   const [user, setUser] = useState<PlayerWithKids | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
 
-  // Check if already authenticated
   useEffect(() => {
     async function checkAuth() {
       try {
         const data = await apiGet("/api/me");
         if (data?.player_id) {
-          // Already logged in, redirect to home
           router.replace("/home");
           return;
         }
       } catch {
-        // Not logged in, show login page
+        // Not logged in
       }
       setChecking(false);
     }
@@ -43,6 +41,7 @@ export default function LoginPage() {
     setError("");
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
       const cred = await signInWithPopup(firebaseAuth, provider);
 
       const idToken = await cred.user.getIdToken();
@@ -57,18 +56,24 @@ export default function LoginPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || "Login failed");
 
-      // Fetch user profile
-      const userProfile = await apiGet("/api/me");
-      const playerWithKids = userProfile as PlayerWithKids;
+      // Ensure profile exists
+      await apiPost("/api/me");
 
-      // Check if user has kids
-      if (playerWithKids.kids_profiles && playerWithKids.kids_profiles.length > 0) {
-        // Show profile selector
+      // IMPORTANT FIX:
+      // Fetch hydrated profile (kids_profiles as objects)
+      const playerWithKids = (await apiGet("/api/me")) as PlayerWithKids;
+
+      if (!playerWithKids || !playerWithKids.player_id) {
+        setError("Could not load user profile. Please try again or contact support.");
+        setSigningIn(false);
+        return;
+      }
+
+      if (Array.isArray(playerWithKids.kids_profiles) && playerWithKids.kids_profiles.length > 0) {
         setUser(playerWithKids);
         setShowProfileSelector(true);
         setSigningIn(false);
       } else {
-        // No kids, proceed directly
         router.replace("/home");
       }
     } catch (e: any) {
@@ -80,19 +85,16 @@ export default function LoginPage() {
 
   async function handleSelectProfile(profileId: string) {
     try {
-      // Set active profile
       await apiPatch(`/api/kids/${profileId}/switch-profile`, {
         active_profile_id: profileId,
       });
 
-      // Navigate to home
       router.replace("/home");
     } catch (e: any) {
       throw new Error(e?.message || "Failed to select profile");
     }
   }
 
-  // Show loading while checking auth
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3a5f]/5 via-background to-[#1e3a5f]/10">
@@ -104,7 +106,6 @@ export default function LoginPage() {
     );
   }
 
-  // Show profile selector if user has kids
   if (showProfileSelector && user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3a5f]/5 via-background to-[#1e3a5f]/10 p-4">
@@ -124,18 +125,14 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm shadow-lg">
         <CardContent className="pt-8 pb-8 px-6">
           <div className="flex flex-col items-center text-center space-y-6">
-            {/* Logo */}
             <div className="flex flex-col items-center gap-3">
               <ClubLogo size="lg" />
               <div>
                 <h1 className="text-2xl font-bold text-[#1e3a5f]">Majestic Cricket Club</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Manage your cricket activities
-                </p>
+                <p className="text-sm text-muted-foreground mt-1">Manage your cricket activities</p>
               </div>
             </div>
 
-            {/* Features */}
             <div className="w-full text-left space-y-2 py-4 border-y">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="text-green-600">✓</span>
@@ -151,15 +148,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Error Message */}
             {error && (
               <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md w-full">
                 {error}
               </p>
             )}
 
-            {/* Sign In Button */}
-            <Button 
+            <Button
               onClick={handleSignIn}
               disabled={signingIn}
               className="w-full bg-[#1e3a5f] hover:bg-[#2d5a8a] text-white"

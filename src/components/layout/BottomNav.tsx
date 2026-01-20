@@ -24,37 +24,32 @@ type NavItem = {
 };
 
 const adminNavItems: NavItem[] = [
-  { 
-    href: "/admin/dashboard", 
-    label: "Dashboard", 
-    icon: <LayoutDashboard className="h-5 w-5" />,
-  },
-  { 
-    href: "/admin/events", 
-    label: "Create", 
+  {
+    href: "/admin/events",
+    label: "Create",
     icon: <Calendar className="h-5 w-5" />,
     matchPaths: ["/admin/events", "/admin/kids-events"],
   },
-  { 
-    href: "/admin/browse", 
-    label: "Browse", 
+  {
+    href: "/admin/browse",
+    label: "Browse",
     icon: <Search className="h-5 w-5" />,
     matchPaths: ["/admin/browse", "/admin/events/", "/admin/kids-events/"],
   },
-  { 
-    href: "/admin/members", 
-    label: "Members", 
+  {
+    href: "/admin/members",
+    label: "Members",
     icon: <Users className="h-5 w-5" />,
     matchPaths: ["/admin/members", "/admin/kids"],
   },
-  { 
-    href: "/admin/payments", 
-    label: "Payments", 
+  {
+    href: "/admin/payments",
+    label: "Payments",
     icon: <CreditCard className="h-5 w-5" />,
   },
-  { 
-    href: "/admin/settings", 
-    label: "Settings", 
+  {
+    href: "/admin/settings",
+    label: "Settings",
     icon: <Settings className="h-5 w-5" />,
   },
 ];
