@@ -1,21 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/**
- * Middleware for route protection
- * 
- * Protected routes:
- * - /admin/* - Requires admin role
- * 
- * Auth is checked via session cookie, but role verification
- * must happen server-side in API routes since middleware
- * can't access Firebase Admin SDK directly.
- * 
- * This middleware:
- * 1. Checks if user has a session cookie
- * 2. For admin routes, redirects to home if no session
- * 3. Role verification happens in the admin pages/APIs
- */
 
 // Routes that require authentication
 const PROTECTED_ROUTES = ["/admin"];
@@ -56,14 +41,7 @@ export function proxy(request: NextRequest) {
 // Configure which routes the proxy runs on
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (public folder)
-     * - api routes (handled separately)
-     */
+    
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

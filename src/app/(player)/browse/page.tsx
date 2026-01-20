@@ -48,7 +48,7 @@ function buildMonthOptions(count: number) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     options.push({
       value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      label: d.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
     });
   }
   return options;
@@ -106,22 +106,37 @@ export default function PlayerBrowsePage() {
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(monthKeyFromDate(new Date()));
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [selectedAttendance, setSelectedAttendance] = useState<string>("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   const monthOptions = useMemo(() => buildMonthOptions(7), []);
-  
+
   const eventTypeOptions = [
-    { value: "all", label: "All Types" },
+    { value: "all", label: "All" },
     { value: "net_practice", label: "Net Practice" },
     { value: "league_match", label: "Match" },
     { value: "family_event", label: "Family Event" },
   ];
 
-  // Filter events by type on the client side
+  const attendanceOptions = [
+    { value: "all", label: "All" },
+    { value: "attended", label: "Attended" },
+    { value: "missed", label: "Missed" },
+  ];
+
+  // Filter events by type and attendance on the client side
   const filteredEvents = useMemo(() => {
-    if (selectedType === "all") return events;
-    return events.filter(ev => ev.event_type === selectedType);
-  }, [events, selectedType]);
+    let filtered = events;
+    if (selectedType !== "all") {
+      filtered = filtered.filter(ev => ev.event_type === selectedType);
+    }
+    if (selectedAttendance === "attended") {
+      filtered = filtered.filter(ev => ev.my?.attending === "YES");
+    } else if (selectedAttendance === "missed") {
+      filtered = filtered.filter(ev => ev.my?.attending === "NO" || ev.my?.attending === "UNKNOWN" || !ev.my?.attending);
+    }
+    return filtered;
+  }, [events, selectedType, selectedAttendance]);
 
   useEffect(() => {
     async function loadMe() {
@@ -206,11 +221,11 @@ export default function PlayerBrowsePage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex items-center gap-2 flex-1">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 items-center">
+            <div className="flex items-center gap-2 min-w-0" style={{ flex: 1 }}>
               <CalendarDays className="h-5 w-5 text-muted-foreground shrink-0" />
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectTrigger className="w-full sm:w-[110px]">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent>
@@ -222,15 +237,31 @@ export default function PlayerBrowsePage() {
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="flex items-center gap-2 flex-1">
+
+            <div className="flex items-center gap-2 min-w-0" style={{ flex: 1 }}>
               <Filter className="h-5 w-5 text-muted-foreground shrink-0" />
               <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectTrigger className="w-full sm:w-[90px]">
                   <SelectValue placeholder="Event type" />
                 </SelectTrigger>
                 <SelectContent>
                   {eventTypeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 min-w-0" style={{ flex: 1 }}>
+              <Users className="h-5 w-5 text-muted-foreground shrink-0" />
+              <Select value={selectedAttendance} onValueChange={setSelectedAttendance}>
+                <SelectTrigger className="w-full sm:w-[110px]">
+                  <SelectValue placeholder="Attendance" />
+                </SelectTrigger>
+                <SelectContent>
+                  {attendanceOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
