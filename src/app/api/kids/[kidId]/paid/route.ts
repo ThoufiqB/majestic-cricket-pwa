@@ -12,19 +12,6 @@ function normPaid(v: any): PaidStatus {
   return "UNPAID";
 }
 
-/**
- * POST /api/kids/{kidId}/paid
- * Mark a kid's payment as pending for an event
- * 
- * Body: { event_id: string, paid_status: "PENDING" }
- * 
- * Verifies:
- * - User is logged in
- * - User is the kid's parent
- * - Kid exists
- * - Event exists and is a kids event
- * - Admin has marked the kid as attended
- */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const u = await requireSessionUser();
@@ -46,22 +33,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const kidSnap = await kidRef.get();
 
     if (!kidSnap.exists) {
-      // Kid not found by direct ID - try to find it from parent's kids_profiles list
       const parentSnapshot = await adminDb.collection("players").doc(u.uid).get();
       const parentData = parentSnapshot.data();
       const parentKidsIds = parentData?.kids_profiles || [];
-      
+
       if (!parentKidsIds.includes(kidId)) {
         return NextResponse.json({ error: "Kid not found or not authorized" }, { status: 404 });
       }
     } else {
       const kidData = kidSnap.data();
-      // ✅ Check both parent_id and player_id for backward compatibility
       const isParent = kidData?.parent_id === u.uid || kidData?.player_id === u.uid;
-
-      if (!isParent) {
-        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
-      }
+      if (!isParent) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     // Verify the event exists and is a kids event
@@ -73,16 +55,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     const eventData = eventSnap.data();
-    const isKidsEvent = eventData?.kids_event === true;
-
-    if (!isKidsEvent) {
-      return NextResponse.json(
-        { error: "This event is not a kids event" },
-        { status: 400 }
-      );
+    if (eventData?.kids_event !== true) {
+      return NextResponse.json({ error: "This event is not a kids event" }, { status: 400 });
     }
 
-    // ✅ SINGLE SOURCE OF TRUTH: events/{eventId}/kids_attendance/{kidId}
+    // SINGLE SOURCE OF TRUTH: events/{eventId}/kids_attendance/{kidId}
     const attendanceRef = eventRef.collection("kids_attendance").doc(kidId);
     const attendanceSnap = await attendanceRef.get();
 
@@ -93,18 +70,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       );
     }
 
-    const attendanceData = attendanceSnap.data() || {};
+    const attendanceData: any = attendanceSnap.data() || {};
 
-    // Check if admin has marked as attended
-    const attended = !!attendanceData.attended;
-    if (!attended) {
+    // BACKWARD COMPAT: attending vs attended
+    const isAttending = Boolean(attendanceData.attending ?? attendanceData.attended);
+    if (!isAttending) {
       return NextResponse.json(
         { error: "Admin must mark you as attended before you can mark payment." },
         { status: 400 }
       );
     }
 
-    // Update payment status
     await attendanceRef.set(
       {
         payment_status: "pending",

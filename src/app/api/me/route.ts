@@ -1,10 +1,19 @@
-// src/app/api/me/route.ts
 import { NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
 
 function normEmail(s: string) {
   return String(s || "").trim().toLowerCase();
+}
+
+function toDateSafe(v: any): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  // Firestore Timestamp
+  if (typeof v?.toDate === "function") return v.toDate();
+  // ISO string / number
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 export async function GET() {
@@ -16,7 +25,7 @@ export async function GET() {
     const snap = await ref.get();
     const data = snap.data() || {};
 
-    // Fetch kid profile details if kids_profiles array exists
+    // Hydrate kid profile details if kids_profiles array exists (player doc stores kid IDs)
     let kids_profiles: any[] = [];
     if (Array.isArray(data.kids_profiles) && data.kids_profiles.length > 0) {
       try {
@@ -25,14 +34,17 @@ export async function GET() {
             adminDb.collection("kids_profiles").doc(kidId).get()
           )
         );
+
         kids_profiles = kidSnaps
-          .filter((snap) => snap.exists && snap.data()?.status === "active")
-          .map((snap) => {
-            const kidData = snap.data();
+          .filter((s) => s.exists && (s.data() as any)?.status === "active")
+          .map((s) => {
+            const kidData: any = s.data() || {};
             return {
               ...kidData,
-              created_at: kidData?.created_at instanceof Date ? kidData.created_at : new Date(kidData?.created_at),
-              updated_at: kidData?.updated_at instanceof Date ? kidData.updated_at : new Date(kidData?.updated_at),
+              // Always guarantee kid_id for UI keys + selection
+              kid_id: kidData.kid_id ?? s.id,
+              created_at: toDateSafe(kidData.created_at),
+              updated_at: toDateSafe(kidData.updated_at),
             };
           });
       } catch (e) {
@@ -44,6 +56,7 @@ export async function GET() {
     return NextResponse.json({
       player_id: uid,
       ...data,
+      // IMPORTANT: overwrite any existing kids_profiles (IDs) with hydrated objects
       kids_profiles,
     });
   } catch (e: any) {
@@ -76,6 +89,7 @@ export async function POST() {
     const snap2 = await ref.get();
     const data = snap2.data() || {};
 
+    // NOTE: POST remains "create if missing". Do NOT hydrate here to avoid breaking callers
     return NextResponse.json({
       player_id: uid,
       ...data,
