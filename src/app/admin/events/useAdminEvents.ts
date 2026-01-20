@@ -65,7 +65,7 @@ function buildWhatsAppText(ev: EventRow) {
     line2 = `🗓️ ${new Date(ev.starts_at).toLocaleString()} • ${typeLabel}${g ? ` • ${g}` : ""}`;
   }
   const line3 = `💷 Fee: £${Number(ev.fee || 0).toFixed(2)}`;
-  const line5 = `Please mark attendance in the app:\nhttp://localhost:3000/`;
+  const line5 = `Please mark attendance in the app:\nhttps://majestic-cricket.vercel.app/`;
 
   return [line1, line2, line3, line5].filter(Boolean).join("\n");
 }
