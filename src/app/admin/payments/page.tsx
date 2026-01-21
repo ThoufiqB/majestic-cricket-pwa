@@ -319,13 +319,13 @@ export default function AdminPaymentsPage() {
             {/* Status Tabs */}
             <Tabs value={statusFilter} onValueChange={(v) => handleStatusChange(v as StatusFilter)}>
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="pending" className="gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span className="hidden sm:inline">Pending</span>
-                </TabsTrigger>
                 <TabsTrigger value="paid" className="gap-2">
                   <CheckCircle2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Paid</span>
+                </TabsTrigger>
+                <TabsTrigger value="pending" className="gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span className="hidden sm:inline">Pending</span>
                 </TabsTrigger>
                 <TabsTrigger value="unpaid" className="gap-2">
                   <PoundSterling className="h-4 w-4" />
