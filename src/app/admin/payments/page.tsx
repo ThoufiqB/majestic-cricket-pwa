@@ -91,15 +91,26 @@ export default function AdminPaymentsPage() {
     payments: PaymentItem[];
   }>({ open: false, action: "paid", payments: [] });
 
-  // Generate month options (last 12 months)
-  const monthOptions = Array.from({ length: 12 }, (_, i) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    return {
-      value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
-      label: date.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-    };
-  });
+  // Generate month options: next month, current month, and previous 3 months
+  const monthOptions = (() => {
+    const options = [];
+    const now = new Date();
+    // Next month
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    options.push({
+      value: `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}`,
+      label: nextMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+    });
+    // Current month and previous 3 months
+    for (let i = 0; i < 4; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      options.push({
+        value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+        label: date.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      });
+    }
+    return options;
+  })();
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
