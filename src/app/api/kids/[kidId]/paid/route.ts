@@ -8,8 +8,12 @@ type PaidStatus = "UNPAID" | "PENDING" | "PAID" | "REJECTED";
 
 function normPaid(v: any): PaidStatus {
   const s = String(v || "").toUpperCase();
-  if (s === "PAID" || s === "PENDING" || s === "REJECTED") return s;
+  if (s === "PAID" || s === "PENDING" || s === "REJECTED") return s as PaidStatus;
   return "UNPAID";
+}
+
+function isAttendanceConfirmed(data: any): boolean {
+  return typeof data?.attended === "boolean" ? data.attended === true : false;
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
@@ -28,7 +32,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "Invalid paid_status" }, { status: 400 });
     }
 
-    // Verify the kid exists and user is the parent
+    // Verify the kid exists and user is the parent (backward compatible)
     const kidRef = adminDb.collection("kids_profiles").doc(kidId);
     const kidSnap = await kidRef.get();
 
@@ -54,7 +58,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    const eventData = eventSnap.data();
+    const eventData = eventSnap.data() || {};
     if (eventData?.kids_event !== true) {
       return NextResponse.json({ error: "This event is not a kids event" }, { status: 400 });
     }
@@ -72,18 +76,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const attendanceData: any = attendanceSnap.data() || {};
 
-    // BACKWARD COMPAT: attending vs attended
-    const isAttending = Boolean(attendanceData.attending ?? attendanceData.attended);
-    if (!isAttending) {
+    // Enforce the same rule as Home: admin must confirm attended === true
+    if (!isAttendanceConfirmed(attendanceData)) {
       return NextResponse.json(
-        { error: "Admin must mark you as attended before you can mark payment." },
+        { error: "Awaiting attendance confirmation. Admin must confirm attendance before payment can be marked." },
         { status: 400 }
       );
     }
 
     await attendanceRef.set(
       {
-        payment_status: "pending",
+        // Keep consistent casing with admin list normalization (it uppercases)
+        payment_status: "PENDING",
         paid_updated_at: adminTs.now(),
         updated_at: adminTs.now(),
       },

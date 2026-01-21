@@ -89,7 +89,9 @@ export async function GET(req: NextRequest) {
     ]);
 
     const kidsMap = new Map<string, any>();
-    kidsSnap1.forEach((doc) => kidsMap.set(doc.id, { kid_id: doc.id, ...doc.data(), name: doc.data().name || "Unknown Kid" }));
+    kidsSnap1.forEach((doc) =>
+      kidsMap.set(doc.id, { kid_id: doc.id, ...doc.data(), name: doc.data().name || "Unknown Kid" })
+    );
     kidsSnap2.forEach((doc) => {
       if (!kidsMap.has(doc.id)) kidsMap.set(doc.id, { kid_id: doc.id, ...doc.data(), name: doc.data().name || "Unknown Kid" });
     });
@@ -100,8 +102,7 @@ export async function GET(req: NextRequest) {
       ...kids.map((k) => ({ profile_id: k.kid_id, profile_name: k.name, type: "kid" as const })),
     ];
 
-    const activeProfiles =
-      profileFilter === "all" ? profiles : profiles.filter((p) => p.profile_id === profileFilter);
+    const activeProfiles = profileFilter === "all" ? profiles : profiles.filter((p) => p.profile_id === profileFilter);
 
     if (activeProfiles.length === 0) {
       return NextResponse.json(
@@ -147,9 +148,11 @@ export async function GET(req: NextRequest) {
           if (eventDate < dateFrom || eventDate > dateTo) continue;
 
           const status: Status = normStatus(attendance.paid_status || attendance.payment_status);
+
+          // Billable is now strictly admin-confirmed attendance (attended === true)
           const billable = isBillable(attendance);
 
-          // Unpaid must be billable only
+          // "Unpaid" list should only show billable unpaid (confirmed attendance)
           if (statusFilter === "unpaid" && !billable) continue;
           if (statusFilter !== "all" && status !== statusFilter) continue;
 
@@ -162,8 +165,10 @@ export async function GET(req: NextRequest) {
             profile_type: "player",
             amount: Number(attendance.fee_due ?? event.fee ?? 0),
             status,
-            // UI uses this as "eligible to pay"
-            attended: billable || isAttended(attendance),
+
+            // IMPORTANT: This must match the Home page meaning (admin-confirmed attendance)
+            attended: isAttended(attendance),
+
             marked_at: toIso(attendance.marked_at),
             confirmed_at: toIso(attendance.confirmed_at),
             fee_due: attendance.fee_due ? Number(attendance.fee_due) : null,
@@ -201,7 +206,10 @@ export async function GET(req: NextRequest) {
             profile_type: "kid",
             amount: Number(attendance.fee_due ?? event.fee ?? 0),
             status,
-            attended: billable || isAttended(attendance),
+
+            // IMPORTANT: Match Home meaning
+            attended: isAttended(attendance),
+
             marked_at: toIso(attendance.marked_at),
             confirmed_at: toIso(attendance.confirmed_at),
             fee_due: attendance.fee_due ? Number(attendance.fee_due) : null,
@@ -220,7 +228,7 @@ export async function GET(req: NextRequest) {
       return sortOrder === "desc" ? -cmp : cmp;
     });
 
-    // Summary totals (billable unpaid only)
+    // Summary totals (unpaid only when billable)
     const summary = {
       total_paid: 0,
       total_pending: 0,
@@ -234,10 +242,21 @@ export async function GET(req: NextRequest) {
 
     for (const p of allPayments) {
       const amount = Number(p.amount || 0);
-      if (p.status === "paid") { summary.total_paid += amount; summary.count_paid++; }
-      else if (p.status === "pending") { summary.total_pending += amount; summary.count_pending++; }
-      else if (p.status === "rejected") { summary.total_rejected += amount; summary.count_rejected++; }
-      else { if (p.billable) { summary.total_unpaid += amount; summary.count_unpaid++; } }
+      if (p.status === "paid") {
+        summary.total_paid += amount;
+        summary.count_paid++;
+      } else if (p.status === "pending") {
+        summary.total_pending += amount;
+        summary.count_pending++;
+      } else if (p.status === "rejected") {
+        summary.total_rejected += amount;
+        summary.count_rejected++;
+      } else {
+        if (p.billable) {
+          summary.total_unpaid += amount;
+          summary.count_unpaid++;
+        }
+      }
     }
 
     return NextResponse.json({ success: true, summary, payments: allPayments }, { status: 200 });
