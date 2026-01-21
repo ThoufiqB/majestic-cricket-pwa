@@ -5,6 +5,7 @@ import { isBillable } from "@/lib/attendance";
 
 type Status = "paid" | "pending" | "unpaid" | "rejected";
 type EventType = "adults" | "kids";
+type TypeFilter = "all" | "adults" | "kids";
 
 function toIso(v: any): string | null {
   if (!v) return null;
@@ -18,6 +19,25 @@ function normStatus(v: any): Status {
   const s = String(v || "").toLowerCase();
   if (s === "paid" || s === "pending" || s === "unpaid" || s === "rejected") return s as Status;
   return "unpaid";
+}
+
+function monthKeyFromIso(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function matchesMonthFilter(eventIso: string | null, monthFilter: string): boolean {
+  if (!monthFilter || monthFilter === "all") return true;
+  const k = monthKeyFromIso(eventIso);
+  return k === monthFilter;
+}
+
+function matchesSearch(profileText: string, eventTitle: string, q: string): boolean {
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return profileText.toLowerCase().includes(s) || (eventTitle || "").toLowerCase().includes(s);
 }
 
 export interface AdminPaymentItem {
@@ -37,8 +57,6 @@ export interface AdminPaymentItem {
   confirmed_by?: string;
 }
 
-type TypeFilter = "all" | "adults" | "kids";
-
 export async function GET(req: NextRequest) {
   try {
     await requireAdminUser();
@@ -51,6 +69,7 @@ export async function GET(req: NextRequest) {
 
     const statusFilter = (searchParams.get("status") || "all") as "all" | Status;
     const typeFilter = (searchParams.get("type") || "all") as TypeFilter;
+    const monthFilter = searchParams.get("month") || "all";
     const searchQuery = searchParams.get("search")?.toLowerCase().trim() || "";
 
     // Load events once
@@ -70,8 +89,12 @@ export async function GET(req: NextRequest) {
     const kids = new Map<string, any>();
     kidsSnap.forEach((d) => kids.set(d.id, { id: d.id, ...d.data() }));
 
-    const payments: AdminPaymentItem[] = [];
-    const billableUnpaidIds = new Set<string>(); // Phase-2 unpaid semantics for stats
+    // Base dataset (applies global filters: type/month/search)
+    // Stats are computed from this
+    const basePayments: AdminPaymentItem[] = [];
+
+    // Billable unpaid ids (used for unpaid semantics in both stats and unpaid list)
+    const billableUnpaidIds = new Set<string>();
 
     // Adults — collectionGroup("attendees")
     if (typeFilter !== "kids") {
@@ -85,28 +108,23 @@ export async function GET(req: NextRequest) {
         const event = events.get(eventId);
         if (!event || event.kids_event === true) continue;
 
+        const eventIso = toIso(event.starts_at);
+        if (!matchesMonthFilter(eventIso, monthFilter)) continue;
+
         const status: Status = normStatus(data.paid_status || data.payment_status);
         const billable = isBillable(data);
-
-        // Phase-1 list semantics: Unpaid list only shows billable
-        if (statusFilter === "unpaid" && !billable) continue;
-        if (statusFilter !== "all" && status !== statusFilter) continue;
 
         const playerId = doc.id;
         const name: string =
           data.name || players.get(playerId)?.name || players.get(playerId)?.email || "Unknown Player";
 
-        if (searchQuery) {
-          const matchesName = name.toLowerCase().includes(searchQuery);
-          const matchesEvent = String(event.title || "").toLowerCase().includes(searchQuery);
-          if (!matchesName && !matchesEvent) continue;
-        }
+        if (!matchesSearch(name, String(event.title || ""), searchQuery)) continue;
 
         const item: AdminPaymentItem = {
           id: `${eventId}_${playerId}`,
           event_id: eventId,
           event_name: event.title || "Unknown Event",
-          event_date: toIso(event.starts_at),
+          event_date: eventIso,
           event_type: "adults",
           profile_id: playerId,
           profile_name: name,
@@ -117,9 +135,9 @@ export async function GET(req: NextRequest) {
           confirmed_by: data.confirmed_by,
         };
 
-        payments.push(item);
+        basePayments.push(item);
 
-        // Phase-2 stats: count unpaid only if billable
+        // Stats semantics: count unpaid only if billable
         if (billable && status === "unpaid") billableUnpaidIds.add(item.id);
       }
     }
@@ -136,31 +154,29 @@ export async function GET(req: NextRequest) {
         const event = events.get(eventId);
         if (!event || event.kids_event !== true) continue;
 
+        const eventIso = toIso(event.starts_at);
+        if (!matchesMonthFilter(eventIso, monthFilter)) continue;
+
         const status: Status = normStatus(data.payment_status || data.paid_status);
         const billable = isBillable(data);
-
-        // Phase-1 list semantics: Unpaid list only shows billable
-        if (statusFilter === "unpaid" && !billable) continue;
-        if (statusFilter !== "all" && status !== statusFilter) continue;
 
         const kidId = doc.id;
         const kid = kids.get(kidId);
         const kidName: string = kid?.name || "Unknown Kid";
         const parentId: string | undefined = kid?.parent_id || kid?.player_id;
-        const parentName: string | undefined = parentId ? (players.get(parentId)?.name || players.get(parentId)?.email) : undefined;
+        const parentName: string | undefined = parentId
+          ? players.get(parentId)?.name || players.get(parentId)?.email
+          : undefined;
 
-        if (searchQuery) {
-          const matchesKid = kidName.toLowerCase().includes(searchQuery);
-          const matchesParent = (parentName || "").toLowerCase().includes(searchQuery);
-          const matchesEvent = String(event.title || "").toLowerCase().includes(searchQuery);
-          if (!matchesKid && !matchesParent && !matchesEvent) continue;
-        }
+        // Search over kid + parent + event title
+        const profileText = `${kidName} ${parentName || ""}`.trim();
+        if (!matchesSearch(profileText, String(event.title || ""), searchQuery)) continue;
 
         const item: AdminPaymentItem = {
           id: `${eventId}_${kidId}`,
           event_id: eventId,
           event_name: event.title || "Unknown Event",
-          event_date: toIso(event.starts_at),
+          event_date: eventIso,
           event_type: "kids",
           profile_id: kidId,
           profile_name: kidName,
@@ -173,35 +189,47 @@ export async function GET(req: NextRequest) {
           confirmed_by: data.confirmed_by,
         };
 
-        payments.push(item);
+        basePayments.push(item);
 
-        // Phase-2 stats: count unpaid only if billable
+        // Stats semantics: count unpaid only if billable
         if (billable && status === "unpaid") billableUnpaidIds.add(item.id);
       }
     }
 
-    // Sort (typed)
+    // Sort base dataset
     const priority: Record<Status, number> = { pending: 0, unpaid: 1, paid: 2, rejected: 3 };
 
-    payments.sort((a, b) => {
+    basePayments.sort((a, b) => {
       const dateA = a.event_date ? new Date(a.event_date).getTime() : 0;
       const dateB = b.event_date ? new Date(b.event_date).getTime() : 0;
       if (dateB !== dateA) return dateB - dateA;
       return priority[a.status] - priority[b.status];
     });
 
-    // Stats
+    // Stats must be computed from base dataset (NOT status-tab filtered list)
     const stats = {
-      total: payments.length,
-      pending: payments.filter((p) => p.status === "pending").length,
-      paid: payments.filter((p) => p.status === "paid").length,
-      rejected: payments.filter((p) => p.status === "rejected").length,
-      // Phase-2 semantics: billable unpaid
+      total: basePayments.length,
+      pending: basePayments.filter((p) => p.status === "pending").length,
+      paid: basePayments.filter((p) => p.status === "paid").length,
+      rejected: basePayments.filter((p) => p.status === "rejected").length,
+      // Billable unpaid semantics
       unpaid: billableUnpaidIds.size,
-      totalAmount: payments.reduce((s, p) => s + (p.amount || 0), 0),
-      pendingAmount: payments.filter((p) => p.status === "pending").reduce((s, p) => s + (p.amount || 0), 0),
-      paidAmount: payments.filter((p) => p.status === "paid").reduce((s, p) => s + (p.amount || 0), 0),
+      totalAmount: basePayments.reduce((s, p) => s + (p.amount || 0), 0),
+      pendingAmount: basePayments
+        .filter((p) => p.status === "pending")
+        .reduce((s, p) => s + (p.amount || 0), 0),
+      paidAmount: basePayments
+        .filter((p) => p.status === "paid")
+        .reduce((s, p) => s + (p.amount || 0), 0),
     };
+
+    // Tab filter applies ONLY to list output
+    const payments =
+      statusFilter === "all"
+        ? basePayments
+        : statusFilter === "unpaid"
+          ? basePayments.filter((p) => p.status === "unpaid" && billableUnpaidIds.has(p.id))
+          : basePayments.filter((p) => p.status === statusFilter);
 
     return NextResponse.json({ success: true, payments, stats });
   } catch (e) {
