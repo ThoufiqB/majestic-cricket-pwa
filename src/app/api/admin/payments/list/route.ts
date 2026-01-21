@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireAdminUser } from "@/lib/requireAdmin";
+import { isBillable } from "@/lib/attendance";
+
+type Status = "paid" | "pending" | "unpaid" | "rejected";
+type EventType = "adults" | "kids";
+type TypeFilter = "all" | "adults" | "kids";
 
 function toIso(v: any): string | null {
   if (!v) return null;
@@ -10,10 +15,29 @@ function toIso(v: any): string | null {
   return null;
 }
 
-function normStatus(v: any): "paid" | "pending" | "unpaid" | "rejected" {
+function normStatus(v: any): Status {
   const s = String(v || "").toLowerCase();
-  if (s === "paid" || s === "pending" || s === "unpaid" || s === "rejected") return s as any;
+  if (s === "paid" || s === "pending" || s === "unpaid" || s === "rejected") return s as Status;
   return "unpaid";
+}
+
+function monthKeyFromIso(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function matchesMonthFilter(eventIso: string | null, monthFilter: string): boolean {
+  if (!monthFilter || monthFilter === "all") return true;
+  const k = monthKeyFromIso(eventIso);
+  return k === monthFilter;
+}
+
+function matchesSearch(profileText: string, eventTitle: string, q: string): boolean {
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return profileText.toLowerCase().includes(s) || (eventTitle || "").toLowerCase().includes(s);
 }
 
 export interface AdminPaymentItem {
@@ -21,28 +45,18 @@ export interface AdminPaymentItem {
   event_id: string;
   event_name: string;
   event_date: string | null;
-  event_type: "adults" | "kids";
+  event_type: EventType;
   profile_id: string;
   profile_name: string;
   parent_id?: string;
   parent_name?: string;
   amount: number;
-  status: "paid" | "pending" | "unpaid" | "rejected";
+  status: Status;
   marked_at: string | null;
   confirmed_at: string | null;
   confirmed_by?: string;
 }
 
-/**
- * GET /api/admin/payments/list
- * 
- * Query Parameters:
- * - status: "all" | "paid" | "pending" | "unpaid" | "rejected"
- * - type: "all" | "adults" | "kids"
- * - month: YYYY-MM (filter by event month)
- * - eventId: specific event ID
- * - search: name search
- */
 export async function GET(req: NextRequest) {
   try {
     await requireAdminUser();
@@ -52,197 +66,174 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const statusFilter = searchParams.get("status") || "all";
-    const typeFilter = searchParams.get("type") || "all";
-    const monthFilter = searchParams.get("month");
-    const eventIdFilter = searchParams.get("eventId");
-    const searchQuery = searchParams.get("search")?.toLowerCase().trim();
 
-    // Calculate date range from month
-    let dateFrom: Date | null = null;
-    let dateTo: Date | null = null;
-    
-    if (monthFilter) {
-      const [year, month] = monthFilter.split("-").map(Number);
-      dateFrom = new Date(year, month - 1, 1);
-      dateTo = new Date(year, month, 0, 23, 59, 59);
-    }
+    const statusFilter = (searchParams.get("status") || "all") as "all" | Status;
+    const typeFilter = (searchParams.get("type") || "all") as TypeFilter;
+    const monthFilter = searchParams.get("month") || "all";
+    const searchQuery = searchParams.get("search")?.toLowerCase().trim() || "";
 
-    // Get events (optionally filtered by month or specific event)
-    let eventsQuery = adminDb.collection("events").orderBy("starts_at", "desc");
-    const eventsSnap = await eventsQuery.get();
-    
-    const events: Map<string, any> = new Map();
-    eventsSnap.forEach((doc) => {
-      const data = doc.data();
-      const eventDate = toIso(data.starts_at);
-      
-      // Filter by specific event
-      if (eventIdFilter && doc.id !== eventIdFilter) return;
-      
-      // Filter by month
-      if (dateFrom && dateTo && eventDate) {
-        const date = new Date(eventDate);
-        if (date < dateFrom || date > dateTo) return;
-      }
-      
-      // Filter by type
-      const isKidsEvent = data.kids_event === true;
-      if (typeFilter === "adults" && isKidsEvent) return;
-      if (typeFilter === "kids" && !isKidsEvent) return;
-      
-      events.set(doc.id, {
-        id: doc.id,
-        title: data.title || "Unknown Event",
-        starts_at: eventDate,
-        fee: Number(data.fee || 0),
-        kids_event: isKidsEvent,
-      });
-    });
+    // Load events once
+    const eventsSnap = await adminDb.collection("events").get();
+    const events = new Map<string, any>();
+    eventsSnap.forEach((doc) => events.set(doc.id, { id: doc.id, ...doc.data() }));
 
-    // Get profiles and kids for name lookups
-    const [profilesSnap, kidsSnap] = await Promise.all([
+    // Load profiles once
+    const [playersSnap, kidsSnap] = await Promise.all([
       adminDb.collection("players").get(),
       adminDb.collection("kids_profiles").get(),
     ]);
 
-    const profiles: Map<string, any> = new Map();
-    profilesSnap.forEach((doc) => {
-      profiles.set(doc.id, { id: doc.id, name: doc.data().name || doc.data().email });
-    });
+    const players = new Map<string, any>();
+    playersSnap.forEach((d) => players.set(d.id, { id: d.id, ...d.data() }));
 
-    const kids: Map<string, any> = new Map();
-    kidsSnap.forEach((doc) => {
-      const data = doc.data();
-      kids.set(doc.id, { 
-        id: doc.id, 
-        name: data.name || "Unknown Kid",
-        parent_id: data.parent_id || data.player_id,
-      });
-    });
+    const kids = new Map<string, any>();
+    kidsSnap.forEach((d) => kids.set(d.id, { id: d.id, ...d.data() }));
 
-    // Collect all payments
-    const payments: AdminPaymentItem[] = [];
-    
-    for (const [eventId, event] of events) {
-      if (event.kids_event) {
-        // Kids event - check kids_attendance subcollection
-        const attendanceSnap = await adminDb
-          .collection("events")
-          .doc(eventId)
-          .collection("kids_attendance")
-          .get();
+    // Base dataset (applies global filters: type/month/search)
+    // Stats are computed from this
+    const basePayments: AdminPaymentItem[] = [];
 
-        for (const doc of attendanceSnap.docs) {
-          const data = doc.data();
-          const status = normStatus(data.payment_status || data.paid_status);
-          
-          // Filter by status
-          if (statusFilter !== "all" && status !== statusFilter) continue;
-          
-          const kid = kids.get(doc.id);
-          const kidName = kid?.name || "Unknown Kid";
-          const parentId = kid?.parent_id;
-          const parentName = parentId ? profiles.get(parentId)?.name : undefined;
-          
-          // Filter by search
-          if (searchQuery) {
-            const matchesKid = kidName.toLowerCase().includes(searchQuery);
-            const matchesParent = parentName?.toLowerCase().includes(searchQuery);
-            const matchesEvent = event.title.toLowerCase().includes(searchQuery);
-            if (!matchesKid && !matchesParent && !matchesEvent) continue;
-          }
-          
-          payments.push({
-            id: `${eventId}_${doc.id}`,
-            event_id: eventId,
-            event_name: event.title,
-            event_date: event.starts_at,
-            event_type: "kids",
-            profile_id: doc.id,
-            profile_name: kidName,
-            parent_id: parentId,
-            parent_name: parentName,
-            amount: Number(data.fee_due ?? event.fee ?? 0),
-            status,
-            marked_at: toIso(data.marked_at),
-            confirmed_at: toIso(data.confirmed_at),
-            confirmed_by: data.confirmed_by,
-          });
-        }
-      } else {
-        // Adults event - check attendees subcollection
-        const attendanceSnap = await adminDb
-          .collection("events")
-          .doc(eventId)
-          .collection("attendees")
-          .get();
+    // Billable unpaid ids (used for unpaid semantics in both stats and unpaid list)
+    const billableUnpaidIds = new Set<string>();
 
-        for (const doc of attendanceSnap.docs) {
-          const data = doc.data();
-          const status = normStatus(data.paid_status || data.payment_status);
+    // Adults — collectionGroup("attendees")
+    if (typeFilter !== "kids") {
+      const snap = await adminDb.collectionGroup("attendees").get();
 
-          // Filter by status
-          if (statusFilter !== "all" && status !== statusFilter) continue;
+      for (const doc of snap.docs) {
+        const data = doc.data();
+        const eventId = doc.ref.parent.parent?.id;
+        if (!eventId) continue;
 
-          const playerId = doc.id;
-          // Use name from attendee doc, fallback to player profile
-          const playerName = data.name || profiles.get(playerId)?.name || "Unknown Player";
+        const event = events.get(eventId);
+        if (!event || event.kids_event === true) continue;
 
-          // Filter by search - check if player name OR event matches
-          if (searchQuery) {
-            const matchesPlayer = playerName.toLowerCase().includes(searchQuery);
-            const matchesEvent = event.title.toLowerCase().includes(searchQuery);
-            // Only include if matches - if neither matches, skip
-            if (!matchesPlayer && !matchesEvent) continue;
-          }
+        const eventIso = toIso(event.starts_at);
+        if (!matchesMonthFilter(eventIso, monthFilter)) continue;
 
-          payments.push({
-            id: `${eventId}_${playerId}`,
-            event_id: eventId,
-            event_name: event.title,
-            event_date: event.starts_at,
-            event_type: "adults",
-            profile_id: doc.id,
-            profile_name: playerName,
-            amount: Number(data.fee_due ?? event.fee ?? 0),
-            status,
-            marked_at: toIso(data.marked_at),
-            confirmed_at: toIso(data.confirmed_at),
-            confirmed_by: data.confirmed_by,
-          });
-        }
+        const status: Status = normStatus(data.paid_status || data.payment_status);
+        const billable = isBillable(data);
+
+        const playerId = doc.id;
+        const name: string =
+          data.name || players.get(playerId)?.name || players.get(playerId)?.email || "Unknown Player";
+
+        if (!matchesSearch(name, String(event.title || ""), searchQuery)) continue;
+
+        const item: AdminPaymentItem = {
+          id: `${eventId}_${playerId}`,
+          event_id: eventId,
+          event_name: event.title || "Unknown Event",
+          event_date: eventIso,
+          event_type: "adults",
+          profile_id: playerId,
+          profile_name: name,
+          amount: Number(data.fee_due ?? event.fee ?? 0),
+          status,
+          marked_at: toIso(data.marked_at),
+          confirmed_at: toIso(data.confirmed_at),
+          confirmed_by: data.confirmed_by,
+        };
+
+        basePayments.push(item);
+
+        // Stats semantics: count unpaid only if billable
+        if (billable && status === "unpaid") billableUnpaidIds.add(item.id);
       }
     }
 
-    // Sort by event date (most recent first), then by status priority
-    const statusPriority = { pending: 0, unpaid: 1, paid: 2, rejected: 3 };
-    payments.sort((a, b) => {
+    // Kids — collectionGroup("kids_attendance")
+    if (typeFilter !== "adults") {
+      const snap = await adminDb.collectionGroup("kids_attendance").get();
+
+      for (const doc of snap.docs) {
+        const data = doc.data();
+        const eventId = doc.ref.parent.parent?.id;
+        if (!eventId) continue;
+
+        const event = events.get(eventId);
+        if (!event || event.kids_event !== true) continue;
+
+        const eventIso = toIso(event.starts_at);
+        if (!matchesMonthFilter(eventIso, monthFilter)) continue;
+
+        const status: Status = normStatus(data.payment_status || data.paid_status);
+        const billable = isBillable(data);
+
+        const kidId = doc.id;
+        const kid = kids.get(kidId);
+        const kidName: string = kid?.name || "Unknown Kid";
+        const parentId: string | undefined = kid?.parent_id || kid?.player_id;
+        const parentName: string | undefined = parentId
+          ? players.get(parentId)?.name || players.get(parentId)?.email
+          : undefined;
+
+        // Search over kid + parent + event title
+        const profileText = `${kidName} ${parentName || ""}`.trim();
+        if (!matchesSearch(profileText, String(event.title || ""), searchQuery)) continue;
+
+        const item: AdminPaymentItem = {
+          id: `${eventId}_${kidId}`,
+          event_id: eventId,
+          event_name: event.title || "Unknown Event",
+          event_date: eventIso,
+          event_type: "kids",
+          profile_id: kidId,
+          profile_name: kidName,
+          parent_id: parentId,
+          parent_name: parentName,
+          amount: Number(data.fee_due ?? event.fee ?? 0),
+          status,
+          marked_at: toIso(data.marked_at),
+          confirmed_at: toIso(data.confirmed_at),
+          confirmed_by: data.confirmed_by,
+        };
+
+        basePayments.push(item);
+
+        // Stats semantics: count unpaid only if billable
+        if (billable && status === "unpaid") billableUnpaidIds.add(item.id);
+      }
+    }
+
+    // Sort base dataset
+    const priority: Record<Status, number> = { pending: 0, unpaid: 1, paid: 2, rejected: 3 };
+
+    basePayments.sort((a, b) => {
       const dateA = a.event_date ? new Date(a.event_date).getTime() : 0;
       const dateB = b.event_date ? new Date(b.event_date).getTime() : 0;
       if (dateB !== dateA) return dateB - dateA;
-      return statusPriority[a.status] - statusPriority[b.status];
+      return priority[a.status] - priority[b.status];
     });
 
-    // Calculate stats
+    // Stats must be computed from base dataset (NOT status-tab filtered list)
     const stats = {
-      total: payments.length,
-      pending: payments.filter(p => p.status === "pending").length,
-      paid: payments.filter(p => p.status === "paid").length,
-      unpaid: payments.filter(p => p.status === "unpaid").length,
-      rejected: payments.filter(p => p.status === "rejected").length,
-      totalAmount: payments.reduce((sum, p) => sum + p.amount, 0),
-      pendingAmount: payments.filter(p => p.status === "pending").reduce((sum, p) => sum + p.amount, 0),
-      paidAmount: payments.filter(p => p.status === "paid").reduce((sum, p) => sum + p.amount, 0),
+      total: basePayments.length,
+      pending: basePayments.filter((p) => p.status === "pending").length,
+      paid: basePayments.filter((p) => p.status === "paid").length,
+      rejected: basePayments.filter((p) => p.status === "rejected").length,
+      // Billable unpaid semantics
+      unpaid: billableUnpaidIds.size,
+      totalAmount: basePayments.reduce((s, p) => s + (p.amount || 0), 0),
+      pendingAmount: basePayments
+        .filter((p) => p.status === "pending")
+        .reduce((s, p) => s + (p.amount || 0), 0),
+      paidAmount: basePayments
+        .filter((p) => p.status === "paid")
+        .reduce((s, p) => s + (p.amount || 0), 0),
     };
 
-    return NextResponse.json({
-      success: true,
-      payments,
-      stats,
-    });
-  } catch (error) {
-    console.error("GET /api/admin/payments/list:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    // Tab filter applies ONLY to list output
+    const payments =
+      statusFilter === "all"
+        ? basePayments
+        : statusFilter === "unpaid"
+          ? basePayments.filter((p) => p.status === "unpaid" && billableUnpaidIds.has(p.id))
+          : basePayments.filter((p) => p.status === statusFilter);
+
+    return NextResponse.json({ success: true, payments, stats });
+  } catch (e) {
+    console.error("GET /api/admin/payments/list:", e);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
