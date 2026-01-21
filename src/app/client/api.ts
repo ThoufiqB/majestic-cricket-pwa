@@ -1,78 +1,70 @@
-"use client";
+export type ApiError = Error & { status?: number; payload?: any };
 
-export type ApiError = Error & { status?: number };
-
-function makeError(message: string, status?: number): ApiError {
+function makeError(message: string, status?: number, payload?: any): ApiError {
   const e = new Error(message) as ApiError;
   e.status = status;
+  e.payload = payload;
   return e;
 }
 
-async function parseJsonSafe(res: Response) {
-  const text = await res.text();
-  try {
-    return { data: JSON.parse(text), text };
-  } catch {
-    return { data: null, text };
-  }
-}
-
-async function handle(res: Response) {
-  const { data, text } = await parseJsonSafe(res);
+async function handle<T>(res: Response): Promise<T> {
+  const contentType = res.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
 
   if (!res.ok) {
-    const msg = String(data?.error || data?.message || `Request failed (${res.status})`);
-    throw makeError(msg, res.status);
-  }
-  if (data?.error) {
-    throw makeError(String(data.error), res.status);
-  }
-  if (!data) {
-    throw makeError(`Non-JSON from server (first 200 chars): ${text.slice(0, 200)}`, res.status);
+    let payload: any = null;
+    try {
+      payload = isJson ? await res.json() : await res.text();
+    } catch {
+      // ignore
+    }
+    const msg =
+      (payload && typeof payload === "object" && (payload.error || payload.message)) ||
+      (typeof payload === "string" && payload) ||
+      res.statusText ||
+      "Request failed";
+    throw makeError(String(msg), res.status, payload);
   }
 
-  return data;
+  if (res.status === 204) return undefined as any;
+  return (isJson ? res.json() : (res.text() as any)) as Promise<T>;
 }
 
-/**
- * Cookie-based API calls:
- * - session cookie automatically sent (credentials: "include")
- * - do NOT send idToken
- */
-export async function apiGet(path: string) {
-  const res = await fetch(path, {
+export async function apiGet<T = any>(url: string): Promise<T> {
+  const res = await fetch(url, {
     method: "GET",
-    credentials: "include",
+    credentials: "include", // IMPORTANT: send session cookies
     headers: { Accept: "application/json" },
+    cache: "no-store",
   });
-  return handle(res);
+  return handle<T>(res);
 }
 
-export async function apiPost(path: string, payload?: any) {
-  const res = await fetch(path, {
+export async function apiPost<T = any>(url: string, body?: any): Promise<T> {
+  const res = await fetch(url, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload || {}),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return handle(res);
+  return handle<T>(res);
 }
 
-export async function apiPatch(path: string, payload?: any) {
-  const res = await fetch(path, {
+export async function apiPatch<T = any>(url: string, body?: any): Promise<T> {
+  const res = await fetch(url, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload || {}),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return handle(res);
+  return handle<T>(res);
 }
 
-export async function apiDelete(path: string) {
-  const res = await fetch(path, {
+export async function apiDelete<T = any>(url: string): Promise<T> {
+  const res = await fetch(url, {
     method: "DELETE",
     credentials: "include",
     headers: { Accept: "application/json" },
   });
-  return handle(res);
+  return handle<T>(res);
 }
