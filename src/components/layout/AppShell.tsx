@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { Header } from "./Header";
+import { AdminMoreMenu } from "./AdminMoreMenu";
 import { cn } from "@/lib/utils";
 
 type Profile = {
@@ -27,8 +29,8 @@ type Props = {
   hideHeader?: boolean;
 };
 
-export function AppShell({ 
-  children, 
+export function AppShell({
+  children,
   variant,
   title,
   subtitle,
@@ -39,6 +41,8 @@ export function AppShell({
   maxWidth = "600px",
   hideHeader = false,
 }: Props) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <div className="flex">
@@ -49,7 +53,7 @@ export function AppShell({
         <div className="flex-1 flex flex-col min-h-screen">
           {/* Header */}
           {!hideHeader && (
-            <Header 
+            <Header
               variant={variant}
               title={title}
               subtitle={subtitle}
@@ -61,18 +65,29 @@ export function AppShell({
           )}
 
           {/* Page Content */}
-          <main className={cn(
-            "flex-1 w-full mx-auto px-4 py-6",
-            // Add bottom padding for mobile nav
-            "pb-24 lg:pb-6"
-          )} style={{ maxWidth }}>
+          <main
+            className={cn(
+              "flex-1 w-full mx-auto px-4 py-6",
+              // Add bottom padding for mobile nav
+              "pb-24 lg:pb-6"
+            )}
+            style={{ maxWidth }}
+          >
             {children}
           </main>
         </div>
       </div>
 
+      {/* ✅ Admin More Menu - Mobile only drawer */}
+      {variant === "admin" && (
+        <AdminMoreMenu open={moreOpen} onClose={() => setMoreOpen(false)} />
+      )}
+
       {/* Bottom Nav - Mobile only */}
-      <BottomNav variant={variant} />
+      <BottomNav
+        variant={variant}
+        onMoreClick={variant === "admin" ? () => setMoreOpen(true) : undefined}
+      />
     </div>
   );
 }

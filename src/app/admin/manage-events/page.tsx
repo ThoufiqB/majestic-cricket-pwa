@@ -1,23 +1,41 @@
 "use client";
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddPlayersSection } from "./components/AddPlayersSection";
 import { RequestsSection } from "./components/RequestsSection";
 
 /**
  * Admin Manage Events Page
  *
- * This page exposes two sections: one for bulk‑adding players to existing
- * events and another for reviewing participation requests.  The
- * implementation of each section is in separate components to keep
- * concerns isolated.  See AddPlayersSection and RequestsSection for
- * details.
+ * Phase-1 UI:
+ * - Add desktop-friendly structure (Tabs)
+ * - Keep existing modules isolated and unchanged
+ * - No logic/API changes
  */
 export default function ManageEventsPage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold">Manage events</h1>
-      <AddPlayersSection />
-      <RequestsSection />
+      <div>
+        <h1 className="text-xl font-bold">Manage events</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Add players to an event or review participation requests.
+        </p>
+      </div>
+
+      <Tabs defaultValue="add" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="add">Add to Event</TabsTrigger>
+          <TabsTrigger value="requests">Requests</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="add" className="mt-4">
+          <AddPlayersSection />
+        </TabsContent>
+
+        <TabsContent value="requests" className="mt-4">
+          <RequestsSection />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

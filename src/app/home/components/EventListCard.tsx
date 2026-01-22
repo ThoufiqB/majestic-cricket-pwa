@@ -19,6 +19,9 @@ type Props = {
   onMarkAttending: (eventId: string, attending: "YES" | "NO") => void;
   onMarkPaid: (ev: HomeEvent) => void;
 
+  /** ✅ NEW: called when attendance is closed but player wants to request participation */
+  onRequestParticipation: (eventId: string) => void;
+
   activeProfileId?: string;
   me?: any;
   isKidProfile?: boolean;
@@ -48,9 +51,13 @@ export function EventListCard(p: Props) {
             {p.events.map((ev) => {
               const fg = p.friendsCache[ev.event_id];
               const isKidsEvent = ev.kids_event === true;
-              const friendsSummary = fg && !isKidsEvent 
-                ? { men: { yes: fg.men?.yes || 0, total: fg.men?.total || 0 }, women: { yes: fg.women?.yes || 0, total: fg.women?.total || 0 } } 
-                : undefined;
+              const friendsSummary =
+                fg && !isKidsEvent
+                  ? {
+                      men: { yes: fg.men?.yes || 0, total: fg.men?.total || 0 },
+                      women: { yes: fg.women?.yes || 0, total: fg.women?.total || 0 },
+                    }
+                  : undefined;
 
               return (
                 <EventCard
@@ -62,8 +69,13 @@ export function EventListCard(p: Props) {
                   onMarkAttendingYes={() => p.onMarkAttending(ev.event_id, "YES")}
                   onMarkAttendingNo={() => p.onMarkAttending(ev.event_id, "NO")}
                   onMarkPaid={() => p.onMarkPaid(ev)}
+                  onRequestParticipation={() => p.onRequestParticipation(ev.event_id)}
                   isKidProfile={p.isKidProfile}
-                  kidBirthDate={p.isKidProfile && p.me?.kids_profiles ? p.me.kids_profiles.find((k: any) => k.kid_id === p.activeProfileId)?.date_of_birth : null}
+                  kidBirthDate={
+                    p.isKidProfile && p.me?.kids_profiles
+                      ? p.me.kids_profiles.find((k: any) => k.kid_id === p.activeProfileId)?.date_of_birth
+                      : null
+                  }
                 />
               );
             })}
