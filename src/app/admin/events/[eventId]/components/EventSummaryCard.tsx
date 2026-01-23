@@ -1,164 +1,181 @@
-"use client";
+"use client"
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  Banknote, 
-  CreditCard, 
-  Clock, 
-  CheckCircle2,
-  Loader2,
+import * as React from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
   Calendar,
-  Lightbulb
-} from "lucide-react";
-import { EVENT_TYPE_LABEL } from "../constants";
-import type { EventInfo, Totals } from "../types";
-import { money } from "../helpers";
+  PoundSterling,
+  Users,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  AlertCircle,
+} from "lucide-react"
+import type { EventInfo, Totals } from "../types"
 
 type Props = {
-  eventId: string;
-  event: EventInfo | null;
-  totals: Totals;
-  rowsCount: number;
+  eventId: string
+  event: EventInfo
+  totals: Totals
+  rowsCount: number
+  saving: string
+  onBulkMarkAttendedYes: () => void
+}
 
-  saving: string;
-  onBulkMarkAttendedYes: () => void;
-};
+function StatTile({
+  label,
+  value,
+}: {
+  label: string
+  value: React.ReactNode
+}) {
+  return (
+    <div className="rounded-xl border bg-background px-3 py-2">
+      <div className="text-[11px] text-muted-foreground leading-none">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold leading-none">{value}</div>
+    </div>
+  )
+}
 
-export function EventSummaryCard(p: Props) {
-  if (!p.event) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-center">
-          <p className="text-sm text-muted-foreground">Loading event...</p>
-        </CardContent>
-      </Card>
-    );
-  }
+function StatusPill({
+  icon,
+  text,
+  className,
+}: {
+  icon: React.ReactNode
+  text: string
+  className: string
+}) {
+  return (
+    <span
+      className={`
+        inline-flex w-full items-center justify-center gap-1
+        rounded-full border px-2 py-1 text-[11px] leading-none
+        ${className}
+      `}
+    >
+      {icon}
+      {text}
+    </span>
+  )
+}
+
+export function EventSummaryCard({
+  eventId,
+  event,
+  totals,
+  rowsCount,
+  saving,
+  onBulkMarkAttendedYes,
+}: Props) {
+  const startsAt = event.starts_at ? new Date(event.starts_at) : null
+  const dateLabel = startsAt
+    ? startsAt.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "No start time"
+
+  const fee = Number(event.fee ?? 0)
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="mb-2">
+      <CardContent className="p-3">
+        {/* Row 1: Title + Primary Action */}
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="text-xl">{p.event.title}</CardTitle>
-            <CardDescription className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="truncate text-base font-semibold">{event.title}</h2>
+
+              <Badge variant="outline" className="text-[11px] font-normal">
+                {event.event_type}
+              </Badge>
+
+              {event.group ? (
+                <Badge variant="secondary" className="text-[11px] font-normal">
+                  {event.group}
+                </Badge>
+              ) : null}
+            </div>
+
+            {/* Meta */}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
-                {new Date(p.event.starts_at).toLocaleString()}
+                {dateLabel}
               </span>
-            </CardDescription>
+
+              <span className="inline-flex items-center gap-1">
+                <PoundSterling className="h-3.5 w-3.5" />
+                <span className="font-medium text-foreground">
+                  £{fee.toFixed(2)}
+                </span>
+              </span>
+            </div>
           </div>
-          <Badge className="bg-accent text-accent-foreground">
-            £{money(p.event.fee)}
-          </Badge>
-        </div>
-        
-        {/* Event Type and Group Badges */}
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Badge variant="secondary">
-            {EVENT_TYPE_LABEL[p.event.event_type] || p.event.event_type}
-          </Badge>
-          {p.event.group && (
-            <Badge variant="outline" className="capitalize">
-              {String(p.event.group).toLowerCase()}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="pt-3 pb-3 text-center">
-              <Users className="h-5 w-5 mx-auto text-primary mb-1" />
-              <p className="text-xs text-muted-foreground">Attending</p>
-              <p className="text-xl font-bold text-primary">{p.totals.yesCount}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-            <CardContent className="pt-3 pb-3 text-center">
-              <Banknote className="h-5 w-5 mx-auto text-amber-600 mb-1" />
-              <p className="text-xs text-muted-foreground">Expected</p>
-              <p className="text-xl font-bold text-amber-600">£{money(p.totals.expectedSum)}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-            <CardContent className="pt-3 pb-3 text-center">
-              <CreditCard className="h-5 w-5 mx-auto text-green-600 mb-1" />
-              <p className="text-xs text-muted-foreground">Confirmed</p>
-              <p className="text-xl font-bold text-green-600">£{money(p.totals.paidConfirmedSum)}</p>
-            </CardContent>
-          </Card>
+          {/* Brand CTA */}
+          <Button
+            size="sm"
+            variant="brand"
+            className="shrink-0"
+            disabled={saving === "bulk" || rowsCount === 0}
+            onClick={onBulkMarkAttendedYes}
+          >
+            {saving === "bulk" ? "Marking..." : "Mark all attended"}
+          </Button>
         </div>
 
-        {/* Payment Status Summary */}
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-4 w-4 text-blue-500" />
-            <span className="text-muted-foreground">Pending:</span>
-            <span className="font-semibold">£{money(p.totals.pendingSum)}</span>
-          </div>
+        {/* Stats grid */}
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <StatTile
+            label="Attending"
+            value={
+              <span className="inline-flex items-center gap-1">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                {totals.yesCount}
+              </span>
+            }
+          />
+          <StatTile label="Expected" value={`£${totals.expectedSum.toFixed(2)}`} />
+          <StatTile
+            label="Confirmed"
+            value={`£${totals.paidConfirmedSum.toFixed(2)}`}
+          />
+          <StatTile label="Pending" value={`£${totals.pendingSum.toFixed(2)}`} />
         </div>
 
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span>
-            <Badge variant="outline" className="mr-1 bg-green-50 text-green-700 border-green-200">
-              {p.totals.paidCount}
-            </Badge>
-            Paid
-          </span>
-          <span>
-            <Badge variant="outline" className="mr-1 bg-blue-50 text-blue-700 border-blue-200">
-              {p.totals.pendingCount}
-            </Badge>
-            Pending
-          </span>
-          <span>
-            <Badge variant="outline" className="mr-1 bg-red-50 text-red-700 border-red-200">
-              {p.totals.rejectedCount}
-            </Badge>
-            Rejected
-          </span>
-          <span>
-            <Badge variant="outline" className="mr-1">
-              {p.totals.unpaidCount}
-            </Badge>
-            Unpaid
-          </span>
-        </div>
-
-        {/* Bulk Action */}
-        <Button
-          className="w-full"
-          disabled={p.saving === "bulk" || p.rowsCount === 0}
-          onClick={p.onBulkMarkAttendedYes}
-        >
-          {p.saving === "bulk" ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Updating...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Mark All Attended
-            </>
-          )}
-        </Button>
-
-        {/* Tip */}
-        <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
-          <Lightbulb className="h-4 w-4 shrink-0 text-amber-500" />
-          <p>Tip: Bulk mark attended first, then adjust exceptions individually below.</p>
+        {/* ✅ Status row aligned to the same grid columns */}
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <StatusPill
+            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+            text={`${totals.paidCount} paid`}
+            className="bg-green-50 text-green-700 border-green-200"
+          />
+          <StatusPill
+            icon={<Clock className="h-3.5 w-3.5" />}
+            text={`${totals.pendingCount} pending`}
+            className="bg-blue-50 text-blue-700 border-blue-200"
+          />
+          <StatusPill
+            icon={<XCircle className="h-3.5 w-3.5" />}
+            text={`${totals.rejectedCount} rejected`}
+            className="bg-red-50 text-red-700 border-red-200"
+          />
+          <StatusPill
+            icon={<AlertCircle className="h-3.5 w-3.5" />}
+            text={`${totals.unpaidCount} unpaid`}
+            className="bg-muted/40 text-foreground border-border"
+          />
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
-

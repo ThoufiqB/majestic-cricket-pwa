@@ -1,3 +1,31 @@
+/**
+ * GET /api/admin/events/:eventId
+ * Returns event details for a single event
+ */
+export async function GET(req: NextRequest, ctx: { params: Promise<{ eventId: string }> }) {
+  try {
+    await requireAdmin();
+    const { eventId } = await ctx.params;
+    const { data } = await getEventOrThrow(eventId);
+    // Always serialize starts_at as ISO string if present
+    const starts_at = data.starts_at;
+    let starts_at_iso = null;
+    if (starts_at) {
+      if (typeof starts_at === 'string') {
+        starts_at_iso = new Date(starts_at).toISOString();
+      } else if (typeof starts_at?.toDate === 'function') {
+        starts_at_iso = starts_at.toDate().toISOString();
+      } else if (typeof starts_at?.seconds === 'number') {
+        starts_at_iso = new Date(starts_at.seconds * 1000).toISOString();
+      }
+    }
+    return NextResponse.json({ ...data, starts_at: starts_at_iso });
+  } catch (e: any) {
+    const msg = String(e?.message || e);
+    const status = msg.toLowerCase().includes("forbidden") ? 403 : 404;
+    return NextResponse.json({ error: msg }, { status });
+  }
+}
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";

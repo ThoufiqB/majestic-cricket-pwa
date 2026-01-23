@@ -143,28 +143,36 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ eventId: s
       const attendeeById = new Map<string, any>();
       attendeeSnaps.forEach((s) => attendeeById.set(s.id, s.data() || {}));
 
-      rows = playerDocs.map((p) => {
-        const pd: any = p.data() || {};
-        const a: any = attendeeById.get(p.id) || {};
+      rows = playerDocs
+        .map((p) => {
+          const pd: any = p.data() || {};
+          const a: any = attendeeById.get(p.id) || {};
 
-        const feeRaw = a.fee_due;
-        const fee_due =
-          feeRaw === null || typeof feeRaw === "undefined" || feeRaw === ""
-            ? null
-            : Number(feeRaw);
+          const attending = normAttending(a.attending);
+          const hasAttendeeRecord = Object.keys(a).length > 0;
 
-        return {
-          player_id: p.id,
-          name: String(pd.name || a.name || ""),
-          email: String(pd.email || a.email || ""),
-          group: String(pd.group || a.group || ""),
+          // Only include players who are attending (YES), or have an attendee record (approved/added by admin)
+          if (attending !== "YES" && !hasAttendeeRecord) return null;
 
-          attending: normAttending(a.attending),
-          attended: !!a.attended,
-          paid_status: normPaid(a.paid_status),
-          fee_due,
-        };
-      });
+          const feeRaw = a.fee_due;
+          const fee_due =
+            feeRaw === null || typeof feeRaw === "undefined" || feeRaw === ""
+              ? null
+              : Number(feeRaw);
+
+          return {
+            player_id: p.id,
+            name: String(pd.name || a.name || ""),
+            email: String(pd.email || a.email || ""),
+            group: String(pd.group || a.group || ""),
+
+            attending,
+            attended: !!a.attended,
+            paid_status: normPaid(a.paid_status),
+            fee_due,
+          };
+        })
+        .filter(Boolean); // Remove nulls (non-attending, not approved/added)
     }
 
     return NextResponse.json({ event: ev, rows });

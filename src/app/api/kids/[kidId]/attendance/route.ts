@@ -2,12 +2,26 @@ import { requireSessionUser } from "@/lib/requireSession";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { NextRequest, NextResponse } from "next/server";
 
+function toMs(v: any): number {
+  if (!v) return NaN;
+
+  // Firestore Timestamp
+  if (typeof v === "object" && typeof v.toDate === "function") {
+    return v.toDate().getTime();
+  }
+
+  // ISO string or Date
+  const d = new Date(v);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
 /**
  * POST /api/kids/{kidId}/attendance
  * Mark a kid's attendance for an event
- * 
+ *
  * Body: { event_id: string, attending: "YES" | "NO" }
- * 
+ *
  * Verifies:
  * - User is logged in
  * - User is the kid's parent or admin
@@ -49,11 +63,11 @@ export async function POST(
       const parentSnapshot = await adminDb.collection("players").doc(user.uid).get();
       const parentData = parentSnapshot.data();
       const parentKidsIds = parentData?.kids_profiles || [];
-      
+
       if (!parentKidsIds.includes(kidId)) {
         return NextResponse.json({ error: "Kid not found or not authorized" }, { status: 404 });
       }
-      
+
       // Kid is in parent's list but document doesn't exist
       // This can happen if the kid was added to parent's array but not yet fully created
       // Allow the attendance to be marked anyway
@@ -78,15 +92,32 @@ export async function POST(
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    const eventData = eventSnap.data();
+    const eventData = eventSnap.data() || {};
     const isKidsEvent = eventData?.kids_event === true;
     const isAllKidsGroup = String(eventData?.group || "").toLowerCase() === "all_kids";
 
     if (!isKidsEvent || !isAllKidsGroup) {
-      return NextResponse.json(
-        { error: "This event is not a kids event" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "This event is not a kids event" }, { status: 400 });
+    }
+
+    // ✅ Net Practice 48-hour cutoff (Kids)
+    const eventType = String(eventData?.event_type || "");
+    const startMs = toMs(eventData?.starts_at);
+
+    if (eventType === "net_practice" && Number.isFinite(startMs)) {
+      const cutoffMs = startMs - 48 * 60 * 60 * 1000; // 48 hours prior
+      const nowMs = Date.now();
+
+      if (nowMs >= cutoffMs) {
+        return NextResponse.json(
+          {
+            error:
+              "Attendance is closed for this net session (48-hour cutoff). Please use Request Participation.",
+            code: "ATTENDANCE_CUTOFF",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Update kid's attendance record
@@ -167,11 +198,11 @@ export async function GET(
       const parentSnapshot = await adminDb.collection("players").doc(user.uid).get();
       const parentData = parentSnapshot.data();
       const parentKidsIds = parentData?.kids_profiles || [];
-      
+
       if (!parentKidsIds.includes(kidId)) {
         return NextResponse.json({ error: "Kid not found or not authorized" }, { status: 404 });
       }
-      
+
       // Kid is in parent's list but document doesn't exist - still allow retrieval
       // Return default attendance (not attending)
     } else {

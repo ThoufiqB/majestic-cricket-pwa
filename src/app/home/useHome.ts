@@ -65,9 +65,14 @@ export function useHome(activeProfileId?: string) {
         my_attending: normAttending(myData?.attending ?? ev?.my_attending),
         my_paid_status: normPaid(myData?.paid_status ?? ev?.my_paid_status),
         my_attended: !!(myData?.attended ?? ev?.my_attended),
-        my_fee_due: (myData?.fee_due === null || typeof myData?.fee_due === "undefined" || myData?.fee_due === "") 
-          ? null 
-          : (myData?.fee_due !== undefined ? Number(myData.fee_due) : (ev?.my_fee_due === null ? null : Number(ev?.my_fee_due))),
+        my_fee_due:
+          myData?.fee_due === null || typeof myData?.fee_due === "undefined" || myData?.fee_due === ""
+            ? null
+            : myData?.fee_due !== undefined
+            ? Number(myData.fee_due)
+            : ev?.my_fee_due === null
+            ? null
+            : Number(ev?.my_fee_due),
       };
     }) as HomeEvent[];
   }
@@ -77,7 +82,7 @@ export function useHome(activeProfileId?: string) {
 
     const q = new URLSearchParams();
     q.set("month", selectedMonth);
-    
+
     if (isKidProfile) {
       // For kids: filter to all_kids group
       q.set("group", "all_kids");
@@ -208,7 +213,7 @@ export function useHome(activeProfileId?: string) {
           // ✅ Use date_of_birth (field name from Firestore) instead of birth_date
           const kidBirthDate = kidData?.date_of_birth;
           const kidAge = calculateAge(kidBirthDate ? new Date(kidBirthDate) : null);
-          
+
           if (!isAgeInRange(kidAge, ageRange.min, ageRange.max)) {
             const msg = getAgeEligibilityMessage(kidAge, ageRange.min, ageRange.max);
             setMsg(msg || "Age not eligible for this event");
@@ -232,9 +237,9 @@ export function useHome(activeProfileId?: string) {
       // Route to correct API based on profile type
       if (isKidProfile && activeProfileId) {
         // Kid attendance
-        await apiPost(`/api/kids/${encodeURIComponent(activeProfileId)}/attendance`, { 
-          event_id: eventId, 
-          attending 
+        await apiPost(`/api/kids/${encodeURIComponent(activeProfileId)}/attendance`, {
+          event_id: eventId,
+          attending,
         });
       } else {
         // Parent/adult attendance
@@ -249,6 +254,29 @@ export function useHome(activeProfileId?: string) {
     } catch (e: any) {
       // revert by refresh
       await refreshList().catch(() => {});
+      setMsg(`Error: ${e?.message || e}`);
+    }
+  }
+
+  /** ✅ NEW: Request Participation after attendance cutoff (Net Practice only in UI) */
+  async function requestParticipation(eventId: string) {
+    try {
+      setMsg("Requesting…");
+
+      // Kids pass kid_id so server can create a kid request
+      if (isKidProfile && activeProfileId) {
+        await apiPost(`/api/events/${encodeURIComponent(eventId)}/request`, {
+          kid_id: activeProfileId,
+        });
+      } else {
+        await apiPost(`/api/events/${encodeURIComponent(eventId)}/request`, {});
+      }
+
+      await refreshList();
+
+      setMsg("Request sent ✅");
+      setTimeout(() => setMsg(""), 1200);
+    } catch (e: any) {
       setMsg(`Error: ${e?.message || e}`);
     }
   }
@@ -275,9 +303,9 @@ export function useHome(activeProfileId?: string) {
       // ✅ Route to correct API based on profile type
       if (isKidProfile && activeProfileId) {
         // Kid payment
-        await apiPost(`/api/kids/${encodeURIComponent(activeProfileId)}/paid`, { 
+        await apiPost(`/api/kids/${encodeURIComponent(activeProfileId)}/paid`, {
           event_id: ev.event_id,
-          paid_status: "PENDING" 
+          paid_status: "PENDING",
         });
       } else {
         // Parent/adult payment
@@ -344,6 +372,7 @@ export function useHome(activeProfileId?: string) {
     saveProfile,
 
     markAttending,
+    requestParticipation, // ✅ NEW
     markPaid,
 
     friendsCache,
