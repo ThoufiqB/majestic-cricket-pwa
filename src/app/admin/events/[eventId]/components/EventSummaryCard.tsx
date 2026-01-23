@@ -19,143 +19,91 @@ import { money } from "../helpers";
 
 type Props = {
   eventId: string;
-  event: EventInfo | null;
+  event: EventInfo;
   totals: Totals;
   rowsCount: number;
-
   saving: string;
   onBulkMarkAttendedYes: () => void;
 };
 
-export function EventSummaryCard(p: Props) {
-  if (!p.event) {
-    return (
-      <Card>
-        <CardContent className="pt-6 text-center">
-          <p className="text-sm text-muted-foreground">Loading event...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
+export function EventSummaryCard({
+  eventId,
+  event,
+  totals,
+  rowsCount,
+  saving,
+  onBulkMarkAttendedYes,
+}: {
+  eventId: string;
+  event: EventInfo;
+  totals: Totals;
+  rowsCount: number;
+  saving: string;
+  onBulkMarkAttendedYes: () => void;
+}) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="text-xl">{p.event.title}</CardTitle>
-            <CardDescription className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {new Date(p.event.starts_at).toLocaleString()}
-              </span>
-            </CardDescription>
+    <Card className="mb-2">
+      <CardContent className="pt-2 pb-1 px-2">
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <h2 className="text-base font-bold flex items-center gap-2">
+                {event.title}
+                <Badge variant="outline" className="text-xs font-normal">{event.event_type}</Badge>
+                {event.group && <Badge variant="outline" className="text-xs font-normal">{event.group}</Badge>}
+              </h2>
+              <div className="text-xs text-muted-foreground">
+                {event.starts_at && <span>{new Date(event.starts_at).toLocaleString()}</span>}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">£{event.fee}</Badge>
+            </div>
           </div>
-          <Badge className="bg-accent text-accent-foreground">
-            £{money(p.event.fee)}
-          </Badge>
-        </div>
-        
-        {/* Event Type and Group Badges */}
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Badge variant="secondary">
-            {EVENT_TYPE_LABEL[p.event.event_type] || p.event.event_type}
-          </Badge>
-          {p.event.group && (
-            <Badge variant="outline" className="capitalize">
-              {String(p.event.group).toLowerCase()}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="pt-3 pb-3 text-center">
-              <Users className="h-5 w-5 mx-auto text-primary mb-1" />
-              <p className="text-xs text-muted-foreground">Attending</p>
-              <p className="text-xl font-bold text-primary">{p.totals.yesCount}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-            <CardContent className="pt-3 pb-3 text-center">
-              <Banknote className="h-5 w-5 mx-auto text-amber-600 mb-1" />
-              <p className="text-xs text-muted-foreground">Expected</p>
-              <p className="text-xl font-bold text-amber-600">£{money(p.totals.expectedSum)}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-            <CardContent className="pt-3 pb-3 text-center">
-              <CreditCard className="h-5 w-5 mx-auto text-green-600 mb-1" />
-              <p className="text-xs text-muted-foreground">Confirmed</p>
-              <p className="text-xl font-bold text-green-600">£{money(p.totals.paidConfirmedSum)}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Payment Status Summary */}
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-4 w-4 text-blue-500" />
-            <span className="text-muted-foreground">Pending:</span>
-            <span className="font-semibold">£{money(p.totals.pendingSum)}</span>
+          <div className="grid grid-cols-3 gap-1 mb-1">
+            <div className="bg-muted/50 rounded p-1 flex flex-col items-center">
+              <span className="text-xs text-muted-foreground">Attending</span>
+              <span className="font-bold text-base">{totals.yesCount}</span>
+            </div>
+            <div className="bg-muted/50 rounded p-1 flex flex-col items-center">
+              <span className="text-xs text-muted-foreground">Expected</span>
+              <span className="font-bold text-base">£{totals.expectedSum.toFixed(2)}</span>
+            </div>
+            <div className="bg-muted/50 rounded p-1 flex flex-col items-center">
+              <span className="text-xs text-muted-foreground">Confirmed</span>
+              <span className="font-bold text-base">£{totals.paidConfirmedSum.toFixed(2)}</span>
+            </div>
           </div>
-        </div>
 
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span>
-            <Badge variant="outline" className="mr-1 bg-green-50 text-green-700 border-green-200">
-              {p.totals.paidCount}
-            </Badge>
-            Paid
-          </span>
-          <span>
-            <Badge variant="outline" className="mr-1 bg-blue-50 text-blue-700 border-blue-200">
-              {p.totals.pendingCount}
-            </Badge>
-            Pending
-          </span>
-          <span>
-            <Badge variant="outline" className="mr-1 bg-red-50 text-red-700 border-red-200">
-              {p.totals.rejectedCount}
-            </Badge>
-            Rejected
-          </span>
-          <span>
-            <Badge variant="outline" className="mr-1">
-              {p.totals.unpaidCount}
-            </Badge>
-            Unpaid
-          </span>
-        </div>
+          <div className="flex items-center justify-between mb-1 text-xs">
+            <span>Pending: <span className="font-bold">£{totals.pendingSum.toFixed(2)}</span></span>
+            <span>
+              <Badge className="bg-green-100 text-green-700 border-green-200 mr-1 text-xs">{totals.paidCount} Paid</Badge>
+              <Badge className="bg-blue-100 text-blue-700 border-blue-200 mr-1 text-xs">{totals.pendingCount} Pending</Badge>
+              <Badge className="bg-red-100 text-red-700 border-red-200 mr-1 text-xs">{totals.rejectedCount} Rejected</Badge>
+              <Badge variant="outline" className="text-xs">{totals.unpaidCount} Unpaid</Badge>
+            </span>
+          </div>
 
-        {/* Bulk Action */}
-        <Button
-          className="w-full"
-          disabled={p.saving === "bulk" || p.rowsCount === 0}
-          onClick={p.onBulkMarkAttendedYes}
-        >
-          {p.saving === "bulk" ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Updating...
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Mark All Attended
-            </>
-          )}
-        </Button>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <Button
+              size="sm"
+              className="w-full text-xs py-1"
+              disabled={saving === "bulk" || rowsCount === 0}
+              onClick={onBulkMarkAttendedYes}
+            >
+              {saving === "bulk" ? (
+                <span>Marking...</span>
+              ) : (
+                <span>Mark All Attended</span>
+              )}
+            </Button>
+          </div>
 
-        {/* Tip */}
-        <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
-          <Lightbulb className="h-4 w-4 shrink-0 text-amber-500" />
-          <p>Tip: Bulk mark attended first, then adjust exceptions individually below.</p>
+          <div className="text-xs text-muted-foreground bg-muted/50 rounded p-1">
+            Tip: Bulk mark attended first, then adjust exceptions individually below.
+          </div>
         </div>
       </CardContent>
     </Card>
