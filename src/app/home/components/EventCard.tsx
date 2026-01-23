@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Clock, Users, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Clock, Users, CheckCircle, XCircle, AlertCircle, Loader2, PlusCircle } from "lucide-react";
 import type { HomeEvent } from "../types";
 import { EVENT_TYPE_LABEL } from "../constants";
 import { isMembershipEvent, paidLabel } from "../helpers";
@@ -21,6 +21,9 @@ type Props = {
   onMarkAttendingYes: () => void;
   onMarkAttendingNo: () => void;
   onMarkPaid: () => void;
+
+  /** ✅ NEW: called when attendance is closed (48h cutoff for net practice) */
+  onRequestParticipation?: () => void;
 
   isKidProfile?: boolean;
   kidBirthDate?: Date | null;
@@ -74,6 +77,25 @@ export function EventCard(p: Props) {
   const nowMs = Date.now();
   const eventPast = Number.isFinite(startMs) ? startMs <= nowMs : false;
 
+  // ✅ Net Practice cutoff rule (48 hours before start)
+  const eventType = String((ev as any)?.event_type || "");
+  const isNetPractice = eventType === "net_practice";
+  const cutoffMs = Number.isFinite(startMs) ? startMs - 48 * 60 * 60 * 1000 : NaN;
+
+  // ✅ Attendance open window:
+  // - For net_practice: open until cutoffMs
+  // - For other events: open until startMs (existing behaviour)
+  const isAttendanceOpen = isNetPractice
+    ? Number.isFinite(cutoffMs) && nowMs < cutoffMs
+    : !eventPast;
+
+  // ✅ For net_practice after cutoff but before start → show "Request Participation"
+  const isAfterCutoffBeforeStart =
+    isNetPractice &&
+    Number.isFinite(cutoffMs) &&
+    nowMs >= cutoffMs &&
+    !eventPast;
+
   const baseFee = Number((ev as any)?.fee || 0);
 
   const dueRaw = (ev as any)?.my_fee_due ?? (ev as any)?.my?.fee_due;
@@ -117,6 +139,13 @@ export function EventCard(p: Props) {
                 </>
               )}
             </CardDescription>
+
+            {/* ✅ Cutoff hint for Net Practice */}
+            {!membership && isNetPractice && Number.isFinite(cutoffMs) && !eventPast && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Attendance closes 48 hours before this net session.
+              </p>
+            )}
           </div>
           <Badge variant="outline" className="capitalize shrink-0">
             {String((ev as any).group || "").toLowerCase()}
@@ -196,28 +225,52 @@ export function EventCard(p: Props) {
           </>
         )}
 
-        {/* Attendance buttons (non-membership, future events only) */}
-        {!membership && !eventPast && (
+        {/* ✅ Attendance buttons OR Request Participation (non-membership only) */}
+        {!membership && (
           <>
-            <Separator />
-            <div className="flex gap-2">
-              <Button
-                variant={attending === "YES" ? "default" : "outline"}
-                className="flex-1"
-                onClick={p.onMarkAttendingYes}
-              >
-                <CheckCircle className="h-4 w-4 mr-1" />
-                I&apos;m going
-              </Button>
-              <Button
-                variant={attending === "NO" ? "destructive" : "outline"}
-                className="flex-1"
-                onClick={p.onMarkAttendingNo}
-              >
-                <XCircle className="h-4 w-4 mr-1" />
-                Not going
-              </Button>
-            </div>
+            {isAttendanceOpen && (
+              <>
+                <Separator />
+                <div className="flex gap-2">
+                  <Button
+                    variant={attending === "YES" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={p.onMarkAttendingYes}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    I&apos;m going
+                  </Button>
+                  <Button
+                    variant={attending === "NO" ? "destructive" : "outline"}
+                    className="flex-1"
+                    onClick={p.onMarkAttendingNo}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />
+                    Not going
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {isAfterCutoffBeforeStart && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Attendance is closed for this net session.
+                  </p>
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={() => p.onRequestParticipation?.()}
+                    disabled={!p.onRequestParticipation}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Request Participation
+                  </Button>
+                </div>
+              </>
+            )}
           </>
         )}
 

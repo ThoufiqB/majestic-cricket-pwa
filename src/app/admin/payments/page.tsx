@@ -91,15 +91,26 @@ export default function AdminPaymentsPage() {
     payments: PaymentItem[];
   }>({ open: false, action: "paid", payments: [] });
 
-  // Generate month options (last 12 months)
-  const monthOptions = Array.from({ length: 12 }, (_, i) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    return {
-      value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
-      label: date.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-    };
-  });
+  // Generate month options: next month, current month, and previous 3 months
+  const monthOptions = (() => {
+    const options = [];
+    const now = new Date();
+    // Next month
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    options.push({
+      value: `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}`,
+      label: nextMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+    });
+    // Current month and previous 3 months
+    for (let i = 0; i < 4; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      options.push({
+        value: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+        label: date.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      });
+    }
+    return options;
+  })();
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -308,13 +319,13 @@ export default function AdminPaymentsPage() {
             {/* Status Tabs */}
             <Tabs value={statusFilter} onValueChange={(v) => handleStatusChange(v as StatusFilter)}>
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="pending" className="gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span className="hidden sm:inline">Pending</span>
-                </TabsTrigger>
                 <TabsTrigger value="paid" className="gap-2">
                   <CheckCircle2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Paid</span>
+                </TabsTrigger>
+                <TabsTrigger value="pending" className="gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span className="hidden sm:inline">Pending</span>
                 </TabsTrigger>
                 <TabsTrigger value="unpaid" className="gap-2">
                   <PoundSterling className="h-4 w-4" />

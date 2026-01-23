@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,9 +14,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  CalendarDays, 
-  MapPin, 
+import {
+  CalendarDays,
+  MapPin,
   Clock,
   ChevronDown,
   User,
@@ -28,6 +28,7 @@ import {
   Calendar,
   AlertCircle,
   Users,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { apiGet, apiPost, apiPatch } from "@/app/client/api";
@@ -36,7 +37,6 @@ import { toast } from "sonner";
 import { useProfile } from "@/components/context/ProfileContext";
 
 import { AuthGateCard } from "@/app/home/components/AuthGateCard";
-import { ProfileGateCard } from "@/app/home/components/ProfileGateCard";
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
 
 type DashboardEvent = {
@@ -49,8 +49,8 @@ type DashboardEvent = {
   status: string;
   group?: string;
   kids_event?: boolean;
-  friendsSummary?: { 
-    men?: { yes: number; total: number; people?: { player_id: string; name: string }[] }; 
+  friendsSummary?: {
+    men?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
     women?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
     kids?: { yes: number; total: number; people?: { kid_id: string; name: string }[] };
   };
@@ -89,11 +89,23 @@ function formatEventTime(dateStr: string) {
 function getEventTypeBadge(type: string) {
   switch (type) {
     case "net_practice":
-      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Net Practice</Badge>;
+      return (
+        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+          Net Practice
+        </Badge>
+      );
     case "league_match":
-      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Match</Badge>;
+      return (
+        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          Match
+        </Badge>
+      );
     case "family_event":
-      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Family Event</Badge>;
+      return (
+        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+          Family Event
+        </Badge>
+      );
     default:
       return <Badge variant="outline">{type}</Badge>;
   }
@@ -109,21 +121,54 @@ function getGroupBadge(group: string) {
   return <Badge variant="outline">{group}</Badge>;
 }
 
+/**
+ * ✅ Net Practice cutoff rule:
+ * Attendance allowed only until 48 hours before the start time.
+ * After cutoff (but before event starts) user must request participation.
+ */
+function getNetPracticeCutoffInfo(startsAtIso: string) {
+  const startMs = new Date(startsAtIso).getTime();
+  const nowMs = Date.now();
+
+  if (!Number.isFinite(startMs)) {
+    return { isNetPracticeOpen: true, isAfterCutoffBeforeStart: false };
+  }
+
+  const cutoffMs = startMs - 48 * 60 * 60 * 1000;
+  const eventPast = startMs <= nowMs;
+
+  const isNetPracticeOpen = nowMs < cutoffMs;
+  const isAfterCutoffBeforeStart = nowMs >= cutoffMs && !eventPast;
+
+  return { isNetPracticeOpen, isAfterCutoffBeforeStart };
+}
+
+function isAlreadyExistsError(e: any) {
+  const msg = String(e?.message || "");
+  const payloadErr = String(e?.payload?.error || e?.payload?.message || "");
+  return msg.toLowerCase().includes("already exists") || payloadErr.toLowerCase().includes("already exists");
+}
+
 export default function PlayerHomePage() {
   const { setActiveProfileId: setContextProfileId } = useProfile();
-  
+
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [nextEvent, setNextEvent] = useState<DashboardEvent | null>(null);
   const [lastEvent, setLastEvent] = useState<DashboardEvent | null>(null);
   const [stats, setStats] = useState<{ eventsAttendedThisMonth: number; pendingPayments: number } | null>(null);
   const [profile, setProfile] = useState<{ name: string; group: string; email: string } | null>(null);
-  
+
   const [activeProfileId, setActiveProfileIdLocal] = useState<string | null>(null);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [markingAttendance, setMarkingAttendance] = useState(false);
   const [markingPayment, setMarkingPayment] = useState(false);
   const [openFriendsEventId, setOpenFriendsEventId] = useState<string | null>(null);
+
+  // ✅ Phase-2: request participation UI state (now refresh-proof via backend GET)
+  const [requestingParticipation, setRequestingParticipation] = useState(false);
+  const [requestSentForEventId, setRequestSentForEventId] = useState<string | null>(null);
+  const [requestStatusLoading, setRequestStatusLoading] = useState(false);
 
   // Wrapper to update both local state and context
   function setActiveProfileId(id: string) {
@@ -141,7 +186,17 @@ export default function PlayerHomePage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProfileId]);
+
+  // If next event changes, clear request-sent UI state (so it doesn’t stick for other events)
+  useEffect(() => {
+    if (!nextEvent?.event_id) return;
+    if (requestSentForEventId && requestSentForEventId !== nextEvent.event_id) {
+      setRequestSentForEventId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextEvent?.event_id]);
 
   async function loadData() {
     setLoading(true);
@@ -157,9 +212,7 @@ export default function PlayerHomePage() {
         return;
       }
 
-      // Determine the effective profile ID to use
-      // On initial load (activeProfileId is null), use the server's active_profile_id
-      // Otherwise use the current activeProfileId state
+      // Determine effective profile ID
       let effectiveProfileId = activeProfileId;
       if (!effectiveProfileId) {
         effectiveProfileId = meData.active_profile_id || meData.player_id;
@@ -172,11 +225,48 @@ export default function PlayerHomePage() {
       const kidId = effectiveProfileId && effectiveProfileId !== meData.player_id ? effectiveProfileId : null;
       const q = kidId ? `?kidId=${kidId}` : "";
       const dashData = await apiGet(`/api/events/dashboard${q}`);
-      
-      setNextEvent(dashData.nextEvent || null);
+
+      const ne: DashboardEvent | null = dashData.nextEvent || null;
+
+      setNextEvent(ne);
       setLastEvent(dashData.lastEvent || null);
       setStats(dashData.stats || null);
       setProfile(dashData.profile || null);
+
+      // ✅ Refresh-proof request state: ask backend if request already exists for this event/profile
+      setRequestSentForEventId(null);
+      setRequestStatusLoading(false);
+
+      if (ne?.event_id && ne?.event_type === "net_practice") {
+        const attending = ne.my?.attending || "UNKNOWN";
+        const isGoing = attending === "YES";
+
+        const { isAfterCutoffBeforeStart } = getNetPracticeCutoffInfo(ne.starts_at);
+
+        const canShowRequestButton =
+          isAfterCutoffBeforeStart &&
+          !isGoing &&
+          (attending === "UNKNOWN" || attending === "NO");
+
+        if (canShowRequestButton) {
+          setRequestStatusLoading(true);
+          try {
+            const kidQuery = kidId ? `?kid_id=${encodeURIComponent(kidId)}` : "";
+            const status = await apiGet<{ exists: boolean; status?: string | null }>(
+              `/api/events/${encodeURIComponent(ne.event_id)}/request${kidQuery}`
+            );
+
+            if (status?.exists) {
+              setRequestSentForEventId(ne.event_id);
+            }
+          } catch (e) {
+            // Don’t break UX if status check fails; button may appear enabled.
+            console.warn("Failed to check request status:", e);
+          } finally {
+            setRequestStatusLoading(false);
+          }
+        }
+      }
     } catch (error) {
       console.error("Failed to load dashboard:", error);
     } finally {
@@ -212,13 +302,16 @@ export default function PlayerHomePage() {
 
   async function handleSwitchProfile(profileId: string) {
     try {
-      // Always persist the active profile to the server
-      // Use the profile ID as the kidId param - the API accepts both player's own ID and kid IDs
       await apiPatch(`/api/kids/${profileId}/switch-profile`, {
         active_profile_id: profileId,
       });
       setActiveProfileId(profileId);
       setShowProfileDropdown(false);
+
+      // clear request UI state on profile switch (will be recalculated after loadData)
+      setRequestSentForEventId(null);
+      setRequestingParticipation(false);
+      setRequestStatusLoading(false);
     } catch (e) {
       console.error("Failed to switch profile:", e);
       toast.error("Failed to switch profile");
@@ -229,7 +322,7 @@ export default function PlayerHomePage() {
     setMarkingAttendance(true);
     try {
       const isKidProfile = activeProfileId && activeProfileId !== me?.player_id;
-      
+
       if (isKidProfile) {
         await apiPost(`/api/kids/${activeProfileId}/attendance`, {
           event_id: eventId,
@@ -238,9 +331,9 @@ export default function PlayerHomePage() {
       } else {
         await apiPost(`/api/events/${eventId}/attending`, { attending });
       }
-      
+
       toast.success(attending === "YES" ? "Marked as attending!" : "Marked as not attending");
-      loadData(); // Refresh
+      loadData();
     } catch (error) {
       console.error("Failed to mark attendance:", error);
       toast.error("Failed to update attendance");
@@ -249,19 +342,51 @@ export default function PlayerHomePage() {
     }
   }
 
+  /** ✅ Phase-2: Request participation after attendance cutoff (Net Practice window only) */
+  async function requestParticipation(eventId: string) {
+    if (requestingParticipation) return;
+
+    setRequestingParticipation(true);
+    try {
+      const isKidProfile = activeProfileId && activeProfileId !== me?.player_id;
+
+      if (isKidProfile && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/request`, { kid_id: activeProfileId });
+      } else {
+        await apiPost(`/api/events/${eventId}/request`, {});
+      }
+
+      toast.success("Request sent to admin ✅");
+      setRequestSentForEventId(eventId); // ✅ prevent re-submits
+      loadData();
+    } catch (error: any) {
+      // If request already exists, treat as a successful/duplicate-safe UX
+      if (isAlreadyExistsError(error)) {
+        toast.info("Request already submitted ✅");
+        setRequestSentForEventId(eventId);
+        loadData();
+      } else {
+        console.warn("Failed to request participation:", error);
+        toast.error(error?.message || "Failed to send request");
+      }
+    } finally {
+      setRequestingParticipation(false);
+    }
+  }
+
   async function markPaid(eventId: string) {
     setMarkingPayment(true);
     try {
       const isKidProfile = activeProfileId && activeProfileId !== me?.player_id;
-      
+
       if (isKidProfile) {
         await apiPost(`/api/kids/${activeProfileId}/paid`, { event_id: eventId, paid_status: "PENDING" });
       } else {
         await apiPost(`/api/events/${eventId}/paid`, { paid_status: "PENDING" });
       }
-      
+
       toast.success("Payment marked as pending verification");
-      loadData(); // Refresh
+      loadData();
     } catch (error) {
       console.error("Failed to mark payment:", error);
       toast.error("Failed to mark payment");
@@ -305,11 +430,7 @@ export default function PlayerHomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
-                {isKidProfile ? (
-                  <Baby className="h-7 w-7 text-white" />
-                ) : (
-                  <User className="h-7 w-7 text-white" />
-                )}
+                {isKidProfile ? <Baby className="h-7 w-7 text-white" /> : <User className="h-7 w-7 text-white" />}
               </div>
               <div>
                 {hasKids ? (
@@ -349,7 +470,7 @@ export default function PlayerHomePage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Quick Stats */}
             {stats && (
               <div className="hidden sm:flex gap-6">
@@ -411,65 +532,157 @@ export default function PlayerHomePage() {
                       <span>{nextEvent.location}</span>
                     </div>
                   )}
+                  {nextEvent.event_type === "net_practice" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Attendance closes 48 hours before this net session.
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* Attendance Status & Actions */}
               <div className="border-t pt-4">
-                {nextEvent.my.attending === "YES" ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Check className="h-5 w-5 text-green-600" />
-                      <span className="font-medium text-green-600">You're going!</span>
+                {(() => {
+                  const isNetPractice = nextEvent.event_type === "net_practice";
+                  const { isNetPracticeOpen, isAfterCutoffBeforeStart } = isNetPractice
+                    ? getNetPracticeCutoffInfo(nextEvent.starts_at)
+                    : { isNetPracticeOpen: true, isAfterCutoffBeforeStart: false };
+
+                  const attending = nextEvent.my?.attending || "UNKNOWN";
+                  const isGoing = attending === "YES";
+                  const requestAlreadySent = requestSentForEventId === nextEvent.event_id;
+
+                  // ✅ Phase-2 rule: show Request Participation ONLY if attendance is UNKNOWN or NO
+                  const canShowRequestButton =
+                    isNetPractice &&
+                    isAfterCutoffBeforeStart &&
+                    !isGoing &&
+                    (attending === "UNKNOWN" || attending === "NO");
+
+                  // If net practice request window but user is already "YES", just show info (no request)
+                  if (isNetPractice && isAfterCutoffBeforeStart && isGoing) {
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-green-600 justify-center">
+                          <Check className="h-5 w-5" />
+                          <span className="font-medium">You're going!</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Attendance is closed for this net session (48-hour cutoff).
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // ✅ Request window UI
+                  if (canShowRequestButton) {
+                    return (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground text-center">
+                          Attendance is closed for this net session (48-hour cutoff).
+                        </p>
+
+                        {requestAlreadySent ? (
+                          <Button className="w-full" variant="outline" disabled>
+                            Request already submitted ✅
+                          </Button>
+                        ) : (
+                          <Button
+                            className="w-full"
+                            onClick={() => requestParticipation(nextEvent.event_id)}
+                            disabled={requestStatusLoading || requestingParticipation}
+                          >
+                            {requestStatusLoading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Checking...
+                              </>
+                            ) : requestingParticipation ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              "Request Participation"
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Default attendance UI; net practice disables after cutoff
+                  const disableAttendanceButtons = isNetPractice && !isNetPracticeOpen;
+
+                  if (attending === "YES") {
+                    return (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-5 w-5 text-green-600" />
+                          <span className="font-medium text-green-600">You're going!</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => markAttending(nextEvent.event_id, "NO")}
+                          disabled={markingAttendance || disableAttendanceButtons}
+                        >
+                          Change to Not Going
+                        </Button>
+                      </div>
+                    );
+                  }
+
+                  if (attending === "NO") {
+                    return (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <X className="h-5 w-5 text-muted-foreground" />
+                          <span className="text-muted-foreground">Not attending</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => markAttending(nextEvent.event_id, "YES")}
+                          disabled={markingAttendance || disableAttendanceButtons}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Change to Going
+                        </Button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">Are you attending this event?</p>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          onClick={() => markAttending(nextEvent.event_id, "YES")}
+                          disabled={markingAttendance || disableAttendanceButtons}
+                        >
+                          <Check className="h-4 w-4 mr-2" />
+                          Yes, I'm Going
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => markAttending(nextEvent.event_id, "NO")}
+                          disabled={markingAttendance || disableAttendanceButtons}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Not This Time
+                        </Button>
+                      </div>
+
+                      {disableAttendanceButtons && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          Attendance is closed for this net session (48-hour cutoff).
+                        </p>
+                      )}
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => markAttending(nextEvent.event_id, "NO")}
-                      disabled={markingAttendance}
-                    >
-                      Change to Not Going
-                    </Button>
-                  </div>
-                ) : nextEvent.my.attending === "NO" ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <X className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-muted-foreground">Not attending</span>
-                    </div>
-                    <Button 
-                      size="sm"
-                      onClick={() => markAttending(nextEvent.event_id, "YES")}
-                      disabled={markingAttendance}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Change to Going
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">Are you attending this event?</p>
-                    <div className="flex gap-2">
-                      <Button 
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                        onClick={() => markAttending(nextEvent.event_id, "YES")}
-                        disabled={markingAttendance}
-                      >
-                        <Check className="h-4 w-4 mr-2" />
-                        Yes, I'm Going
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => markAttending(nextEvent.event_id, "NO")}
-                        disabled={markingAttendance}
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Not This Time
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Friends Going Section */}
@@ -477,8 +690,8 @@ export default function PlayerHomePage() {
                 <>
                   <Separator className="mt-4" />
                   <div className="flex items-center justify-between pt-4">
-                    <Button 
-                      variant="link" 
+                    <Button
+                      variant="link"
                       className="p-0 h-auto"
                       onClick={() => setOpenFriendsEventId(nextEvent.event_id)}
                     >
@@ -487,18 +700,25 @@ export default function PlayerHomePage() {
                     </Button>
                     <span className="text-sm text-muted-foreground">
                       {nextEvent.kids_event ? (
-                        <>Kids {nextEvent.friendsSummary.kids?.yes || 0}/{nextEvent.friendsSummary.kids?.total || 0}</>
+                        <>
+                          Kids {nextEvent.friendsSummary.kids?.yes || 0}/{nextEvent.friendsSummary.kids?.total || 0}
+                        </>
                       ) : (
                         <>
                           {(nextEvent.group === "men" || nextEvent.group === "all") && nextEvent.friendsSummary.men && (
-                            <span>Men {nextEvent.friendsSummary.men.yes}/{nextEvent.friendsSummary.men.total}</span>
+                            <span>
+                              Men {nextEvent.friendsSummary.men.yes}/{nextEvent.friendsSummary.men.total}
+                            </span>
                           )}
-                          {nextEvent.group === "all" && nextEvent.friendsSummary.men && nextEvent.friendsSummary.women && (
-                            <span> • </span>
-                          )}
-                          {(nextEvent.group === "women" || nextEvent.group === "all") && nextEvent.friendsSummary.women && (
-                            <span>Women {nextEvent.friendsSummary.women.yes}/{nextEvent.friendsSummary.women.total}</span>
-                          )}
+                          {nextEvent.group === "all" &&
+                            nextEvent.friendsSummary.men &&
+                            nextEvent.friendsSummary.women && <span> • </span>}
+                          {(nextEvent.group === "women" || nextEvent.group === "all") &&
+                            nextEvent.friendsSummary.women && (
+                              <span>
+                                Women {nextEvent.friendsSummary.women.yes}/{nextEvent.friendsSummary.women.total}
+                              </span>
+                            )}
                         </>
                       )}
                     </span>
@@ -511,7 +731,9 @@ export default function PlayerHomePage() {
               <CalendarDays className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
               <p className="text-muted-foreground">No upcoming events</p>
               <Link href="/browse">
-                <Button variant="link" className="mt-2">Browse all events</Button>
+                <Button variant="link" className="mt-2">
+                  Browse all events
+                </Button>
               </Link>
             </div>
           )}
@@ -548,9 +770,7 @@ export default function PlayerHomePage() {
                     <h3 className="font-semibold">{lastEvent.title}</h3>
                     {getEventTypeBadge(lastEvent.event_type)}
                   </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {formatEventDate(lastEvent.starts_at)}
-                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">{formatEventDate(lastEvent.starts_at)}</div>
                 </div>
                 {lastEvent.fee > 0 && (
                   <div className="text-right">
@@ -578,11 +798,7 @@ export default function PlayerHomePage() {
                       <X className="h-5 w-5" />
                       <span className="font-medium">Payment Rejected</span>
                     </div>
-                    <Button 
-                      className="w-full"
-                      onClick={() => markPaid(lastEvent.event_id)}
-                      disabled={markingPayment}
-                    >
+                    <Button className="w-full" onClick={() => markPaid(lastEvent.event_id)} disabled={markingPayment}>
                       <CreditCard className="h-4 w-4 mr-2" />
                       Re-submit Payment
                     </Button>
@@ -593,11 +809,7 @@ export default function PlayerHomePage() {
                       <AlertCircle className="h-5 w-5" />
                       <span>Payment not yet made</span>
                     </div>
-                    <Button 
-                      className="w-full"
-                      onClick={() => markPaid(lastEvent.event_id)}
-                      disabled={markingPayment}
-                    >
+                    <Button className="w-full" onClick={() => markPaid(lastEvent.event_id)} disabled={markingPayment}>
                       <CreditCard className="h-4 w-4 mr-2" />
                       Mark as Paid
                     </Button>
@@ -624,7 +836,7 @@ export default function PlayerHomePage() {
         </CardContent>
       </Card>
 
-      {/* Mobile Stats (shown on small screens) */}
+      {/* Mobile Stats */}
       {stats && (
         <Card className="sm:hidden">
           <CardContent className="pt-4">
@@ -643,7 +855,7 @@ export default function PlayerHomePage() {
       )}
 
       {/* Friends Going Modal */}
-      <FriendsGoingModal 
+      <FriendsGoingModal
         openEventId={openFriendsEventId}
         me={me}
         events={nextEvent ? [nextEvent as any] : []}
