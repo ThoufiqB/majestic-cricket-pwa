@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,14 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  CalendarDays, 
-  MapPin, 
+import {
+  CalendarDays,
+  MapPin,
   Clock,
   Users,
   Check,
   X,
-  ChevronRight,
   Filter,
 } from "lucide-react";
 import { apiGet, apiPost } from "@/app/client/api";
@@ -47,8 +52,14 @@ function buildMonthOptions(count: number) {
   for (let i = -1; i < count; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     options.push({
-      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: d.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+        2,
+        "0"
+      )}`,
+      label: d.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      }),
     });
   }
   return options;
@@ -79,11 +90,32 @@ function formatEventTime(dateStr: string) {
 function getEventTypeBadge(type: string) {
   switch (type) {
     case "net_practice":
-      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Net Practice</Badge>;
+      return (
+        <Badge
+          variant="outline"
+          className="bg-blue-50 text-blue-700 border-blue-200"
+        >
+          Net Practice
+        </Badge>
+      );
     case "league_match":
-      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Match</Badge>;
+      return (
+        <Badge
+          variant="outline"
+          className="bg-green-50 text-green-700 border-green-200"
+        >
+          Match
+        </Badge>
+      );
     case "family_event":
-      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Family Event</Badge>;
+      return (
+        <Badge
+          variant="outline"
+          className="bg-purple-50 text-purple-700 border-purple-200"
+        >
+          Family Event
+        </Badge>
+      );
     default:
       return <Badge variant="outline">{type}</Badge>;
   }
@@ -94,7 +126,11 @@ function getAttendingBadge(attending: string | undefined) {
     return <Badge className="bg-green-100 text-green-800">Going</Badge>;
   }
   if (attending === "NO") {
-    return <Badge variant="outline" className="text-muted-foreground">Not Going</Badge>;
+    return (
+      <Badge variant="outline" className="text-muted-foreground">
+        Not Going
+      </Badge>
+    );
   }
   return null;
 }
@@ -104,9 +140,12 @@ export default function PlayerBrowsePage() {
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<any>(null);
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(monthKeyFromDate(new Date()));
+  const [selectedMonth, setSelectedMonth] = useState(
+    monthKeyFromDate(new Date())
+  );
   const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedAttendance, setSelectedAttendance] = useState<string>("all");
+  const [selectedAttendance, setSelectedAttendance] =
+    useState<string>("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   const monthOptions = useMemo(() => buildMonthOptions(7), []);
@@ -124,16 +163,24 @@ export default function PlayerBrowsePage() {
     { value: "missed", label: "Missed" },
   ];
 
-  // Filter events by type and attendance on the client side
   const filteredEvents = useMemo(() => {
     let filtered = events;
     if (selectedType !== "all") {
-      filtered = filtered.filter(ev => ev.event_type === selectedType);
+      filtered = filtered.filter(
+        (ev) => ev.event_type === selectedType
+      );
     }
     if (selectedAttendance === "attended") {
-      filtered = filtered.filter(ev => ev.my?.attending === "YES");
+      filtered = filtered.filter(
+        (ev) => ev.my?.attending === "YES"
+      );
     } else if (selectedAttendance === "missed") {
-      filtered = filtered.filter(ev => ev.my?.attending === "NO" || ev.my?.attending === "UNKNOWN" || !ev.my?.attending);
+      filtered = filtered.filter(
+        (ev) =>
+          ev.my?.attending === "NO" ||
+          ev.my?.attending === "UNKNOWN" ||
+          !ev.my?.attending
+      );
     }
     return filtered;
   }, [events, selectedType, selectedAttendance]);
@@ -143,7 +190,6 @@ export default function PlayerBrowsePage() {
       try {
         const data = await apiGet("/api/me");
         setMe(data);
-        // Set active profile from server
         const profileId = data.active_profile_id || data.player_id;
         setActiveProfileId(profileId);
       } catch {
@@ -155,21 +201,15 @@ export default function PlayerBrowsePage() {
 
   useEffect(() => {
     async function loadEvents() {
-      if (!me || !activeProfileId) return; // Wait for both to load
-      
-      // Determine if current profile is a kid (calculate here to avoid stale closure)
+      if (!me || !activeProfileId) return;
       const isKid = activeProfileId !== me.player_id;
-      
       setLoading(true);
       try {
         const q = new URLSearchParams();
         q.set("month", selectedMonth);
-        
-        // If viewing as a kid profile, request kids events
         if (isKid) {
           q.set("group", "all_kids");
         }
-        
         const data = await apiGet(`/api/events?${q.toString()}`);
         setEvents(data.events || []);
       } catch (error) {
@@ -182,15 +222,16 @@ export default function PlayerBrowsePage() {
     loadEvents();
   }, [selectedMonth, me, activeProfileId]);
 
-  // Determine if current profile is a kid (for UI and mark attending)
-  const isKidProfile = !!(activeProfileId && me && activeProfileId !== me.player_id);
+  const isKidProfile =
+    !!(activeProfileId && me && activeProfileId !== me.player_id);
 
-  async function markAttending(eventId: string, attending: "YES" | "NO") {
+  async function markAttending(
+    eventId: string,
+    attending: "YES" | "NO"
+  ) {
     if (!me) return;
     setMarkingId(eventId);
-    
     try {
-      // Use the appropriate endpoint based on profile type
       if (isKidProfile && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/attendance`, {
           event_id: eventId,
@@ -199,15 +240,18 @@ export default function PlayerBrowsePage() {
       } else {
         await apiPost(`/api/events/${eventId}/attending`, { attending });
       }
-      
-      // Update local state
-      setEvents(prev => prev.map(ev => 
-        ev.event_id === eventId 
-          ? { ...ev, my: { ...ev.my, attending } as any }
-          : ev
-      ));
-      
-      toast.success(attending === "YES" ? "Marked as attending!" : "Marked as not attending");
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.event_id === eventId
+            ? { ...ev, my: { ...ev.my, attending } as any }
+            : ev
+        )
+      );
+      toast.success(
+        attending === "YES"
+          ? "Marked as attending!"
+          : "Marked as not attending"
+      );
     } catch (error) {
       console.error("Failed to mark attendance:", error);
       toast.error("Failed to update attendance");
@@ -221,16 +265,24 @@ export default function PlayerBrowsePage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 items-center">
-            <div className="flex items-center gap-2 min-w-0" style={{ flex: 1 }}>
+          {/* Responsive grid: 1 column on mobile, 2 on small screens, 3 on medium+ */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+            {/* Month filter */}
+            <div className="flex items-center gap-2 w-full min-w-0">
               <CalendarDays className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <Select
+                value={selectedMonth}
+                onValueChange={setSelectedMonth}
+              >
                 <SelectTrigger className="w-full sm:w-[110px]">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent>
                   {monthOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <SelectItem
+                      key={opt.value}
+                      value={opt.value}
+                    >
                       {opt.label}
                     </SelectItem>
                   ))}
@@ -238,15 +290,22 @@ export default function PlayerBrowsePage() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-2 min-w-0" style={{ flex: 1 }}>
+            {/* Type filter */}
+            <div className="flex items-center gap-2 w-full min-w-0">
               <Filter className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select value={selectedType} onValueChange={setSelectedType}>
+              <Select
+                value={selectedType}
+                onValueChange={setSelectedType}
+              >
                 <SelectTrigger className="w-full sm:w-[90px]">
                   <SelectValue placeholder="Event type" />
                 </SelectTrigger>
                 <SelectContent>
                   {eventTypeOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <SelectItem
+                      key={opt.value}
+                      value={opt.value}
+                    >
                       {opt.label}
                     </SelectItem>
                   ))}
@@ -254,15 +313,22 @@ export default function PlayerBrowsePage() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-2 min-w-0" style={{ flex: 1 }}>
+            {/* Attendance filter */}
+            <div className="flex items-center gap-2 w-full min-w-0">
               <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select value={selectedAttendance} onValueChange={setSelectedAttendance}>
+              <Select
+                value={selectedAttendance}
+                onValueChange={setSelectedAttendance}
+              >
                 <SelectTrigger className="w-full sm:w-[110px]">
                   <SelectValue placeholder="Attendance" />
                 </SelectTrigger>
                 <SelectContent>
                   {attendanceOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                    <SelectItem
+                      key={opt.value}
+                      value={opt.value}
+                    >
                       {opt.label}
                     </SelectItem>
                   ))}
@@ -273,14 +339,18 @@ export default function PlayerBrowsePage() {
         </CardContent>
       </Card>
 
-      {/* Events List with Scroll */}
+      {/* Events List */}
       <Card className="flex flex-col" style={{ maxHeight: "calc(100vh - 240px)" }}>
         <CardHeader className="pb-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Events</CardTitle>
             <CardDescription>
-              {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
-              {selectedType !== "all" && ` • ${eventTypeOptions.find(o => o.value === selectedType)?.label}`}
+              {filteredEvents.length} event
+              {filteredEvents.length !== 1 ? "s" : ""}
+              {selectedType !== "all" &&
+                ` • ${
+                  eventTypeOptions.find((o) => o.value === selectedType)?.label
+                }`}
             </CardDescription>
           </div>
         </CardHeader>
@@ -299,10 +369,16 @@ export default function PlayerBrowsePage() {
             <div className="text-center py-8">
               <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">
-                {events.length === 0 ? "No events this month" : "No events match your filter"}
+                {events.length === 0
+                  ? "No events this month"
+                  : "No events match your filter"}
               </p>
               {selectedType !== "all" && events.length > 0 && (
-                <Button variant="link" onClick={() => setSelectedType("all")} className="mt-1">
+                <Button
+                  variant="link"
+                  onClick={() => setSelectedType("all")}
+                  className="mt-1"
+                >
                   Show all events
                 </Button>
               )}
@@ -313,7 +389,7 @@ export default function PlayerBrowsePage() {
                 const isMarking = markingId === event.event_id;
                 const myAttending = event.my?.attending;
                 const isPast = new Date(event.starts_at) < new Date();
-                
+
                 return (
                   <div
                     key={event.event_id}
@@ -326,7 +402,7 @@ export default function PlayerBrowsePage() {
                           {getEventTypeBadge(event.event_type)}
                           {getAttendingBadge(myAttending)}
                         </div>
-                        
+
                         <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <CalendarDays className="h-4 w-4" />
@@ -341,32 +417,50 @@ export default function PlayerBrowsePage() {
                             </div>
                           )}
                         </div>
-                        
+
                         {event.fee > 0 && (
                           <div className="mt-2">
-                            <Badge variant="secondary">£{event.fee}</Badge>
+                            <Badge variant="secondary">
+                              £{event.fee}
+                            </Badge>
                           </div>
                         )}
                       </div>
-                      
-                      {/* Attendance Actions */}
+
+                      {/* Attendance actions */}
                       {!isPast && me && (
                         <div className="flex gap-1">
                           <Button
                             size="sm"
-                            variant={myAttending === "YES" ? "default" : "outline"}
-                            className={myAttending === "YES" ? "bg-green-600 hover:bg-green-700" : ""}
+                            variant={
+                              myAttending === "YES" ? "default" : "outline"
+                            }
+                            className={
+                              myAttending === "YES"
+                                ? "bg-green-600 hover:bg-green-700"
+                                : ""
+                            }
                             disabled={isMarking}
-                            onClick={() => markAttending(event.event_id, "YES")}
+                            onClick={() =>
+                              markAttending(event.event_id, "YES")
+                            }
                           >
                             <Check className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
-                            variant={myAttending === "NO" ? "default" : "outline"}
-                            className={myAttending === "NO" ? "bg-red-600 hover:bg-red-700" : ""}
+                            variant={
+                              myAttending === "NO" ? "default" : "outline"
+                            }
+                            className={
+                              myAttending === "NO"
+                                ? "bg-red-600 hover:bg-red-700"
+                                : ""
+                            }
                             disabled={isMarking}
-                            onClick={() => markAttending(event.event_id, "NO")}
+                            onClick={() =>
+                              markAttending(event.event_id, "NO")
+                            }
                           >
                             <X className="h-4 w-4" />
                           </Button>
