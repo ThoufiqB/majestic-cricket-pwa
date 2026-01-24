@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import * as React from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Calendar,
   PoundSterling,
@@ -12,24 +12,24 @@ import {
   Clock,
   XCircle,
   AlertCircle,
-} from "lucide-react"
-import type { EventInfo, Totals } from "../types"
+} from "lucide-react";
+import type { EventInfo, Totals } from "../types";
 
 type Props = {
-  eventId: string
-  event: EventInfo
-  totals: Totals
-  rowsCount: number
-  saving: string
-  onBulkMarkAttendedYes: () => void
-}
+  eventId: string;
+  event: EventInfo;
+  totals: Totals;
+  rowsCount: number;
+  saving: string;
+  onBulkMarkAttendedYes: () => void;
+};
 
 function StatTile({
   label,
   value,
 }: {
-  label: string
-  value: React.ReactNode
+  label: string;
+  value: React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border bg-background px-3 py-2">
@@ -38,7 +38,7 @@ function StatTile({
       </div>
       <div className="mt-1 text-sm font-semibold leading-none">{value}</div>
     </div>
-  )
+  );
 }
 
 function StatusPill({
@@ -46,9 +46,9 @@ function StatusPill({
   text,
   className,
 }: {
-  icon: React.ReactNode
-  text: string
-  className: string
+  icon: React.ReactNode;
+  text: string;
+  className: string;
 }) {
   return (
     <span
@@ -61,7 +61,7 @@ function StatusPill({
       {icon}
       {text}
     </span>
-  )
+  );
 }
 
 export function EventSummaryCard({
@@ -72,7 +72,7 @@ export function EventSummaryCard({
   saving,
   onBulkMarkAttendedYes,
 }: Props) {
-  const startsAt = event.starts_at ? new Date(event.starts_at) : null
+  const startsAt = event.starts_at ? new Date(event.starts_at) : null;
   const dateLabel = startsAt
     ? startsAt.toLocaleString("en-GB", {
         day: "2-digit",
@@ -81,37 +81,32 @@ export function EventSummaryCard({
         hour: "2-digit",
         minute: "2-digit",
       })
-    : "No start time"
-
-  const fee = Number(event.fee ?? 0)
+    : "No start time";
+  const fee = Number(event.fee ?? 0);
 
   return (
     <Card className="mb-2">
       <CardContent className="p-3">
-        {/* Row 1: Title + Primary Action */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <h2 className="truncate text-base font-semibold">{event.title}</h2>
-
+              <h2 className="truncate text-base font-semibold">
+                {event.title}
+              </h2>
               <Badge variant="outline" className="text-[11px] font-normal">
                 {event.event_type}
               </Badge>
-
               {event.group ? (
                 <Badge variant="secondary" className="text-[11px] font-normal">
                   {event.group}
                 </Badge>
               ) : null}
             </div>
-
-            {/* Meta */}
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
                 {dateLabel}
               </span>
-
               <span className="inline-flex items-center gap-1">
                 <PoundSterling className="h-3.5 w-3.5" />
                 <span className="font-medium text-foreground">
@@ -120,8 +115,6 @@ export function EventSummaryCard({
               </span>
             </div>
           </div>
-
-          {/* Brand CTA */}
           <Button
             size="sm"
             variant="brand"
@@ -133,7 +126,7 @@ export function EventSummaryCard({
           </Button>
         </div>
 
-        {/* Stats grid */}
+        {/* Stats */}
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <StatTile
             label="Attending"
@@ -145,14 +138,11 @@ export function EventSummaryCard({
             }
           />
           <StatTile label="Expected" value={`£${totals.expectedSum.toFixed(2)}`} />
-          <StatTile
-            label="Confirmed"
-            value={`£${totals.paidConfirmedSum.toFixed(2)}`}
-          />
+          <StatTile label="Confirmed" value={`£${totals.paidConfirmedSum.toFixed(2)}`} />
           <StatTile label="Pending" value={`£${totals.pendingSum.toFixed(2)}`} />
         </div>
 
-        {/* ✅ Status row aligned to the same grid columns */}
+        {/* Status pills */}
         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <StatusPill
             icon={<CheckCircle2 className="h-3.5 w-3.5" />}
@@ -177,5 +167,5 @@ export function EventSummaryCard({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

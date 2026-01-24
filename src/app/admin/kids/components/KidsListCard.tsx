@@ -29,14 +29,12 @@ export function KidsListCard(p: KidsListCardProps) {
   const [showInactive, setShowInactive] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "age" | "created">("name");
 
-  // Filter
   let filtered = p.kids.filter((k) => {
     const matchesSearch = k.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = showInactive ? k.status === "inactive" : k.status === "active";
     return matchesSearch && matchesStatus;
   });
 
-  // Sort
   filtered = [...filtered].sort((a, b) => {
     switch (sortBy) {
       case "name":
@@ -86,10 +84,9 @@ export function KidsListCard(p: KidsListCardProps) {
               className="pl-9"
             />
           </div>
-
           {/* Sort */}
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as "name" | "age" | "created")}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-full sm:w-[150px]">
               <SortAsc className="h-4 w-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -99,7 +96,6 @@ export function KidsListCard(p: KidsListCardProps) {
               <SelectItem value="created">Sort: Created</SelectItem>
             </SelectContent>
           </Select>
-
           {/* Toggle Inactive */}
           <Button
             variant={showInactive ? "secondary" : "outline"}
