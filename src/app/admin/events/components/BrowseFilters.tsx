@@ -33,90 +33,96 @@ export function BrowseFilters(p: Props) {
   const gridResponsive = hasThirdFilter ? "sm:grid-cols-2 md:grid-cols-3" : "sm:grid-cols-2";
   const gridClass = `${gridBase} ${gridResponsive}`;
 
+  // Determine which filters to show
+  const filterLabels = [
+    { key: 'month', label: 'Month', show: true },
+    { key: 'view', label: 'View', show: true },
+    { key: 'group', label: 'Group', show: !p.hideGroup },
+    { key: 'eventType', label: 'Event Type', show: !!p.showEventType && !!p.setEventType },
+  ].filter(f => f.show);
+
   return (
-    <div className={`mt-3 ${gridClass}`}>
-      <div className="space-y-1.5">
-        <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <CalendarDays className="h-3.5 w-3.5" />
-          Month
-        </Label>
-        <Select value={p.browseMonth} onValueChange={p.setBrowseMonth}>
-          <SelectTrigger className="h-9 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {p.monthOptions.map((m) => (
-              <SelectItem key={m.key} value={m.key}>
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="mt-2 w-full">
+      {/* Row 1: Headings */}
+      <div className={`flex flex-row gap-1 w-full mb-1`}> 
+        {filterLabels.map(f => (
+          <div key={f.key} className="flex-1 min-w-0 text-center">
+            <Label className="text-[11px] font-medium text-muted-foreground p-0 m-0">{f.label}</Label>
+          </div>
+        ))}
       </div>
 
-      {!p.hideGroup && (
-        <div className="space-y-1.5">
-          <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Users className="h-3.5 w-3.5" />
-            Group
-          </Label>
-          <Select
-            value={p.browseGroup}
-            onValueChange={(v) => p.setBrowseGroup(v as "all" | "men" | "women" | "mixed")}
-          >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Groups</SelectItem>
-              <SelectItem value="men">Men</SelectItem>
-              <SelectItem value="women">Women</SelectItem>
-              <SelectItem value="mixed">Mixed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {p.showEventType && p.setEventType && (
-        <div className="space-y-1.5">
-          <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Tag className="h-3.5 w-3.5" />
-            Event Type
-          </Label>
-          <Select value={p.eventType || "all"} onValueChange={p.setEventType}>
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {KIDS_EVENT_TYPE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      <div className="space-y-1.5">
-        <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Eye className="h-3.5 w-3.5" />
-          View
-        </Label>
-        <Select
-          value={p.browseView}
-          onValueChange={(v) => p.setBrowseView(v as "scheduled" | "past" | "all")}
-        >
-          <SelectTrigger className="h-9 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
-            <SelectItem value="past">Past</SelectItem>
-            <SelectItem value="all">All Events</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Row 2: Filters */}
+      <div className="flex flex-row gap-1 w-full">
+        {/* Month Filter */}
+        {filterLabels.find(f => f.key === 'month') && (
+          <div className="flex-1 min-w-0">
+            <Select value={p.browseMonth} onValueChange={p.setBrowseMonth}>
+              <SelectTrigger className="h-7 text-xs px-2 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {p.monthOptions.map((m) => (
+                  <SelectItem key={m.key} value={m.key} className="text-xs">
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {/* View Filter */}
+        {filterLabels.find(f => f.key === 'view') && (
+          <div className="flex-1 min-w-0">
+            <Select value={p.browseView} onValueChange={(v) => p.setBrowseView(v as "scheduled" | "past" | "all")}> 
+              <SelectTrigger className="h-7 text-xs px-2 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="scheduled" className="text-xs">Scheduled</SelectItem>
+                <SelectItem value="past" className="text-xs">Past</SelectItem>
+                <SelectItem value="all" className="text-xs">All Events</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {/* Group Filter */}
+        {filterLabels.find(f => f.key === 'group') && (
+          <div className="flex-1 min-w-0">
+            <Select
+              value={p.browseGroup}
+              onValueChange={(v) => p.setBrowseGroup(v as "all" | "men" | "women" | "mixed")}
+            >
+              <SelectTrigger className="h-7 text-xs px-2 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">All Groups</SelectItem>
+                <SelectItem value="men" className="text-xs">Men</SelectItem>
+                <SelectItem value="women" className="text-xs">Women</SelectItem>
+                <SelectItem value="mixed" className="text-xs">Mixed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {/* Event Type Filter */}
+        {filterLabels.find(f => f.key === 'eventType') && (
+          <div className="flex-1 min-w-0">
+            <Select value={p.eventType || "all"} onValueChange={p.setEventType!}>
+              <SelectTrigger className="h-7 text-xs px-2 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">All Types</SelectItem>
+                {KIDS_EVENT_TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
     </div>
   );
