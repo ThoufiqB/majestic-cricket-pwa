@@ -18,6 +18,9 @@ type Props = {
 export function PlayersSection(p: Props) {
   const baseFee = Number(p.event?.fee || 0);
 
+  // Phase 1: Only show players with attending: 'YES'
+  const attendingRows = p.rows.filter(r => String(r.attending || "").toUpperCase() === "YES");
+
   return (
     <Card>
       <CardHeader>
@@ -26,7 +29,7 @@ export function PlayersSection(p: Props) {
             <Users className="h-5 w-5 text-primary" />
             Players
           </span>
-          <Badge variant="secondary">{p.rows.length} total</Badge>
+          <Badge variant="secondary">{attendingRows.length} total</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto p-0">
@@ -40,7 +43,7 @@ export function PlayersSection(p: Props) {
             </tr>
           </thead>
           <tbody>
-            {p.rows.map((r) => {
+            {attendingRows.map((r) => {
               const due = r.fee_due === "" || r.fee_due === null || typeof r.fee_due === "undefined" ? null : Number(r.fee_due);
               const hasDiscount = Number.isFinite(due) && baseFee && due !== baseFee;
               const attendingYes = String(r.attending || "").toUpperCase() === "YES";
