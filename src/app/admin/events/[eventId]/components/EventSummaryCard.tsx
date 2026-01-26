@@ -32,7 +32,7 @@ function StatTile({
   value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border bg-background px-3 py-2">
+    <div className="rounded-xl border bg-background px-2 py-2 sm:px-3 min-w-0 break-words">
       <div className="text-[11px] text-muted-foreground leading-none">
         {label}
       </div>
@@ -53,7 +53,7 @@ function StatusPill({
   return (
     <span
       className={`
-        inline-flex w-full items-center justify-center gap-1
+        inline-flex w-full sm:w-auto items-center justify-center gap-1
         rounded-full border px-2 py-1 text-[11px] leading-none
         ${className}
       `}
@@ -86,8 +86,8 @@ export function EventSummaryCard({
 
   return (
     <Card className="mb-2">
-      <CardContent className="p-3">
-        <div className="flex items-start justify-between gap-3">
+      <CardContent className="p-3 overflow-x-auto">
+        <div className="flex flex-col gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 min-w-0">
               <h2 className="truncate text-base font-semibold">
@@ -115,55 +115,57 @@ export function EventSummaryCard({
               </span>
             </div>
           </div>
+
+          {/* Stats */}
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatTile
+              label="Attending"
+              value={
+                <span className="inline-flex items-center gap-1">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  {totals.yesCount}
+                </span>
+              }
+            />
+            <StatTile label="Expected" value={`£${totals.expectedSum.toFixed(2)}`} />
+            <StatTile label="Confirmed" value={`£${totals.paidConfirmedSum.toFixed(2)}`} />
+            <StatTile label="Pending" value={`£${totals.pendingSum.toFixed(2)}`} />
+          </div>
+
+          {/* Status pills */}
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatusPill
+              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+              text={`${totals.paidCount} paid`}
+              className="bg-green-50 text-green-700 border-green-200"
+            />
+            <StatusPill
+              icon={<Clock className="h-3.5 w-3.5" />}
+              text={`${totals.pendingCount} pending`}
+              className="bg-blue-50 text-blue-700 border-blue-200"
+            />
+            <StatusPill
+              icon={<XCircle className="h-3.5 w-3.5" />}
+              text={`${totals.rejectedCount} rejected`}
+              className="bg-red-50 text-red-700 border-red-200"
+            />
+            <StatusPill
+              icon={<AlertCircle className="h-3.5 w-3.5" />}
+              text={`${totals.unpaidCount} unpaid`}
+              className="bg-muted/40 text-foreground border-border"
+            />
+          </div>
+
+          {/* Mark all attended button below stats and pills */}
           <Button
             size="sm"
             variant="brand"
-            className="shrink-0"
+            className="mt-3 w-full sm:w-auto sm:self-center mx-auto"
             disabled={saving === "bulk" || rowsCount === 0}
             onClick={onBulkMarkAttendedYes}
           >
             {saving === "bulk" ? "Marking..." : "Mark all attended"}
           </Button>
-        </div>
-
-        {/* Stats */}
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <StatTile
-            label="Attending"
-            value={
-              <span className="inline-flex items-center gap-1">
-                <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                {totals.yesCount}
-              </span>
-            }
-          />
-          <StatTile label="Expected" value={`£${totals.expectedSum.toFixed(2)}`} />
-          <StatTile label="Confirmed" value={`£${totals.paidConfirmedSum.toFixed(2)}`} />
-          <StatTile label="Pending" value={`£${totals.pendingSum.toFixed(2)}`} />
-        </div>
-
-        {/* Status pills */}
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <StatusPill
-            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-            text={`${totals.paidCount} paid`}
-            className="bg-green-50 text-green-700 border-green-200"
-          />
-          <StatusPill
-            icon={<Clock className="h-3.5 w-3.5" />}
-            text={`${totals.pendingCount} pending`}
-            className="bg-blue-50 text-blue-700 border-blue-200"
-          />
-          <StatusPill
-            icon={<XCircle className="h-3.5 w-3.5" />}
-            text={`${totals.rejectedCount} rejected`}
-            className="bg-red-50 text-red-700 border-red-200"
-          />
-          <StatusPill
-            icon={<AlertCircle className="h-3.5 w-3.5" />}
-            text={`${totals.unpaidCount} unpaid`}
-            className="bg-muted/40 text-foreground border-border"
-          />
         </div>
       </CardContent>
     </Card>

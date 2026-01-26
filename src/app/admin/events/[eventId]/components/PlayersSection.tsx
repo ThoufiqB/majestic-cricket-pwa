@@ -61,7 +61,7 @@ export function PlayersSection(p: Props) {
               }
               return (
                 <tr key={r.player_id} className={r.attended ? "bg-green-50/30 dark:bg-green-950/10" : ""}>
-                  <td className="px-3 py-2 whitespace-nowrap">
+                  <td className="px-3 py-2 whitespace-normal sm:whitespace-nowrap">
                     <span className="font-medium">{r.name}</span>
                     {hasDiscount && (
                       <Badge className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200" title="Discounted">
