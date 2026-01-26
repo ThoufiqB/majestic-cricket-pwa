@@ -60,12 +60,6 @@ export default function AdminKidsEventDetailPage() {
             </div>
           </div>
           
-          <Button variant="outline" asChild>
-            <Link href="/admin/kids-events">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Events
-            </Link>
-          </Button>
         </div>
 
         {/* Error/Message Display */}

@@ -32,11 +32,17 @@ function StatTile({
   value: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border bg-background px-2 py-2 sm:px-3 min-w-0 break-words">
-      <div className="text-[11px] text-muted-foreground leading-none">
+    <div className={`rounded-xl border px-2 py-2 sm:px-3 min-w-0 break-words flex flex-col items-center justify-center
+      ${label === 'Attending' ? 'bg-blue-50' :
+        label === 'Expected' ? 'bg-yellow-50' :
+        label === 'Confirmed' ? 'bg-green-50' :
+        label === 'Pending' ? 'bg-orange-50' :
+        'bg-background'}
+    `}>
+      <div className="text-[11px] text-muted-foreground leading-none text-center">
         {label}
       </div>
-      <div className="mt-1 text-sm font-semibold leading-none">{value}</div>
+      <div className="mt-1 text-sm font-semibold leading-none text-center">{value}</div>
     </div>
   );
 }
@@ -86,42 +92,37 @@ export function EventSummaryCard({
 
   return (
     <Card className="mb-2">
-      <CardContent className="p-3 overflow-x-auto">
-        <div className="flex flex-col gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="truncate text-base font-semibold">
-                {event.title}
-              </h2>
-              <Badge variant="outline" className="text-[11px] font-normal">
-                {event.event_type}
+      <CardContent className="pt-2 pb-2 px-3 overflow-x-auto">
+        <div className="flex flex-col gap-2">
+          {/* Group badge top left, then event header: title and price */}
+          <div className="flex flex-col w-full min-w-0">
+            {event.group ? (
+              <Badge variant="secondary" className="text-[11px] font-bold uppercase tracking-wide mt-0">
+                {event.group}
               </Badge>
-              {event.group ? (
-                <Badge variant="secondary" className="text-[11px] font-normal">
-                  {event.group}
-                </Badge>
-              ) : null}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {dateLabel}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <PoundSterling className="h-3.5 w-3.5" />
-                <span className="font-medium text-foreground">
+            ) : null}
+            <div className="flex flex-col min-w-0 w-full">
+              <div className="flex items-center justify-between min-w-0 w-full">
+                <h2 className="truncate font-semibold text-base">
+                  {event.title}
+                </h2>
+                <span className="font-bold text-base text-blue-600 whitespace-nowrap">
                   £{fee.toFixed(2)}
                 </span>
+              </div>
+              <span className="text-xs text-muted-foreground font-normal mt-0.5 inline-flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {dateLabel}
               </span>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <StatTile
               label="Attending"
               value={
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 justify-center">
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                   {totals.yesCount}
                 </span>
@@ -133,34 +134,30 @@ export function EventSummaryCard({
           </div>
 
           {/* Status pills */}
-          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatusPill
-              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-              text={`${totals.paidCount} paid`}
-              className="bg-green-50 text-green-700 border-green-200"
-            />
-            <StatusPill
-              icon={<Clock className="h-3.5 w-3.5" />}
-              text={`${totals.pendingCount} pending`}
-              className="bg-blue-50 text-blue-700 border-blue-200"
-            />
-            <StatusPill
-              icon={<XCircle className="h-3.5 w-3.5" />}
-              text={`${totals.rejectedCount} rejected`}
-              className="bg-red-50 text-red-700 border-red-200"
-            />
-            <StatusPill
-              icon={<AlertCircle className="h-3.5 w-3.5" />}
-              text={`${totals.unpaidCount} unpaid`}
-              className="bg-muted/40 text-foreground border-border"
-            />
+          <div className="my-2 flex flex-wrap gap-x-4 gap-y-2 justify-center items-center">
+            <div className="flex items-center gap-1 min-w-[70px] justify-center">
+              <span className="inline-flex items-center justify-center rounded-full bg-green-50 border border-green-200 text-green-700 font-semibold w-7 h-7 text-xs">{totals.paidCount}</span>
+              <span className="text-xs">Paid</span>
+            </div>
+            <div className="flex items-center gap-1 min-w-[70px] justify-center">
+              <span className="inline-flex items-center justify-center rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-semibold w-7 h-7 text-xs">{totals.pendingCount}</span>
+              <span className="text-xs">Pending</span>
+            </div>
+            <div className="flex items-center gap-1 min-w-[70px] justify-center">
+              <span className="inline-flex items-center justify-center rounded-full bg-red-50 border border-red-200 text-red-700 font-semibold w-7 h-7 text-xs">{totals.rejectedCount}</span>
+              <span className="text-xs">Rejected</span>
+            </div>
+            <div className="flex items-center gap-1 min-w-[70px] justify-center">
+              <span className="inline-flex items-center justify-center rounded-full bg-gray-50 border border-gray-200 text-gray-700 font-semibold w-7 h-7 text-xs">{totals.unpaidCount}</span>
+              <span className="text-xs">Unpaid</span>
+            </div>
           </div>
 
           {/* Mark all attended button below stats and pills */}
           <Button
             size="sm"
             variant="brand"
-            className="mt-3 w-full sm:w-auto sm:self-center mx-auto"
+            className="mt-2 mb-0 w-full"
             disabled={saving === "bulk" || rowsCount === 0}
             onClick={onBulkMarkAttendedYes}
           >
