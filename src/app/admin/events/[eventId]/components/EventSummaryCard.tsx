@@ -153,7 +153,7 @@ export function EventSummaryCard({
             </div>
           </div>
 
-          {/* Mark all attended button below stats and pills */}
+          {/* Mark All Attended button below stats and pills */}
           <Button
             size="sm"
             variant="brand"
@@ -161,7 +161,7 @@ export function EventSummaryCard({
             disabled={saving === "bulk" || rowsCount === 0}
             onClick={onBulkMarkAttendedYes}
           >
-            {saving === "bulk" ? "Marking..." : "Mark all attended"}
+            {saving === "bulk" ? "Marking..." : "Mark All Attended"}
           </Button>
         </div>
       </CardContent>

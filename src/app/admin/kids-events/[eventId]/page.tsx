@@ -87,7 +87,6 @@ export default function AdminKidsEventDetailPage() {
         {/* Event Summary */}
         {event && (
           <EventSummaryCard
-            eventId={eventId}
             event={event}
             totals={totals}
             rowsCount={rows.length}
