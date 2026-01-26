@@ -49,13 +49,13 @@ export function CreateEventCard(p: Props) {
   const eventOptions = p.isKidsEventPage ? KIDS_EVENT_TYPE_OPTIONS : EVENT_TYPE_OPTIONS;
   return (
     <Card>
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Plus className="h-5 w-5 text-primary" />
           Create Event
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2 p-2 sm:p-4">
         {/* Event Type */}
         <div className="space-y-1.5">
           <Label className="flex items-center gap-2 text-sm">

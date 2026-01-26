@@ -43,13 +43,52 @@ export function EventCard(p: Props) {
   return (
     <Card className={`overflow-hidden transition-all hover:shadow-md ${isPast ? "opacity-75" : ""}`}>
       <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="relative flex items-start gap-4 pt-0.5">
+          {/* WhatsApp Copy Icon Top Right */}
+          {!isPast && (
+            <div className="absolute top-0 right-0 flex items-center gap-4 p-2">
+              <button
+                type="button"
+                onClick={p.onOpenWhatsApp}
+                className="text-green-600 hover:text-green-700 focus:outline-none"
+                title="Copy WhatsApp Message"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={p.onDelete}
+                className="text-destructive hover:text-red-700 focus:outline-none"
+                title="Delete Event"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </div>
+          )}
           {/* Left: Event Info */}
           <div className="min-w-0 flex-1 space-y-3">
             {/* Title + Type Badge */}
-            <div className="space-y-1">
-              <h3 className="font-semibold text-lg truncate">{ev.title}</h3>
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="space-y-0">
+              <div className="flex items-center gap-2">
+                <a
+                  href={`${p.detailPagePath || '/admin/events'}/${ev.event_id}`}
+                  className="font-semibold text-base text-primary underline truncate hover:text-blue-600 focus:text-blue-700 transition-colors"
+                  title={ev.title}
+                >
+                  {ev.title}
+                </a>
+                {!isPast && (
+                  <button
+                    type="button"
+                    onClick={p.onEdit}
+                    className="ml-2 text-muted-foreground hover:text-blue-600 focus:outline-none"
+                    title="Edit Event"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 <Badge variant="secondary">
                   {EVENT_TYPE_LABEL[ev.event_type] || ev.event_type}
                 </Badge>
@@ -73,7 +112,7 @@ export function EventCard(p: Props) {
             </p>
 
             {/* Stats Row */}
-            <div className="flex flex-wrap gap-3 text-sm">
+            <div className="flex flex-wrap gap-2 text-sm mb-0.5">
               <div className="flex items-center gap-1.5">
                 <Users className="h-4 w-4 text-primary" />
                 <span className="text-muted-foreground">Going:</span>
@@ -104,52 +143,11 @@ export function EventCard(p: Props) {
             )}
           </div>
 
-          {/* Right: Actions */}
-          <div className="flex flex-col gap-1.5 shrink-0">
-            <Button
-              variant="default"
-              size="sm"
-              asChild
-            >
-              <a href={`${p.detailPagePath || '/admin/events'}/${ev.event_id}`}>
-                <ExternalLink className="h-4 w-4 mr-1.5" />
-                Open
-              </a>
-            </Button>
+        </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={p.onOpenWhatsApp}
-            >
-              <MessageCircle className="h-4 w-4 mr-1.5" />
-              WhatsApp
-            </Button>
-
-            {!isPast && (
-              <>
-                <Separator className="my-1" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={p.onEdit}
-                >
-                  <Pencil className="h-4 w-4 mr-1.5" />
-                  Edit
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={p.onDelete}
-                >
-                  <Trash2 className="h-4 w-4 mr-1.5" />
-                  Delete
-                </Button>
-              </>
-            )}
-          </div>
+        {/* Actions Row: decluttered, horizontal below stats */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* WhatsApp and Delete buttons removed from actions row */}
         </div>
 
         {/* WhatsApp Popup */}
