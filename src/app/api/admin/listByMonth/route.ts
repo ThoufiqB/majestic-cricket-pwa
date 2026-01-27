@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
         const collectionName = isKidsEvent ? "kids_attendance" : "attendees";
         const attSnap = await d.ref.collection(collectionName).get();
 
+
         let going = 0;
         let paid = 0;
         let unpaid = 0;
@@ -82,11 +83,12 @@ export async function POST(req: NextRequest) {
 
         attSnap.docs.forEach((a) => {
           const v: any = a.data() || {};
-          // ✅ Handle both boolean and string attending values
+          // Only count stats for those attending (YES)
           const attendingValue = v.attending === true || String(v.attending || "").toUpperCase() === "YES";
-          if (attendingValue) going++;
+          if (!attendingValue) return;
+          going++;
 
-          // ✅ Kids use payment_status, adults use paid_status
+          // Kids use payment_status, adults use paid_status
           const ps = String(v.payment_status || v.paid_status || "UNPAID").toUpperCase();
           if (ps === "PAID") paid++;
           else if (ps === "PENDING") pending++;
