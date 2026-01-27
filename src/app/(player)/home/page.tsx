@@ -407,64 +407,43 @@ export default function PlayerHomePage() {
   };
 
   return (
+
     <div className="space-y-4">
-      {/* Welcome Banner */}
-      <Card className="bg-gradient-to-r from-[#1e3a5f] to-[#2d5a8a]">
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-center justify-between">
+      {/* Welcome Banner with background image and gradient overlay */}
+      <Card className="relative overflow-hidden min-h-[54px]">
+        {/* Background image and overlay - gradient opacity reduced for 30% more image visibility */}
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(to bottom, rgba(30,58,95,0.62) 60%, rgba(45,90,138,0.55) 100%), url(/field.JPG)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundAttachment: 'scroll',
+            filter: 'brightness(0.98)'
+          }}
+        />
+        <CardContent className="relative z-10 pt-1 pb-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
-                {isKidProfile ? <Baby className="h-7 w-7 text-white" /> : <User className="h-7 w-7 text-white" />}
+              <div className="w-14 h-14 rounded-full bg-white/30 flex items-center justify-center shadow-md">
+                {isKidProfile ? <Baby className="h-7 w-7 text-white drop-shadow" /> : <User className="h-7 w-7 text-white drop-shadow" />}
               </div>
               <div>
-                {hasKids ? (
-                  <DropdownMenu open={showProfileDropdown} onOpenChange={setShowProfileDropdown}>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-auto p-0 hover:bg-transparent text-white">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                          {getActiveProfileName()}
-                          <ChevronDown className="h-5 w-5 opacity-70" />
-                        </h2>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>Switch Profile</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleSwitchProfile(me.player_id)}>
-                        <User className="h-4 w-4 mr-2" />
-                        {me?.name || "My Profile"}
-                        {activeProfileId === me?.player_id && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                      {kids.map((kid) => (
-                        <DropdownMenuItem key={kid.kid_id} onClick={() => handleSwitchProfile(kid.kid_id)}>
-                          <Baby className="h-4 w-4 mr-2" />
-                          {kid.name}
-                          {kid.age && <span className="text-xs text-muted-foreground ml-1">({kid.age}y)</span>}
-                          {activeProfileId === kid.kid_id && <Check className="h-4 w-4 ml-auto" />}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <h2 className="text-xl font-bold text-white">{getActiveProfileName()}</h2>
-                )}
-                <div className="flex items-center gap-2 mt-1">
-                  {!isKidProfile && profile?.group && getGroupBadge(profile.group)}
-                  {isKidProfile && <Badge className="bg-pink-100 text-pink-800">Junior</Badge>}
-                </div>
+                <h2 className="text-xl font-bold text-white mb-1 drop-shadow">Welcome, {getActiveProfileName()}!</h2>                
               </div>
             </div>
-
-            {/* Quick Stats */}
+            {/* Quick Stats (always visible, responsive) */}
             {stats && (
-              <div className="hidden sm:flex gap-6">
+              <div className="flex gap-8 justify-center">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{stats.eventsAttendedThisMonth}</div>
-                  <div className="text-xs text-white/70">This Month</div>
+                  <div className="text-2xl font-bold text-white drop-shadow">{stats.eventsAttendedThisMonth}</div>
+                  <div className="text-xs text-white/80">Attended</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-amber-300">{stats.pendingPayments}</div>
-                  <div className="text-xs text-white/70">Pending</div>
+                  <div className="text-2xl font-bold text-amber-300 drop-shadow">{stats.pendingPayments}</div>
+                  <div className="text-xs text-white/80">Pending</div>
                 </div>
               </div>
             )}
@@ -820,23 +799,7 @@ export default function PlayerHomePage() {
         </CardContent>
       </Card>
 
-      {/* Mobile Stats */}
-      {stats && (
-        <Card className="sm:hidden">
-          <CardContent className="pt-4">
-            <div className="flex justify-around">
-              <div className="text-center">
-                <div className="text-2xl font-bold">{stats.eventsAttendedThisMonth}</div>
-                <div className="text-xs text-muted-foreground">Events This Month</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-amber-600">{stats.pendingPayments}</div>
-                <div className="text-xs text-muted-foreground">Pending Payments</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* ...existing code... */}
 
       {/* Friends Going Modal */}
       <FriendsGoingModal
