@@ -197,7 +197,7 @@ export default function PaymentsPage() {
                     </div>
 
                     {/* Status badge or action */}
-                    <div className="flex items-center min-w-[120px] justify-end">
+                    <div className="flex items-center min-w-[120px] justify-end ml-4 sm:ml-8">
                       {canMarkPaid ? (
                         <Button
                           size="sm"
