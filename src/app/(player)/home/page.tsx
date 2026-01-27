@@ -150,7 +150,7 @@ function isAlreadyExistsError(e: any) {
 }
 
 export default function PlayerHomePage() {
-  const { setActiveProfileId: setContextProfileId } = useProfile();
+  const { activeProfileId, setActiveProfileId: setContextProfileId } = useProfile();
 
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -159,7 +159,6 @@ export default function PlayerHomePage() {
   const [stats, setStats] = useState<{ eventsAttendedThisMonth: number; pendingPayments: number } | null>(null);
   const [profile, setProfile] = useState<{ name: string; group: string; email: string } | null>(null);
 
-  const [activeProfileId, setActiveProfileIdLocal] = useState<string | null>(null);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [markingAttendance, setMarkingAttendance] = useState(false);
   const [markingPayment, setMarkingPayment] = useState(false);
@@ -169,12 +168,6 @@ export default function PlayerHomePage() {
   const [requestingParticipation, setRequestingParticipation] = useState(false);
   const [requestSentForEventId, setRequestSentForEventId] = useState<string | null>(null);
   const [requestStatusLoading, setRequestStatusLoading] = useState(false);
-
-  // Wrapper to update both local state and context
-  function setActiveProfileId(id: string) {
-    setActiveProfileIdLocal(id);
-    setContextProfileId(id);
-  }
 
   // Profile setup state
   const [needsProfile, setNeedsProfile] = useState(false);
@@ -212,17 +205,8 @@ export default function PlayerHomePage() {
         return;
       }
 
-      // Determine effective profile ID
-      let effectiveProfileId = activeProfileId;
-      if (!effectiveProfileId) {
-        effectiveProfileId = meData.active_profile_id || meData.player_id;
-        if (effectiveProfileId) {
-          setActiveProfileId(effectiveProfileId);
-        }
-      }
-
-      // Get dashboard data using the effective profile ID
-      const kidId = effectiveProfileId && effectiveProfileId !== meData.player_id ? effectiveProfileId : null;
+      // Use activeProfileId from context
+      const kidId = activeProfileId && activeProfileId !== meData.player_id ? activeProfileId : null;
       const q = kidId ? `?kidId=${kidId}` : "";
       const dashData = await apiGet(`/api/events/dashboard${q}`);
 
@@ -305,7 +289,7 @@ export default function PlayerHomePage() {
       await apiPatch(`/api/kids/${profileId}/switch-profile`, {
         active_profile_id: profileId,
       });
-      setActiveProfileId(profileId);
+      setContextProfileId(profileId);
       setShowProfileDropdown(false);
 
       // clear request UI state on profile switch (will be recalculated after loadData)

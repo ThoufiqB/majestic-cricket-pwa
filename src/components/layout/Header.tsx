@@ -128,8 +128,8 @@ export function Header({
             </Button>
           )}
 
-          {/* Profile Switcher (Player only) */}
-          {variant === "player" && currentProfile && profiles.length > 0 && (
+          {/* Profile Switcher (Player only, now context-driven) */}
+          {variant === "player" && currentProfile && profiles && profiles.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -146,9 +146,13 @@ export function Header({
                 <DropdownMenuLabel>Switch Profile</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {profiles.map((profile) => (
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     key={profile.id}
-                    onClick={() => onProfileSwitch?.(profile.id)}
+                    onClick={() => {
+                      if (profile.id !== currentProfile.id) {
+                        onProfileSwitch?.(profile.id);
+                      }
+                    }}
                     className="gap-2"
                   >
                     {profile.type === "kid" ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useProfile } from "@/components/context/ProfileContext";
 import {
   Card,
   CardContent,
@@ -130,7 +131,7 @@ export default function BrowsePage() {
   const [events, setEvents] = useState<HomeEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<any>(null);
-  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const { activeProfileId } = useProfile();
   const [selectedMonth, setSelectedMonth] = useState(
     monthKeyFromDate(new Date())
   );
@@ -185,8 +186,6 @@ export default function BrowsePage() {
       try {
         const data = await apiGet("/api/me");
         setMe(data);
-        const profileId = data.active_profile_id || data.player_id;
-        setActiveProfileId(profileId);
       } catch {
         // Not logged in
       }
@@ -219,8 +218,7 @@ export default function BrowsePage() {
     loadEvents();
   }, [selectedMonth, me, activeProfileId]);
 
-  const isKidProfile =
-    !!(activeProfileId && me && activeProfileId !== me.player_id);
+  const isKidProfile = !!(activeProfileId && me && activeProfileId !== me.player_id);
 
   async function markAttending(eventId: string, attending: "YES" | "NO") {
     if (!me) return;
@@ -253,6 +251,7 @@ export default function BrowsePage() {
     }
   }
 
+  // Ensure the return is inside the component function
   return (
     <div className="space-y-4">
       {/* Filters */}
