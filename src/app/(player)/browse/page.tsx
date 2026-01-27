@@ -265,75 +265,67 @@ export default function PlayerBrowsePage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          {/* Responsive grid: 1 column on mobile, 2 on small screens, 3 on medium+ */}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-            {/* Month filter */}
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <CalendarDays className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select
-                value={selectedMonth}
-                onValueChange={setSelectedMonth}
-              >
-                <SelectTrigger className="w-full sm:w-[110px]">
-                  <SelectValue placeholder="Select month" />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthOptions.map((opt) => (
-                    <SelectItem
-                      key={opt.value}
-                      value={opt.value}
-                    >
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Compact two-row filter layout */}
+          <div className="w-full">
+            {/* Row 1: Headings */}
+            <div className="flex flex-row gap-1 w-full mb-1">
+              <div className="flex-1 min-w-0 text-left">
+                <span className="text-[11px] font-medium text-muted-foreground">Month</span>
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <span className="text-[11px] font-medium text-muted-foreground">Type</span>
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <span className="text-[11px] font-medium text-muted-foreground">Attendance</span>
+              </div>
             </div>
-
-            {/* Type filter */}
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <Filter className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select
-                value={selectedType}
-                onValueChange={setSelectedType}
-              >
-                <SelectTrigger className="w-full sm:w-[90px]">
-                  <SelectValue placeholder="Event type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {eventTypeOptions.map((opt) => (
-                    <SelectItem
-                      key={opt.value}
-                      value={opt.value}
-                    >
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Attendance filter */}
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select
-                value={selectedAttendance}
-                onValueChange={setSelectedAttendance}
-              >
-                <SelectTrigger className="w-full sm:w-[110px]">
-                  <SelectValue placeholder="Attendance" />
-                </SelectTrigger>
-                <SelectContent>
-                  {attendanceOptions.map((opt) => (
-                    <SelectItem
-                      key={opt.value}
-                      value={opt.value}
-                    >
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Row 2: Filters */}
+            <div className="flex flex-row gap-1 w-full">
+              {/* Month filter */}
+              <div className="flex-1 min-w-0">
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="h-7 text-xs px-2 w-full">
+                    <SelectValue placeholder="Select month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Type filter */}
+              <div className="flex-1 min-w-0">
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger className="h-7 text-xs px-2 w-full">
+                    <SelectValue placeholder="Event type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventTypeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Attendance filter */}
+              <div className="flex-1 min-w-0">
+                <Select value={selectedAttendance} onValueChange={setSelectedAttendance}>
+                  <SelectTrigger className="h-7 text-xs px-2 w-full">
+                    <SelectValue placeholder="Attendance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {attendanceOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
