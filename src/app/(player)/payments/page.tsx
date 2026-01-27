@@ -125,10 +125,7 @@ export default function PaymentsPage() {
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <CreditCard className="h-6 w-6" />
           My Payments
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Track your event payments and membership fees
-        </p>
+        </h1>        
       </div>
 
       {/* Summary Cards */}
@@ -189,45 +186,50 @@ export default function PaymentsPage() {
                   (payment.status === "unpaid" || payment.status === "rejected") && !payment.attended;
 
                 return (
-                  <div key={i} className="flex items-center justify-between py-2 border-b last:border-0 gap-2">
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 py-1 border-b last:border-0 text-sm"
+                  >
+                    {/* Event title and date */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{payment.event_title}</p>
-                      <p className="text-xs text-muted-foreground">{payment.date}</p>
+                      <div className="font-medium truncate text-slate-900 dark:text-slate-100">{payment.event_title}</div>
+                      <div className="text-xs text-muted-foreground">{payment.date}</div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="text-right">
-                        <p className="font-semibold">£{payment.amount.toFixed(2)}</p>
-                      </div>
-
+                    {/* Status badge or action */}
+                    <div className="flex items-center min-w-[120px] justify-end">
                       {canMarkPaid ? (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-xs whitespace-nowrap"
+                          className="text-xs whitespace-nowrap h-7 px-3"
                           disabled={isMarking}
                           onClick={() => handleMarkPaid(payment)}
                         >
                           {isMarking ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark Paid"}
                         </Button>
                       ) : awaitingAttendance ? (
-                        <Badge variant="secondary" className="text-xs whitespace-nowrap">
-                          Awaiting attendance confirmation
+                        <Badge variant="secondary" className="text-xs whitespace-nowrap h-7 px-2 flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Awaiting attendance
+                        </Badge>
+                      ) : payment.status === "paid" ? (
+                        <Badge variant="default" className="text-xs whitespace-nowrap h-7 px-2 flex items-center gap-1 bg-green-600 text-white">
+                          <CheckCircle2 className="h-3 w-3" /> Paid
+                        </Badge>
+                      ) : payment.status === "pending" ? (
+                        <Badge variant="secondary" className="text-xs whitespace-nowrap h-7 px-2 flex items-center gap-1 bg-amber-500/90 text-white">
+                          <Clock className="h-3 w-3" /> Pending
                         </Badge>
                       ) : (
-                        <Badge
-                          variant={
-                            payment.status === "paid"
-                              ? "default"
-                              : payment.status === "pending"
-                              ? "secondary"
-                              : "destructive"
-                          }
-                          className="text-xs"
-                        >
-                          {payment.status}
+                        <Badge variant="destructive" className="text-xs whitespace-nowrap h-7 px-2 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" /> Unpaid
                         </Badge>
                       )}
+                    </div>
+
+                    {/* Price at the extreme right */}
+                    <div className="text-right min-w-[64px] pl-2">
+                      <span className="font-semibold text-blue-600">£{payment.amount.toFixed(2)}</span>
                     </div>
                   </div>
                 );
