@@ -106,7 +106,7 @@ export function Header({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center justify-end gap-2">
           {/* Admin Link (Player variant only, when user is admin) */}
           {variant === "player" && isAdmin && (
             <Button variant="outline" size="sm" asChild className="text-[#1e3a5f] border-[#1e3a5f]/30 hover:bg-[#1e3a5f]/10">
@@ -117,22 +117,20 @@ export function Header({
             </Button>
           )}
 
-          {/* My Kids / My Parents Link removed. Now accessible via Profile tab only. */}
-
-          {/* Profile Link (Player only) */}
-          {variant === "player" && (
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/profile">
-                <UserCircle className="h-5 w-5" />
+          {/* Home Button (Admin only) */}
+          {variant === "admin" && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/home">
+                <Home className="h-4 w-4 mr-1" />
+                Home
               </Link>
             </Button>
           )}
-
           {/* Profile Switcher (Player only, now context-driven) */}
           {variant === "player" && currentProfile && profiles && profiles.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2 bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200">
                   {currentProfile.type === "kid" ? (
                     <Baby className="h-4 w-4" />
                   ) : (
@@ -172,19 +170,18 @@ export function Header({
             </DropdownMenu>
           )}
 
-          {/* Home Button (Admin only) */}
-          {variant === "admin" && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/home">
-                <Home className="h-4 w-4 mr-1" />
-                Home
+          {/* Profile Link (Player only) */}
+          {variant === "player" && (
+            <Button variant="outline" size="icon" asChild className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+              <Link href="/profile">
+                <UserCircle className="h-5 w-5" />
               </Link>
             </Button>
           )}
 
           {/* Sign Out (if callback provided) */}
           {onSignOut && (
-            <Button variant="ghost" size="icon" onClick={onSignOut}>
+            <Button variant="outline" size="icon" onClick={onSignOut} className="bg-red-100 text-red-800 border-red-300 hover:bg-red-200">
               <LogOut className="h-4 w-4" />
             </Button>
           )}
