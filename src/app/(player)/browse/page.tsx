@@ -121,18 +121,25 @@ function getEventTypeBadge(type: string) {
   }
 }
 
-function getAttendingBadge(attending: string | undefined) {
-  if (attending === "YES") {
-    return <Badge className="bg-green-100 text-green-800">Going</Badge>;
+
+function getAttendingBadge(attending: string | undefined, isPast: boolean) {
+  if (isPast) {
+    if (attending === "YES") {
+      return <Badge className="bg-green-100 text-green-800">Attended</Badge>;
+    }
+    if (attending === "NO") {
+      return <Badge className="bg-red-100 text-red-700">Missed</Badge>;
+    }
+    return null;
+  } else {
+    if (attending === "YES") {
+      return <Badge className="bg-green-100 text-green-800">Going</Badge>;
+    }
+    if (attending === "NO") {
+      return <Badge variant="outline" className="text-muted-foreground">Not Going</Badge>;
+    }
+    return null;
   }
-  if (attending === "NO") {
-    return (
-      <Badge variant="outline" className="text-muted-foreground">
-        Not Going
-      </Badge>
-    );
-  }
-  return null;
 }
 
 export default function PlayerBrowsePage() {
@@ -378,6 +385,7 @@ export default function PlayerBrowsePage() {
           ) : (
             <div className="space-y-3">
               {filteredEvents.map((event) => {
+
                 const isMarking = markingId === event.event_id;
                 const myAttending = event.my?.attending;
                 const isPast = new Date(event.starts_at) < new Date();
@@ -385,43 +393,37 @@ export default function PlayerBrowsePage() {
                 return (
                   <div
                     key={event.event_id}
-                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="p-3 border rounded-lg hover:bg-muted/50 transition-colors flex flex-row items-start gap-2"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-medium">{event.title}</h3>
-                          {getEventTypeBadge(event.event_type)}
-                          {getAttendingBadge(myAttending)}
+                    {/* Main content left */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h3 className="font-semibold text-base leading-tight truncate text-[#14213d]">{event.title}</h3>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        <span>{formatEventDate(event.starts_at)}</span>
+                        <Clock className="h-3.5 w-3.5 ml-1" />
+                        <span>{formatEventTime(event.starts_at)}</span>
+                      </div>
+                      {event.location && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          <span className="truncate">{event.location}</span>
                         </div>
-
-                        <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <CalendarDays className="h-4 w-4" />
-                            <span>{formatEventDate(event.starts_at)}</span>
-                            <Clock className="h-4 w-4 ml-2" />
-                            <span>{formatEventTime(event.starts_at)}</span>
-                          </div>
-                          {event.location && (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              <span className="truncate">{event.location}</span>
-                            </div>
-                          )}
-                        </div>
-
+                      )}
+                    </div>
+                    {/* Right: Attendance badge to the left of Price badge */}
+                    <div className="flex flex-col items-end gap-1 min-w-fit pl-2">
+                      <div className="flex flex-row items-center gap-1 mb-1">
+                        {getAttendingBadge(myAttending, isPast)}
                         {event.fee > 0 && (
-                          <div className="mt-2">
-                            <Badge variant="secondary">
-                              £{event.fee}
-                            </Badge>
-                          </div>
+                          <Badge className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200">£{event.fee}</Badge>
                         )}
                       </div>
-
                       {/* Attendance actions */}
                       {!isPast && me && (
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 mt-1">
                           <Button
                             size="sm"
                             variant={
