@@ -468,39 +468,36 @@ export default function PlayerHomePage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Skeleton className="h-6 w-48" />
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-10 w-full" />
             </div>
           ) : nextEvent ? (
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-lg">{nextEvent.title}</h3>
-                  {getEventTypeBadge(nextEvent.event_type)}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="font-semibold text-lg">{nextEvent.title}</h3>
+                <div>{getEventTypeBadge(nextEvent.event_type)}</div>
+              </div>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>{formatEventDate(nextEvent.starts_at)}</span>
+                  <span className="mx-1">•</span>
+                  <Clock className="h-4 w-4" />
+                  <span>{formatEventTime(nextEvent.starts_at)}</span>
                 </div>
-                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" />
-                    <span>{formatEventDate(nextEvent.starts_at)}</span>
+                {nextEvent.location && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    <span>{nextEvent.location}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>{formatEventTime(nextEvent.starts_at)}</span>
-                  </div>
-                  {nextEvent.location && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      <span>{nextEvent.location}</span>
-                    </div>
-                  )}
-                  {nextEvent.event_type === "net_practice" && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Attendance closes 48 hours before this net session.
-                    </p>
-                  )}
-                </div>
+                )}
+                {nextEvent.event_type === "net_practice" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Attendance closes 48 hours before this net session.
+                  </p>
+                )}
               </div>
 
               {/* Attendance Status & Actions */}
@@ -729,9 +726,9 @@ export default function PlayerHomePage() {
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <h3 className="font-semibold">{lastEvent.title}</h3>
-                    {getEventTypeBadge(lastEvent.event_type)}
+                    <div>{getEventTypeBadge(lastEvent.event_type)}</div>
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">{formatEventDate(lastEvent.starts_at)}</div>
                 </div>
