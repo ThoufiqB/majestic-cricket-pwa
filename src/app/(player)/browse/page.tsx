@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useProfile } from "@/components/context/ProfileContext";
+import { KIDS_EVENT_TYPE_OPTIONS } from "@/app/admin/events/constants";
 import {
   Card,
   CardContent,
@@ -131,7 +132,7 @@ export default function BrowsePage() {
   const [events, setEvents] = useState<HomeEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<any>(null);
-  const { activeProfileId } = useProfile();
+  const { activeProfileId, isKidProfile } = useProfile();
   const [selectedMonth, setSelectedMonth] = useState(
     monthKeyFromDate(new Date())
   );
@@ -147,12 +148,14 @@ export default function BrowsePage() {
     []
   ) as { value: string; label: string }[];
 
-  const eventTypeOptions = [
-    { value: "all", label: "All" },
-    { value: "net_practice", label: "Net Practice" },
-    { value: "league_match", label: "Match" },
-    { value: "family_event", label: "Family Event" },
-  ];
+  const eventTypeOptions = isKidProfile
+    ? [{ value: "all", label: "All" }, ...KIDS_EVENT_TYPE_OPTIONS]
+    : [
+        { value: "all", label: "All" },
+        { value: "net_practice", label: "Net Practice" },
+        { value: "league_match", label: "Match" },
+        { value: "family_event", label: "Family Event" },
+      ];
 
   const attendanceOptions = [
     { value: "all", label: "All" },
@@ -218,7 +221,7 @@ export default function BrowsePage() {
     loadEvents();
   }, [selectedMonth, me, activeProfileId]);
 
-  const isKidProfile = !!(activeProfileId && me && activeProfileId !== me.player_id);
+  // isKidProfile now comes from useProfile()
 
   async function markAttending(eventId: string, attending: "YES" | "NO") {
     if (!me) return;
