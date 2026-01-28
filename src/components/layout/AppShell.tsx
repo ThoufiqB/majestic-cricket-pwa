@@ -51,10 +51,10 @@ export function AppShell({
     if (isKidProfile) {
       const kid = kids.find((k) => k.kid_id === activeProfileId);
       if (kid) {
-        currentProfile = { id: kid.kid_id, name: kid.name, type: "kid" };
+        currentProfile = { id: kid.kid_id, name: kid.name, type: "kid" as const };
       }
     } else {
-      currentProfile = { id: playerId, name: playerName || "", type: "player" };
+      currentProfile = { id: playerId, name: playerName || "", type: "player" as const };
     }
     profiles = [
       { id: playerId, name: playerName || "", type: "player" },
