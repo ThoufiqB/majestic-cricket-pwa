@@ -46,7 +46,7 @@ export function AppShell({
 
   // Compose currentProfile and profiles for Header
   let currentProfile = undefined;
-  let profiles = [];
+  let profiles: Profile[] = [];
   if (playerId) {
     if (isKidProfile) {
       const kid = kids.find((k) => k.kid_id === activeProfileId);
