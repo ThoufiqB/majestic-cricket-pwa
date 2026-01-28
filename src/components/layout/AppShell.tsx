@@ -58,7 +58,7 @@ export function AppShell({
     }
     profiles = [
       { id: playerId, name: playerName || "", type: "player" },
-      ...kids.map((kid) => ({ id: kid.kid_id, name: kid.name, type: "kid" })),
+      ...kids.map((kid) => ({ id: kid.kid_id, name: kid.name, type: "kid" as const })),
     ];
   }
 
