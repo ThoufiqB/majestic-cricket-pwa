@@ -25,6 +25,8 @@ import {
   Users
 } from "lucide-react";
 import { useProfile } from "@/components/context/ProfileContext";
+import { useState } from "react";
+import { switchProfile } from "@/lib/switchProfile";
 import { useScrollDirection } from "@/lib/hooks/useScrollDirection";
 
 type Profile = {
@@ -54,7 +56,10 @@ export function Header({
   onSignOut
 }: Props) {
   const pathname = usePathname();
-  const { isAdmin, isKidProfile, kids } = useProfile();
+  const { isAdmin, isKidProfile, kids, playerId, activeProfileId, setActiveProfileId, refreshProfile } = useProfile();
+
+  // Local state for loading indicator on switch
+  const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(null);
   const { isHidden } = useScrollDirection({ threshold: 50, mobileOnly: true });
 
   // Auto-detect title from pathname if not provided
@@ -79,6 +84,25 @@ export function Header({
     if (pathname.includes("/browse")) return "Browse";
     return "Home";
   };
+
+  // Helper to get current user object for switchProfile util
+  const me = playerId ? { player_id: playerId } : null;
+
+  // Unified switch handler
+  async function handleHeaderSwitchProfile(profileId: string) {
+    if (!me) return;
+    setSwitchingProfileId(profileId);
+    try {
+      await switchProfile({
+        profileId,
+        me,
+        setContextProfileId: setActiveProfileId,
+        refreshProfile,
+      });
+    } finally {
+      setSwitchingProfileId(null);
+    }
+  }
 
   return (
     <header className={`sticky top-0 z-40 bg-card border-b transition-transform duration-300 ${
@@ -147,10 +171,11 @@ export function Header({
                   <DropdownMenuItem
                     key={profile.id}
                     onClick={() => {
-                      if (profile.id !== currentProfile.id) {
-                        onProfileSwitch?.(profile.id);
+                      if (profile.id !== currentProfile.id && !switchingProfileId) {
+                        handleHeaderSwitchProfile(profile.id);
                       }
                     }}
+                    disabled={!!switchingProfileId}
                     className="gap-2"
                   >
                     {profile.type === "kid" ? (
@@ -163,6 +188,9 @@ export function Header({
                       <Badge variant="secondary" className="ml-auto text-[10px]">
                         Active
                       </Badge>
+                    )}
+                    {switchingProfileId === profile.id && (
+                      <span className="ml-2 animate-spin"><svg className="h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /></svg></span>
                     )}
                   </DropdownMenuItem>
                 ))}
