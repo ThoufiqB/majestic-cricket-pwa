@@ -111,16 +111,6 @@ function getEventTypeBadge(type: string) {
   }
 }
 
-function getGroupBadge(group: string) {
-  if (group === "men") {
-    return <Badge className="bg-blue-100 text-blue-800">Men</Badge>;
-  }
-  if (group === "women") {
-    return <Badge className="bg-pink-100 text-pink-800">Women</Badge>;
-  }
-  return <Badge variant="outline">{group}</Badge>;
-}
-
 /**
  * ✅ Net Practice cutoff rule:
  * Attendance allowed only until 48 hours before the start time.
@@ -150,7 +140,15 @@ function isAlreadyExistsError(e: any) {
 }
 
 export default function PlayerHomePage() {
-  const { setActiveProfileId: setContextProfileId } = useProfile();
+  // ✅ Single source of truth (NO local duplicate state)
+  const {
+    activeProfileId,
+    setActiveProfileId: setContextProfileId,
+    refreshProfile,
+    playerId,
+    kids: kidsFromContext,
+    loading: contextLoading,
+  } = useProfile();
 
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -159,22 +157,13 @@ export default function PlayerHomePage() {
   const [stats, setStats] = useState<{ eventsAttendedThisMonth: number; pendingPayments: number } | null>(null);
   const [profile, setProfile] = useState<{ name: string; group: string; email: string } | null>(null);
 
-  const [activeProfileId, setActiveProfileIdLocal] = useState<string | null>(null);
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [markingAttendance, setMarkingAttendance] = useState(false);
   const [markingPayment, setMarkingPayment] = useState(false);
   const [openFriendsEventId, setOpenFriendsEventId] = useState<string | null>(null);
 
-  // ✅ Phase-2: request participation UI state (now refresh-proof via backend GET)
   const [requestingParticipation, setRequestingParticipation] = useState(false);
   const [requestSentForEventId, setRequestSentForEventId] = useState<string | null>(null);
   const [requestStatusLoading, setRequestStatusLoading] = useState(false);
-
-  // Wrapper to update both local state and context
-  function setActiveProfileId(id: string) {
-    setActiveProfileIdLocal(id);
-    setContextProfileId(id);
-  }
 
   // Profile setup state
   const [needsProfile, setNeedsProfile] = useState(false);
@@ -185,45 +174,37 @@ export default function PlayerHomePage() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    loadData();
+    // avoid early load before context is ready (prevents flicker/race)
+    if (contextLoading) return;
+    void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProfileId]);
-
-  // If next event changes, clear request-sent UI state (so it doesn’t stick for other events)
-  useEffect(() => {
-    if (!nextEvent?.event_id) return;
-    if (requestSentForEventId && requestSentForEventId !== nextEvent.event_id) {
-      setRequestSentForEventId(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nextEvent?.event_id]);
+  }, [contextLoading, activeProfileId]);
 
   async function loadData() {
     setLoading(true);
     try {
-      // Get user data
       const meData = await apiGet("/api/me");
       setMe(meData);
 
-      // Check if profile is complete
       if (!meData.group || !meData.member_type) {
         setNeedsProfile(true);
-        setLoading(false);
         return;
       }
 
-      // Determine effective profile ID
-      let effectiveProfileId = activeProfileId;
-      if (!effectiveProfileId) {
-        effectiveProfileId = meData.active_profile_id || meData.player_id;
-        if (effectiveProfileId) {
-          setActiveProfileId(effectiveProfileId);
-        }
+      // ✅ Effective profile = backend truth
+      const backendEffectiveProfileId = meData.active_profile_id || meData.player_id;
+
+      // Keep context in sync with backend (refresh-proof)
+      if (backendEffectiveProfileId && backendEffectiveProfileId !== activeProfileId) {
+        setContextProfileId(backendEffectiveProfileId);
+        // Stop here; effect will re-run with synced id and fetch correct dashboard once.
+        return;
       }
 
-      // Get dashboard data using the effective profile ID
+      const effectiveProfileId = backendEffectiveProfileId;
+
       const kidId = effectiveProfileId && effectiveProfileId !== meData.player_id ? effectiveProfileId : null;
-      const q = kidId ? `?kidId=${kidId}` : "";
+      const q = kidId ? `?kidId=${encodeURIComponent(kidId)}` : "";
       const dashData = await apiGet(`/api/events/dashboard${q}`);
 
       const ne: DashboardEvent | null = dashData.nextEvent || null;
@@ -233,7 +214,6 @@ export default function PlayerHomePage() {
       setStats(dashData.stats || null);
       setProfile(dashData.profile || null);
 
-      // ✅ Refresh-proof request state: ask backend if request already exists for this event/profile
       setRequestSentForEventId(null);
       setRequestStatusLoading(false);
 
@@ -255,12 +235,8 @@ export default function PlayerHomePage() {
             const status = await apiGet<{ exists: boolean; status?: string | null }>(
               `/api/events/${encodeURIComponent(ne.event_id)}/request${kidQuery}`
             );
-
-            if (status?.exists) {
-              setRequestSentForEventId(ne.event_id);
-            }
+            if (status?.exists) setRequestSentForEventId(ne.event_id);
           } catch (e) {
-            // Don’t break UX if status check fails; button may appear enabled.
             console.warn("Failed to check request status:", e);
           } finally {
             setRequestStatusLoading(false);
@@ -269,6 +245,7 @@ export default function PlayerHomePage() {
       }
     } catch (error) {
       console.error("Failed to load dashboard:", error);
+      toast.error("Failed to load dashboard");
     } finally {
       setLoading(false);
     }
@@ -292,26 +269,51 @@ export default function PlayerHomePage() {
         phone: profilePhone || undefined,
       });
       setNeedsProfile(false);
-      loadData();
+      await loadData();
     } catch (e) {
       setMsg("Failed to save profile");
+      toast.error("Failed to save profile");
     } finally {
       setSavingProfile(false);
     }
   }
 
+  /**
+   * ✅ Correct switching using the ONLY supported backend API:
+   * PATCH /api/kids/{kidId}/switch-profile with active_profile_id
+   *
+   * Your route.ts REQUIRES active_profile_id and DOES NOT allow null.
+   * So:
+   * - switch to kid => active_profile_id = kidId
+   * - switch to adult => active_profile_id = playerId (uid)
+   */
   async function handleSwitchProfile(profileId: string) {
     try {
-      await apiPatch(`/api/kids/${profileId}/switch-profile`, {
-        active_profile_id: profileId,
-      });
-      setActiveProfileId(profileId);
-      setShowProfileDropdown(false);
+      const mePlayerId = me?.player_id;
+      if (!mePlayerId) throw new Error("Missing player_id");
 
-      // clear request UI state on profile switch (will be recalculated after loadData)
+      const switchingToAdult = profileId === mePlayerId;
+      const targetActiveProfileId = switchingToAdult ? mePlayerId : profileId;
+
+      // Persist on backend (this is what makes refresh work)
+      await apiPatch(`/api/kids/${encodeURIComponent(profileId)}/switch-profile`, {
+        active_profile_id: targetActiveProfileId,
+      });
+
+      // Update context immediately for snappy UI
+      setContextProfileId(targetActiveProfileId);
+
+      // Reload context from backend to guarantee sync across the app
+      await refreshProfile();
+
+      // Reload dashboard with new effective profile
+      await loadData();
+
       setRequestSentForEventId(null);
       setRequestingParticipation(false);
       setRequestStatusLoading(false);
+
+      toast.success("Switched profile");
     } catch (e) {
       console.error("Failed to switch profile:", e);
       toast.error("Failed to switch profile");
@@ -321,9 +323,9 @@ export default function PlayerHomePage() {
   async function markAttending(eventId: string, attending: "YES" | "NO") {
     setMarkingAttendance(true);
     try {
-      const isKidProfile = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = activeProfileId && activeProfileId !== me?.player_id;
 
-      if (isKidProfile) {
+      if (isKid && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/attendance`, {
           event_id: eventId,
           attending,
@@ -333,7 +335,7 @@ export default function PlayerHomePage() {
       }
 
       toast.success(attending === "YES" ? "Marked as attending!" : "Marked as not attending");
-      loadData();
+      await loadData();
     } catch (error) {
       console.error("Failed to mark attendance:", error);
       toast.error("Failed to update attendance");
@@ -342,29 +344,27 @@ export default function PlayerHomePage() {
     }
   }
 
-  /** ✅ Phase-2: Request participation after attendance cutoff (Net Practice window only) */
   async function requestParticipation(eventId: string) {
     if (requestingParticipation) return;
 
     setRequestingParticipation(true);
     try {
-      const isKidProfile = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = activeProfileId && activeProfileId !== me?.player_id;
 
-      if (isKidProfile && activeProfileId) {
+      if (isKid && activeProfileId) {
         await apiPost(`/api/events/${eventId}/request`, { kid_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/request`, {});
       }
 
       toast.success("Request sent to admin ✅");
-      setRequestSentForEventId(eventId); // ✅ prevent re-submits
-      loadData();
+      setRequestSentForEventId(eventId);
+      await loadData();
     } catch (error: any) {
-      // If request already exists, treat as a successful/duplicate-safe UX
       if (isAlreadyExistsError(error)) {
         toast.info("Request already submitted ✅");
         setRequestSentForEventId(eventId);
-        loadData();
+        await loadData();
       } else {
         console.warn("Failed to request participation:", error);
         toast.error(error?.message || "Failed to send request");
@@ -377,16 +377,16 @@ export default function PlayerHomePage() {
   async function markPaid(eventId: string) {
     setMarkingPayment(true);
     try {
-      const isKidProfile = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = activeProfileId && activeProfileId !== me?.player_id;
 
-      if (isKidProfile) {
+      if (isKid && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/paid`, { event_id: eventId, paid_status: "PENDING" });
       } else {
         await apiPost(`/api/events/${eventId}/paid`, { paid_status: "PENDING" });
       }
 
       toast.success("Payment marked as pending verification");
-      loadData();
+      await loadData();
     } catch (error) {
       console.error("Failed to mark payment:", error);
       toast.error("Failed to mark payment");
@@ -395,7 +395,6 @@ export default function PlayerHomePage() {
     }
   }
 
-  // Not logged in
   if (!me && !loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -404,7 +403,6 @@ export default function PlayerHomePage() {
     );
   }
 
-  // Needs profile setup
   if (needsProfile && !loading) {
     if (typeof window !== "undefined") {
       window.location.href = "/complete-profile";
@@ -412,9 +410,9 @@ export default function PlayerHomePage() {
     return null;
   }
 
-  const kids: KidProfile[] = me?.kids_profiles || [];
+  const kids: KidProfile[] = (me?.kids_profiles || kidsFromContext || []) as KidProfile[];
   const hasKids = kids.length > 0;
-  const isKidProfile = activeProfileId && activeProfileId !== me?.player_id;
+  const isKidProfile = !!(activeProfileId && activeProfileId !== me?.player_id);
   const currentKid = isKidProfile ? kids.find((k) => k.kid_id === activeProfileId) : null;
 
   const getActiveProfileName = () => {
@@ -425,62 +423,45 @@ export default function PlayerHomePage() {
   return (
     <div className="space-y-4">
       {/* Welcome Banner */}
-      <Card className="bg-gradient-to-r from-[#1e3a5f] to-[#2d5a8a]">
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-center justify-between">
+      <Card className="relative overflow-hidden min-h-[54px]">
+        <div
+          className="absolute inset-0 z-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(to bottom, rgba(30,58,95,0.62) 60%, rgba(45,90,138,0.55) 100%), url(/field.JPG)',
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            backgroundAttachment: "scroll",
+            filter: "brightness(0.98)",
+          }}
+        />
+        <CardContent className="relative z-10 pt-1 pb-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
-                {isKidProfile ? <Baby className="h-7 w-7 text-white" /> : <User className="h-7 w-7 text-white" />}
+              <div className="w-14 h-14 rounded-full bg-white/30 flex items-center justify-center shadow-md">
+                {isKidProfile ? <Baby className="h-7 w-7 text-white drop-shadow" /> : <User className="h-7 w-7 text-white drop-shadow" />}
               </div>
               <div>
-                {hasKids ? (
-                  <DropdownMenu open={showProfileDropdown} onOpenChange={setShowProfileDropdown}>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-auto p-0 hover:bg-transparent text-white">
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                          {getActiveProfileName()}
-                          <ChevronDown className="h-5 w-5 opacity-70" />
-                        </h2>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>Switch Profile</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleSwitchProfile(me.player_id)}>
-                        <User className="h-4 w-4 mr-2" />
-                        {me?.name || "My Profile"}
-                        {activeProfileId === me?.player_id && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                      {kids.map((kid) => (
-                        <DropdownMenuItem key={kid.kid_id} onClick={() => handleSwitchProfile(kid.kid_id)}>
-                          <Baby className="h-4 w-4 mr-2" />
-                          {kid.name}
-                          {kid.age && <span className="text-xs text-muted-foreground ml-1">({kid.age}y)</span>}
-                          {activeProfileId === kid.kid_id && <Check className="h-4 w-4 ml-auto" />}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <h2 className="text-xl font-bold text-white">{getActiveProfileName()}</h2>
-                )}
-                <div className="flex items-center gap-2 mt-1">
-                  {!isKidProfile && profile?.group && getGroupBadge(profile.group)}
-                  {isKidProfile && <Badge className="bg-pink-100 text-pink-800">Junior</Badge>}
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-white mb-1 drop-shadow">
+                    Welcome, {getActiveProfileName()}!
+                  </h2>
+
+                  {/* Profile Switch Dropdown removed; use header switcher only */}
                 </div>
               </div>
             </div>
 
-            {/* Quick Stats */}
             {stats && (
-              <div className="hidden sm:flex gap-6">
+              <div className="flex gap-8 justify-center">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{stats.eventsAttendedThisMonth}</div>
-                  <div className="text-xs text-white/70">This Month</div>
+                  <div className="text-2xl font-bold text-white drop-shadow">{stats.eventsAttendedThisMonth}</div>
+                  <div className="text-xs text-white/80">Attended</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-amber-300">{stats.pendingPayments}</div>
-                  <div className="text-xs text-white/70">Pending</div>
+                  <div className="text-2xl font-bold text-amber-300 drop-shadow">{stats.pendingPayments}</div>
+                  <div className="text-xs text-white/80">Pending</div>
                 </div>
               </div>
             )}
@@ -505,42 +486,38 @@ export default function PlayerHomePage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Skeleton className="h-6 w-48" />
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-10 w-full" />
             </div>
           ) : nextEvent ? (
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-lg">{nextEvent.title}</h3>
-                  {getEventTypeBadge(nextEvent.event_type)}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="font-semibold text-lg">{nextEvent.title}</h3>
+                <div>{getEventTypeBadge(nextEvent.event_type)}</div>
+              </div>
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>{formatEventDate(nextEvent.starts_at)}</span>
+                  <span className="mx-1">•</span>
+                  <Clock className="h-4 w-4" />
+                  <span>{formatEventTime(nextEvent.starts_at)}</span>
                 </div>
-                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" />
-                    <span>{formatEventDate(nextEvent.starts_at)}</span>
+                {nextEvent.location && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    <span>{nextEvent.location}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>{formatEventTime(nextEvent.starts_at)}</span>
-                  </div>
-                  {nextEvent.location && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      <span>{nextEvent.location}</span>
-                    </div>
-                  )}
-                  {nextEvent.event_type === "net_practice" && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Attendance closes 48 hours before this net session.
-                    </p>
-                  )}
-                </div>
+                )}
+                {nextEvent.event_type === "net_practice" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Attendance closes 48 hours before this net session.
+                  </p>
+                )}
               </div>
 
-              {/* Attendance Status & Actions */}
               <div className="border-t pt-4">
                 {(() => {
                   const isNetPractice = nextEvent.event_type === "net_practice";
@@ -552,14 +529,12 @@ export default function PlayerHomePage() {
                   const isGoing = attending === "YES";
                   const requestAlreadySent = requestSentForEventId === nextEvent.event_id;
 
-                  // ✅ Phase-2 rule: show Request Participation ONLY if attendance is UNKNOWN or NO
                   const canShowRequestButton =
                     isNetPractice &&
                     isAfterCutoffBeforeStart &&
                     !isGoing &&
                     (attending === "UNKNOWN" || attending === "NO");
 
-                  // If net practice request window but user is already "YES", just show info (no request)
                   if (isNetPractice && isAfterCutoffBeforeStart && isGoing) {
                     return (
                       <div className="space-y-2">
@@ -574,7 +549,6 @@ export default function PlayerHomePage() {
                     );
                   }
 
-                  // ✅ Request window UI
                   if (canShowRequestButton) {
                     return (
                       <div className="space-y-3">
@@ -611,7 +585,6 @@ export default function PlayerHomePage() {
                     );
                   }
 
-                  // Default attendance UI; net practice disables after cutoff
                   const disableAttendanceButtons = isNetPractice && !isNetPracticeOpen;
 
                   if (attending === "YES") {
@@ -685,7 +658,6 @@ export default function PlayerHomePage() {
                 })()}
               </div>
 
-              {/* Friends Going Section */}
               {nextEvent.friendsSummary && (
                 <>
                   <Separator className="mt-4" />
@@ -740,7 +712,7 @@ export default function PlayerHomePage() {
         </CardContent>
       </Card>
 
-      {/* Last Event Card (Payment Focus) */}
+      {/* Last Event Card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -766,9 +738,9 @@ export default function PlayerHomePage() {
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <h3 className="font-semibold">{lastEvent.title}</h3>
-                    {getEventTypeBadge(lastEvent.event_type)}
+                    <div>{getEventTypeBadge(lastEvent.event_type)}</div>
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">{formatEventDate(lastEvent.starts_at)}</div>
                 </div>
@@ -780,7 +752,6 @@ export default function PlayerHomePage() {
                 )}
               </div>
 
-              {/* Payment Status & Actions */}
               <div className="border-t pt-4">
                 {lastEvent.my.paid_status === "PAID" ? (
                   <div className="flex items-center gap-2 text-green-600">
@@ -836,25 +807,6 @@ export default function PlayerHomePage() {
         </CardContent>
       </Card>
 
-      {/* Mobile Stats */}
-      {stats && (
-        <Card className="sm:hidden">
-          <CardContent className="pt-4">
-            <div className="flex justify-around">
-              <div className="text-center">
-                <div className="text-2xl font-bold">{stats.eventsAttendedThisMonth}</div>
-                <div className="text-xs text-muted-foreground">Events This Month</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-amber-600">{stats.pendingPayments}</div>
-                <div className="text-xs text-muted-foreground">Pending Payments</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Friends Going Modal */}
       <FriendsGoingModal
         openEventId={openFriendsEventId}
         me={me}

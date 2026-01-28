@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useProfile } from "@/components/context/ProfileContext";
+import { KIDS_EVENT_TYPE_OPTIONS } from "@/app/admin/events/constants";
 import {
   Card,
   CardContent,
@@ -18,44 +20,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  CalendarDays,
-  MapPin,
-  Clock,
-  Users,
-  Check,
-  X,
-  Filter,
-} from "lucide-react";
+import { CalendarDays, MapPin, Clock, Users, Check, X } from "lucide-react";
+import type { HomeEvent as HomeEventType, FriendsGoing } from "@/app/home/types";
+import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
 import { apiGet, apiPost } from "@/app/client/api";
 import { toast } from "sonner";
 
-type HomeEvent = {
-  event_id: string;
-  title: string;
-  event_type: string;
-  group: string;
-  starts_at: string;
-  fee: number;
-  status: string;
+type HomeEvent = HomeEventType & {
   location?: string;
-  kids_event?: boolean;
-  my?: {
-    attending: "YES" | "NO" | "UNKNOWN";
-    paid_status: "PAID" | "UNPAID" | "PENDING" | "REJECTED";
-  };
+  friendsSummary?: FriendsGoing;
 };
 
 function buildMonthOptions(count: number) {
   const options: { value: string; label: string }[] = [];
   const now = new Date();
+
   for (let i = -1; i < count; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     options.push({
-      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-        2,
-        "0"
-      )}`,
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
       label: d.toLocaleDateString("en-US", {
         month: "short",
         year: "numeric",
@@ -121,7 +104,17 @@ function getEventTypeBadge(type: string) {
   }
 }
 
-function getAttendingBadge(attending: string | undefined) {
+function getAttendingBadge(attending: string | undefined, isPast: boolean) {
+  if (isPast) {
+    if (attending === "YES") {
+      return <Badge className="bg-green-100 text-green-800">Attended</Badge>;
+    }
+    if (attending === "NO") {
+      return <Badge className="bg-red-100 text-red-700">Missed</Badge>;
+    }
+    return null;
+  }
+
   if (attending === "YES") {
     return <Badge className="bg-green-100 text-green-800">Going</Badge>;
   }
@@ -135,27 +128,34 @@ function getAttendingBadge(attending: string | undefined) {
   return null;
 }
 
-export default function PlayerBrowsePage() {
+export default function BrowsePage() {
   const [events, setEvents] = useState<HomeEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState<any>(null);
-  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const { activeProfileId, isKidProfile } = useProfile();
   const [selectedMonth, setSelectedMonth] = useState(
     monthKeyFromDate(new Date())
   );
   const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedAttendance, setSelectedAttendance] =
-    useState<string>("all");
+  const [selectedAttendance, setSelectedAttendance] = useState<string>("all");
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [openFriendsEventId, setOpenFriendsEventId] = useState<string | null>(
+    null
+  );
 
-  const monthOptions = useMemo(() => buildMonthOptions(7), []);
+  const monthOptions = useMemo(
+    () => buildMonthOptions(7),
+    []
+  ) as { value: string; label: string }[];
 
-  const eventTypeOptions = [
-    { value: "all", label: "All" },
-    { value: "net_practice", label: "Net Practice" },
-    { value: "league_match", label: "Match" },
-    { value: "family_event", label: "Family Event" },
-  ];
+  const eventTypeOptions = isKidProfile
+    ? [{ value: "all", label: "All" }, ...KIDS_EVENT_TYPE_OPTIONS]
+    : [
+        { value: "all", label: "All" },
+        { value: "net_practice", label: "Net Practice" },
+        { value: "league_match", label: "Match" },
+        { value: "family_event", label: "Family Event" },
+      ];
 
   const attendanceOptions = [
     { value: "all", label: "All" },
@@ -165,15 +165,13 @@ export default function PlayerBrowsePage() {
 
   const filteredEvents = useMemo(() => {
     let filtered = events;
+
     if (selectedType !== "all") {
-      filtered = filtered.filter(
-        (ev) => ev.event_type === selectedType
-      );
+      filtered = filtered.filter((ev) => ev.event_type === selectedType);
     }
+
     if (selectedAttendance === "attended") {
-      filtered = filtered.filter(
-        (ev) => ev.my?.attending === "YES"
-      );
+      filtered = filtered.filter((ev) => ev.my?.attending === "YES");
     } else if (selectedAttendance === "missed") {
       filtered = filtered.filter(
         (ev) =>
@@ -182,6 +180,7 @@ export default function PlayerBrowsePage() {
           !ev.my?.attending
       );
     }
+
     return filtered;
   }, [events, selectedType, selectedAttendance]);
 
@@ -190,8 +189,6 @@ export default function PlayerBrowsePage() {
       try {
         const data = await apiGet("/api/me");
         setMe(data);
-        const profileId = data.active_profile_id || data.player_id;
-        setActiveProfileId(profileId);
       } catch {
         // Not logged in
       }
@@ -202,14 +199,15 @@ export default function PlayerBrowsePage() {
   useEffect(() => {
     async function loadEvents() {
       if (!me || !activeProfileId) return;
+
       const isKid = activeProfileId !== me.player_id;
       setLoading(true);
+
       try {
         const q = new URLSearchParams();
         q.set("month", selectedMonth);
-        if (isKid) {
-          q.set("group", "all_kids");
-        }
+        if (isKid) q.set("group", "all_kids");
+
         const data = await apiGet(`/api/events?${q.toString()}`);
         setEvents(data.events || []);
       } catch (error) {
@@ -219,17 +217,15 @@ export default function PlayerBrowsePage() {
         setLoading(false);
       }
     }
+
     loadEvents();
   }, [selectedMonth, me, activeProfileId]);
 
-  const isKidProfile =
-    !!(activeProfileId && me && activeProfileId !== me.player_id);
+  // isKidProfile now comes from useProfile()
 
-  async function markAttending(
-    eventId: string,
-    attending: "YES" | "NO"
-  ) {
+  async function markAttending(eventId: string, attending: "YES" | "NO") {
     if (!me) return;
+
     setMarkingId(eventId);
     try {
       if (isKidProfile && activeProfileId) {
@@ -240,6 +236,7 @@ export default function PlayerBrowsePage() {
       } else {
         await apiPost(`/api/events/${eventId}/attending`, { attending });
       }
+
       setEvents((prev) =>
         prev.map((ev) =>
           ev.event_id === eventId
@@ -247,11 +244,8 @@ export default function PlayerBrowsePage() {
             : ev
         )
       );
-      toast.success(
-        attending === "YES"
-          ? "Marked as attending!"
-          : "Marked as not attending"
-      );
+
+      toast.success(attending === "YES" ? "Marked as attending!" : "Marked as not attending");
     } catch (error) {
       console.error("Failed to mark attendance:", error);
       toast.error("Failed to update attendance");
@@ -260,80 +254,92 @@ export default function PlayerBrowsePage() {
     }
   }
 
+  // Ensure the return is inside the component function
   return (
     <div className="space-y-4">
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
-          {/* Responsive grid: 1 column on mobile, 2 on small screens, 3 on medium+ */}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-            {/* Month filter */}
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <CalendarDays className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select
-                value={selectedMonth}
-                onValueChange={setSelectedMonth}
-              >
-                <SelectTrigger className="w-full sm:w-[110px]">
-                  <SelectValue placeholder="Select month" />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthOptions.map((opt) => (
-                    <SelectItem
-                      key={opt.value}
-                      value={opt.value}
-                    >
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="w-full">
+            <div className="flex flex-row gap-1 w-full mb-1">
+              <div className="flex-1 min-w-0 text-left">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Month
+                </span>
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Type
+                </span>
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  Attendance
+                </span>
+              </div>
             </div>
 
-            {/* Type filter */}
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <Filter className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select
-                value={selectedType}
-                onValueChange={setSelectedType}
-              >
-                <SelectTrigger className="w-full sm:w-[90px]">
-                  <SelectValue placeholder="Event type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {eventTypeOptions.map((opt) => (
-                    <SelectItem
-                      key={opt.value}
-                      value={opt.value}
-                    >
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="flex flex-row gap-1 w-full">
+              <div className="flex-1 min-w-0">
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="h-7 text-xs px-2 w-full">
+                    <SelectValue placeholder="Select month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(monthOptions) &&
+                      monthOptions.map((opt) => (
+                        <SelectItem
+                          key={opt.value}
+                          value={opt.value}
+                          className="text-xs"
+                        >
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Attendance filter */}
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <Users className="h-5 w-5 text-muted-foreground shrink-0" />
-              <Select
-                value={selectedAttendance}
-                onValueChange={setSelectedAttendance}
-              >
-                <SelectTrigger className="w-full sm:w-[110px]">
-                  <SelectValue placeholder="Attendance" />
-                </SelectTrigger>
-                <SelectContent>
-                  {attendanceOptions.map((opt) => (
-                    <SelectItem
-                      key={opt.value}
-                      value={opt.value}
-                    >
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex-1 min-w-0">
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger className="h-7 text-xs px-2 w-full">
+                    <SelectValue placeholder="Event type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventTypeOptions.map((opt) => (
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        className="text-xs"
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <Select
+                  value={selectedAttendance}
+                  onValueChange={setSelectedAttendance}
+                >
+                  <SelectTrigger className="h-7 text-xs px-2 w-full">
+                    <SelectValue placeholder="Attendance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {attendanceOptions.map((opt) => (
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        className="text-xs"
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -345,15 +351,13 @@ export default function PlayerBrowsePage() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Events</CardTitle>
             <CardDescription>
-              {filteredEvents.length} event
-              {filteredEvents.length !== 1 ? "s" : ""}
+              {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
               {selectedType !== "all" &&
-                ` • ${
-                  eventTypeOptions.find((o) => o.value === selectedType)?.label
-                }`}
+                ` • ${eventTypeOptions.find((o) => o.value === selectedType)?.label}`}
             </CardDescription>
           </div>
         </CardHeader>
+
         <CardContent className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="space-y-3">
@@ -369,9 +373,7 @@ export default function PlayerBrowsePage() {
             <div className="text-center py-8">
               <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">
-                {events.length === 0
-                  ? "No events this month"
-                  : "No events match your filter"}
+                {events.length === 0 ? "No events this month" : "No events match your filter"}
               </p>
               {selectedType !== "all" && events.length > 0 && (
                 <Button
@@ -393,74 +395,97 @@ export default function PlayerBrowsePage() {
                 return (
                   <div
                     key={event.event_id}
-                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="p-3 border rounded-lg hover:bg-muted/50 transition-colors flex flex-row items-start gap-2"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-medium">{event.title}</h3>
-                          {getEventTypeBadge(event.event_type)}
-                          {getAttendingBadge(myAttending)}
-                        </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h3 className="font-semibold text-base leading-tight truncate text-[#14213d]">
+                          {event.title}
+                        </h3>
+                      </div>
 
-                        <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <CalendarDays className="h-4 w-4" />
-                            <span>{formatEventDate(event.starts_at)}</span>
-                            <Clock className="h-4 w-4 ml-2" />
-                            <span>{formatEventTime(event.starts_at)}</span>
-                          </div>
-                          {event.location && (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              <span className="truncate">{event.location}</span>
-                            </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        <span>{formatEventDate(event.starts_at)}</span>
+                        <Clock className="h-3.5 w-3.5 ml-1" />
+                        <span>{formatEventTime(event.starts_at)}</span>
+                      </div>
+
+                      {event.location && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                      )}
+
+                      {event.friendsSummary && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-2 text-xs text-blue-700 mb-1 mt-1 hover:underline focus:outline-none"
+                          onClick={() => setOpenFriendsEventId(event.event_id)}
+                          title="Show Friends Going"
+                        >
+                          <Users className="h-3.5 w-3.5 mr-1" />
+                          {event.kids_event ? (
+                            <span>
+                              Kids {event.friendsSummary.kids?.yes || 0}/
+                              {event.friendsSummary.kids?.total || 0}
+                            </span>
+                          ) : (
+                            <>
+                              {(event.group === "men" || event.group === "all") &&
+                                event.friendsSummary.men && (
+                                  <span>
+                                    Men {event.friendsSummary.men.yes}/
+                                    {event.friendsSummary.men.total}
+                                  </span>
+                                )}
+
+                              {event.group === "all" &&
+                                event.friendsSummary.men &&
+                                event.friendsSummary.women && <span> • </span>}
+
+                              {(event.group === "women" || event.group === "all") &&
+                                event.friendsSummary.women && (
+                                  <span>
+                                    Women {event.friendsSummary.women.yes}/
+                                    {event.friendsSummary.women.total}
+                                  </span>
+                                )}
+                            </>
                           )}
-                        </div>
+                        </button>
+                      )}
+                    </div>
 
+                    <div className="flex flex-col items-end gap-1 min-w-fit pl-2">
+                      <div className="flex flex-row items-center gap-1 mb-1">
+                        {getAttendingBadge(myAttending, isPast)}
                         {event.fee > 0 && (
-                          <div className="mt-2">
-                            <Badge variant="secondary">
-                              £{event.fee}
-                            </Badge>
-                          </div>
+                          <Badge className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200">
+                            £{event.fee}
+                          </Badge>
                         )}
                       </div>
 
-                      {/* Attendance actions */}
                       {!isPast && me && (
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 mt-1">
                           <Button
                             size="sm"
-                            variant={
-                              myAttending === "YES" ? "default" : "outline"
-                            }
-                            className={
-                              myAttending === "YES"
-                                ? "bg-green-600 hover:bg-green-700"
-                                : ""
-                            }
+                            variant={myAttending === "YES" ? "default" : "outline"}
+                            className={myAttending === "YES" ? "bg-green-600 hover:bg-green-700" : ""}
                             disabled={isMarking}
-                            onClick={() =>
-                              markAttending(event.event_id, "YES")
-                            }
+                            onClick={() => markAttending(event.event_id, "YES")}
                           >
                             <Check className="h-4 w-4" />
                           </Button>
+
                           <Button
                             size="sm"
-                            variant={
-                              myAttending === "NO" ? "default" : "outline"
-                            }
-                            className={
-                              myAttending === "NO"
-                                ? "bg-red-600 hover:bg-red-700"
-                                : ""
-                            }
+                            variant={myAttending === "NO" ? "default" : "outline"}
+                            className={myAttending === "NO" ? "bg-red-600 hover:bg-red-700" : ""}
                             disabled={isMarking}
-                            onClick={() =>
-                              markAttending(event.event_id, "NO")
-                            }
+                            onClick={() => markAttending(event.event_id, "NO")}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -474,6 +499,21 @@ export default function PlayerBrowsePage() {
           )}
         </CardContent>
       </Card>
+
+      <FriendsGoingModal
+        openEventId={openFriendsEventId}
+        me={me}
+        events={events as any}
+        modalData={
+          openFriendsEventId
+            ? (events.find((ev) => ev.event_id === openFriendsEventId)
+                ?.friendsSummary as FriendsGoing) || null
+            : null
+        }
+        loading={false}
+        err=""
+        onClose={() => setOpenFriendsEventId(null)}
+      />
     </div>
   );
 }

@@ -43,24 +43,46 @@ export async function GET(req: NextRequest) {
       .where("starts_at", "<", end)
       .orderBy("starts_at", "asc");
 
-    // group filter (optional)
-    if (group !== "all") q = q.where("group", "==", group);
-
-    // view filter (optional)
-    if (view === "scheduled") q = q.where("starts_at", ">=", now);
-    else if (view === "past") q = q.where("starts_at", "<", now);
-    // view === "all" -> no extra filter
-
-    const snap = await q.get();
-    const events = snap.docs.map((d) => {
-      const data = d.data() as any;
-      const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
-      return {
-        event_id: d.id,
-        ...data,
-        _is_past: starts.getTime() <= now.getTime(),
-      };
-    });
+    let events = [];
+    if (group === "kids") {
+      // For kids, fetch all events for the month, filter in-memory for all kids events
+      // (group === 'kids' OR group === 'all_kids' OR kids_event === true)
+      // This avoids breaking other group logic and works around Firestore OR limitations
+      // (If you have a lot of events, consider optimizing this with Firestore 'in' queries)
+      // view filter (optional)
+      if (view === "scheduled") q = q.where("starts_at", ">=", now);
+      else if (view === "past") q = q.where("starts_at", "<", now);
+      // view === "all" -> no extra filter
+      const snap = await q.get();
+      events = snap.docs.map((d) => {
+        const data = d.data() as any;
+        const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
+        return {
+          event_id: d.id,
+          ...data,
+          _is_past: starts.getTime() <= now.getTime(),
+        };
+      }).filter(ev => {
+        const g = String(ev.group || "").toLowerCase();
+        return g === "kids" || g === "all_kids" || ev.kids_event === true;
+      });
+    } else {
+      // All other groups: keep existing logic
+      if (group !== "all") q = q.where("group", "==", group);
+      if (view === "scheduled") q = q.where("starts_at", ">=", now);
+      else if (view === "past") q = q.where("starts_at", "<", now);
+      // view === "all" -> no extra filter
+      const snap = await q.get();
+      events = snap.docs.map((d) => {
+        const data = d.data() as any;
+        const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
+        return {
+          event_id: d.id,
+          ...data,
+          _is_past: starts.getTime() <= now.getTime(),
+        };
+      });
+    }
 
     return NextResponse.json({ events });
   } catch (e: any) {
