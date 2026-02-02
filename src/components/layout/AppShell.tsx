@@ -28,6 +28,8 @@ type Props = {
   maxWidth?: string;
   /** Hide the header */
   hideHeader?: boolean;
+  /** If true, render only children (login page) */
+  isLoginPage?: boolean;
 };
 
 export function AppShell({
@@ -38,6 +40,7 @@ export function AppShell({
   onSignOut,
   maxWidth = "600px",
   hideHeader = false,
+  isLoginPage = false,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -66,6 +69,9 @@ export function AppShell({
     setActiveProfileId(profileId);
   }
 
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <div className="flex">
