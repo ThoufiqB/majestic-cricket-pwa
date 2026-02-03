@@ -63,7 +63,7 @@ export async function getFriendsSummaryForEvent(event: any) {
       const isMale = playerGroup === "men";
 
       if (isMale) {
-        const isMaleGroup = eventGroup === "all" || eventGroup === "men";
+        const isMaleGroup = eventGroup === "all" || eventGroup === "men" || eventGroup === "mixed";
         if (isMaleGroup) {
           totalMen++;
           if (attending === "YES") {
@@ -71,7 +71,7 @@ export async function getFriendsSummaryForEvent(event: any) {
           }
         }
       } else {
-        const isFemaleGroup = eventGroup === "all" || eventGroup === "women";
+        const isFemaleGroup = eventGroup === "all" || eventGroup === "women" || eventGroup === "mixed";
         if (isFemaleGroup) {
           totalWomen++;
           if (attending === "YES") {
