@@ -1,3 +1,12 @@
+html {
+  font-size: 16px;
+}
+
+@media (max-width: 600px) {
+  html {
+    font-size: 13.6px; /* 15% reduction for mobile, increased by 3% from previous */
+  }
+}
 @import "tailwindcss";
 @import "tw-animate-css";
 
