@@ -22,16 +22,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { 
-  Users, 
-  Baby, 
+import {
+  Users,
+  Baby,
   Search,
   Shield,
   Phone,
   Mail,
   ChevronRight,
   UserCog,
-  Filter
 } from "lucide-react";
 
 interface Member {
@@ -68,7 +67,7 @@ export default function AdminMembersPage() {
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  
+
   // Member detail modal
   const [selectedMember, setSelectedMember] = useState<MemberDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -84,7 +83,6 @@ export default function AdminMembersPage() {
       const params = new URLSearchParams();
       if (groupFilter !== "all") params.set("group", groupFilter);
       if (roleFilter !== "all") params.set("role", roleFilter);
-      
       const res = await fetch(`/api/admin/members/list?${params}`);
       const data = await res.json();
       setMembers(data.members || []);
@@ -118,11 +116,9 @@ export default function AdminMembersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: newRole }),
       });
-      // Update local state
       if (selectedMember) {
         setSelectedMember({ ...selectedMember, role: newRole });
       }
-      // Refresh list
       fetchMembers();
     } catch (e) {
       console.error("Failed to update role:", e);
@@ -131,7 +127,6 @@ export default function AdminMembersPage() {
     }
   }
 
-  // Filter by search locally
   const filteredMembers = members.filter(
     (m) =>
       m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -159,7 +154,7 @@ export default function AdminMembersPage() {
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-2xl font-bold">{stats.total}</p>
@@ -190,8 +185,9 @@ export default function AdminMembersPage() {
       {/* Search & Filters */}
       <Card>
         <CardContent className="pt-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          {/* Responsive search and filters grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, email, or phone..."
@@ -200,28 +196,26 @@ export default function AdminMembersPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
-              <Select value={groupFilter} onValueChange={setGroupFilter}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Group" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Groups</SelectItem>
-                  <SelectItem value="men">Men</SelectItem>
-                  <SelectItem value="women">Women</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="admin">Admins</SelectItem>
-                  <SelectItem value="player">Players</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={groupFilter} onValueChange={setGroupFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Groups</SelectItem>
+                <SelectItem value="men">Men</SelectItem>
+                <SelectItem value="women">Women</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="admin">Admins</SelectItem>
+                <SelectItem value="player">Players</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -272,7 +266,9 @@ export default function AdminMembersPage() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {member.email}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -295,14 +291,19 @@ export default function AdminMembersPage() {
       </Card>
 
       {/* Member Detail Modal */}
-      <Dialog open={!!selectedMember} onOpenChange={() => setSelectedMember(null)}>
+      <Dialog
+        open={!!selectedMember}
+        onOpenChange={() => setSelectedMember(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCog className="h-5 w-5" />
               Member Details
             </DialogTitle>
-            <DialogDescription>View and manage member information</DialogDescription>
+            <DialogDescription>
+              View and manage member information
+            </DialogDescription>
           </DialogHeader>
 
           {detailLoading ? (
@@ -316,7 +317,9 @@ export default function AdminMembersPage() {
               {/* Basic Info */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">{selectedMember.name}</h3>
+                  <h3 className="text-lg font-semibold">
+                    {selectedMember.name}
+                  </h3>
                   <Badge variant="outline" className="capitalize">
                     {selectedMember.group}
                   </Badge>
@@ -340,17 +343,28 @@ export default function AdminMembersPage() {
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4" />
                     <span className="text-sm">Role:</span>
-                    <Badge variant={selectedMember.role === "admin" ? "default" : "secondary"}>
+                    <Badge
+                      variant={
+                        selectedMember.role === "admin" ? "default" : "secondary"
+                      }
+                    >
                       {selectedMember.role === "admin" ? "Admin" : "Player"}
                     </Badge>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => toggleAdminRole(selectedMember.player_id, selectedMember.role || "player")}
+                    onClick={() =>
+                      toggleAdminRole(
+                        selectedMember.player_id,
+                        selectedMember.role || "player"
+                      )
+                    }
                     disabled={updating}
                   >
-                    {selectedMember.role === "admin" ? "Remove Admin" : "Make Admin"}
+                    {selectedMember.role === "admin"
+                      ? "Remove Admin"
+                      : "Make Admin"}
                   </Button>
                 </div>
               </div>
@@ -376,7 +390,9 @@ export default function AdminMembersPage() {
                             </Badge>
                           )}
                           <Badge
-                            variant={kid.status === "active" ? "secondary" : "outline"}
+                            variant={
+                              kid.status === "active" ? "secondary" : "outline"
+                            }
                             className="text-xs"
                           >
                             {kid.status}

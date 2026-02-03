@@ -185,10 +185,21 @@ export function AddPlayersSection() {
     };
   }, [group]);
 
+  // Phase 1: Add client-side group filter to ensure only events matching the selected group are shown
   const filteredEvents = useMemo(() => {
     const list = Array.isArray(events) ? events : [];
-    return list.sort((a: any, b: any) => new Date(a?.starts_at).getTime() - new Date(b?.starts_at).getTime());
-  }, [events]);
+    // Always show all if group is 'all', otherwise filter by normalized group
+    let filtered;
+    if (group === "all") {
+      filtered = list;
+    } else if (group === "kids") {
+      // Only show events that are truly kids events
+      filtered = list.filter((ev: any) => ev?.kids_event === true || String(ev?.group || "").toLowerCase() === "all_kids");
+    } else {
+      filtered = list.filter((ev: any) => normalizeGroupFromEvent(ev) === group);
+    }
+    return filtered.sort((a: any, b: any) => new Date(a?.starts_at).getTime() - new Date(b?.starts_at).getTime());
+  }, [events, group]);
 
   const selectedEvent = useMemo(() => {
     return filteredEvents.find((e: any) => String(e?.event_id) === String(selectedEventId)) || null;

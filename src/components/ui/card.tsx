@@ -7,7 +7,10 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
+        // Default desktop: large padding and radius
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        // Mobile: reduce padding and radius
+        "sm:rounded-lg sm:py-4",
         className
       )}
       {...props}

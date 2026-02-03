@@ -11,6 +11,7 @@ type KidProfile = {
 
 type ProfileContextType = {
   playerId: string | null;
+  playerName: string | null;
   activeProfileId: string | null;
   isKidProfile: boolean;
   isAdmin: boolean;
@@ -22,6 +23,7 @@ type ProfileContextType = {
 
 const ProfileContext = createContext<ProfileContextType>({
   playerId: null,
+  playerName: null,
   activeProfileId: null,
   isKidProfile: false,
   isAdmin: false,
@@ -37,6 +39,7 @@ export function useProfile() {
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [playerName, setPlayerName] = useState<string | null>(null);
   const [activeProfileId, setActiveProfileIdState] = useState<string | null>(null);
   const [kids, setKids] = useState<KidProfile[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -48,12 +51,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     try {
       const data = await apiGet("/api/me");
       setPlayerId(data.player_id);
+      setPlayerName(data.name || null);
       setActiveProfileIdState(data.active_profile_id || data.player_id);
       setKids(data.kids_profiles || []);
       setIsAdmin(String(data.role || "").toLowerCase() === "admin");
     } catch (e) {
       // Not logged in
       setPlayerId(null);
+      setPlayerName(null);
       setActiveProfileIdState(null);
       setKids([]);
       setIsAdmin(false);
@@ -74,6 +79,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     <ProfileContext.Provider
       value={{
         playerId,
+        playerName,
         activeProfileId,
         isKidProfile,
         isAdmin,

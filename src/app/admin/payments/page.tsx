@@ -74,16 +74,16 @@ export default function AdminPaymentsPage() {
   const [stats, setStats] = useState<PaymentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  
+
   // Filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  
+
   // Selected payments for bulk action
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  
+
   // Confirm dialog
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -123,7 +123,7 @@ export default function AdminPaymentsPage() {
 
       const res = await fetch(`/api/admin/payments/list?${params}`);
       if (!res.ok) throw new Error("Failed to fetch payments");
-      
+
       const data = await res.json();
       setPayments(data.payments || []);
       setStats(data.stats || null);
@@ -159,33 +159,33 @@ export default function AdminPaymentsPage() {
     if (selectedIds.size === payments.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(payments.map(p => p.id)));
+      setSelectedIds(new Set(payments.map((p) => p.id)));
     }
   };
 
   const openConfirmDialog = (action: "paid" | "rejected", payment?: PaymentItem) => {
-    const selected = payment 
-      ? [payment] 
-      : payments.filter(p => selectedIds.has(p.id));
-    
+    const selected = payment
+      ? [payment]
+      : payments.filter((p) => selectedIds.has(p.id));
+
     if (selected.length === 0) {
       toast.error("No payments selected");
       return;
     }
-    
+
     setConfirmDialog({ open: true, action, payments: selected });
   };
 
   const handleUpdateStatus = async () => {
     if (confirmDialog.payments.length === 0) return;
-    
+
     setUpdating(true);
     try {
       const res = await fetch("/api/admin/payments/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          payments: confirmDialog.payments.map(p => ({
+          payments: confirmDialog.payments.map((p) => ({
             eventId: p.event_id,
             profileId: p.profile_id,
             eventType: p.event_type,
@@ -195,10 +195,10 @@ export default function AdminPaymentsPage() {
       });
 
       if (!res.ok) throw new Error("Failed to update payments");
-      
+
       const data = await res.json();
       toast.success(`${data.updated} payment(s) marked as ${confirmDialog.action}`);
-      
+
       setConfirmDialog({ open: false, action: "paid", payments: [] });
       fetchPayments();
     } catch (error) {
@@ -225,11 +225,23 @@ export default function AdminPaymentsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Paid</Badge>;
+        return (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+            Paid
+          </Badge>
+        );
       case "pending":
-        return <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">Pending</Badge>;
+        return (
+          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+            Pending
+          </Badge>
+        );
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">Rejected</Badge>;
+        return (
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+            Rejected
+          </Badge>
+        );
       default:
         return <Badge variant="outline">Unpaid</Badge>;
     }
@@ -238,7 +250,7 @@ export default function AdminPaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
@@ -249,7 +261,9 @@ export default function AdminPaymentsPage() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <>
-                <div className="text-2xl font-bold text-amber-600">{stats?.pending || 0}</div>
+                <div className="text-2xl font-bold text-amber-600">
+                  {stats?.pending || 0}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {formatCurrency(stats?.pendingAmount || 0)} awaiting
                 </p>
@@ -257,7 +271,7 @@ export default function AdminPaymentsPage() {
             )}
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
@@ -268,7 +282,9 @@ export default function AdminPaymentsPage() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <>
-                <div className="text-2xl font-bold text-green-600">{stats?.paid || 0}</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {stats?.paid || 0}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {formatCurrency(stats?.paidAmount || 0)} collected
                 </p>
@@ -276,7 +292,7 @@ export default function AdminPaymentsPage() {
             )}
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Unpaid</CardTitle>
@@ -293,7 +309,7 @@ export default function AdminPaymentsPage() {
             )}
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Rejected</CardTitle>
@@ -304,7 +320,9 @@ export default function AdminPaymentsPage() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <>
-                <div className="text-2xl font-bold text-red-600">{stats?.rejected || 0}</div>
+                <div className="text-2xl font-bold text-red-600">
+                  {stats?.rejected || 0}
+                </div>
                 <p className="text-xs text-muted-foreground">Payment issues</p>
               </>
             )}
@@ -317,7 +335,10 @@ export default function AdminPaymentsPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
             {/* Status Tabs */}
-            <Tabs value={statusFilter} onValueChange={(v) => handleStatusChange(v as StatusFilter)}>
+            <Tabs
+              value={statusFilter}
+              onValueChange={(v) => handleStatusChange(v as StatusFilter)}
+            >
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="paid" className="gap-2">
                   <CheckCircle2 className="h-4 w-4" />
@@ -339,8 +360,8 @@ export default function AdminPaymentsPage() {
             </Tabs>
 
             {/* Search and Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name or event..."
@@ -349,9 +370,12 @@ export default function AdminPaymentsPage() {
                   className="pl-9"
                 />
               </div>
-              
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
-                <SelectTrigger className="w-full sm:w-[140px]">
+
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter(v as TypeFilter)}
+              >
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -360,9 +384,9 @@ export default function AdminPaymentsPage() {
                   <SelectItem value="kids">Kids</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Select value={monthFilter} onValueChange={setMonthFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="All Months" />
                 </SelectTrigger>
                 <SelectContent>
@@ -422,7 +446,9 @@ export default function AdminPaymentsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">
-              {statusFilter === "all" ? "All Payments" : `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Payments`}
+              {statusFilter === "all"
+                ? "All Payments"
+                : `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Payments`}
             </CardTitle>
             {payments.length > 0 && statusFilter === "pending" && (
               <Button variant="ghost" size="sm" onClick={selectAll}>
@@ -435,7 +461,10 @@ export default function AdminPaymentsPage() {
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-4 p-3 border rounded-lg">
+                <div
+                  key={i}
+                  className="flex items-center gap-4 p-3 border rounded-lg"
+                >
                   <Skeleton className="h-10 w-10 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-40" />
@@ -450,7 +479,7 @@ export default function AdminPaymentsPage() {
               <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">No payments found</p>
               <p className="text-sm text-muted-foreground">
-                {statusFilter !== "all" 
+                {statusFilter !== "all"
                   ? `No ${statusFilter} payments match your filters`
                   : "Try adjusting your filters"}
               </p>
@@ -460,79 +489,106 @@ export default function AdminPaymentsPage() {
               {payments.map((payment) => {
                 const showCheckbox = payment.status === "pending";
                 return (
-                <div
-                  key={payment.id}
-                  className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${showCheckbox ? "cursor-pointer" : ""}
-                    ${selectedIds.has(payment.id) ? "border-primary bg-primary/5" : showCheckbox ? "hover:bg-muted/50" : ""}`}
-                  onClick={() => showCheckbox && toggleSelect(payment.id)}
-                >
-                  {/* Selection Checkbox - Only for pending */}
-                  {showCheckbox && (
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center
-                    ${selectedIds.has(payment.id) ? "border-primary bg-primary" : "border-muted-foreground/30"}`}
+                  <div
+                    key={payment.id}
+                    className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                      showCheckbox ? "cursor-pointer" : ""
+                    } ${
+                      selectedIds.has(payment.id)
+                        ? "border-primary bg-primary/5"
+                        : showCheckbox
+                        ? "hover:bg-muted/50"
+                        : ""
+                    }`}
+                    onClick={() => showCheckbox && toggleSelect(payment.id)}
                   >
-                    {selectedIds.has(payment.id) && <Check className="h-3 w-3 text-white" />}
-                  </div>
-                  )}
-                  
-                  {/* Type Icon */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                    ${payment.event_type === "kids" ? "bg-pink-100 dark:bg-pink-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}
-                  >
-                    {payment.event_type === "kids" ? (
-                      <Baby className="h-5 w-5 text-pink-600" />
-                    ) : (
-                      <Users className="h-5 w-5 text-blue-600" />
+                    {/* Selection Checkbox - Only for pending */}
+                    {showCheckbox && (
+                      <div
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                          selectedIds.has(payment.id)
+                            ? "border-primary bg-primary"
+                            : "border-muted-foreground/30"
+                        }`}
+                      >
+                        {selectedIds.has(payment.id) && (
+                          <Check className="h-3 w-3 text-white" />
+                        )}
+                      </div>
                     )}
-                  </div>
-                  
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{payment.profile_name}</span>
-                      {payment.parent_name && (
-                        <span className="text-xs text-muted-foreground truncate">
-                          (Parent: {payment.parent_name})
-                        </span>
+
+                    {/* Type Icon */}
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        payment.event_type === "kids"
+                          ? "bg-pink-100 dark:bg-pink-900/30"
+                          : "bg-blue-100 dark:bg-blue-900/30"
+                      }`}
+                    >
+                      {payment.event_type === "kids" ? (
+                        <Baby className="h-5 w-5 text-pink-600" />
+                      ) : (
+                        <Users className="h-5 w-5 text-blue-600" />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      <span className="truncate">{payment.event_name}</span>
-                      <span>•</span>
-                      <span>{formatDate(payment.event_date)}</span>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium truncate">
+                          {payment.profile_name}
+                        </span>
+                        {payment.parent_name && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            (Parent: {payment.parent_name})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        <span className="truncate">{payment.event_name}</span>
+                        <span>•</span>
+                        <span>{formatDate(payment.event_date)}</span>
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Amount & Status */}
-                  <div className="text-right space-y-1">
-                    <div className="font-semibold">{formatCurrency(payment.amount)}</div>
-                    {getStatusBadge(payment.status)}
-                  </div>
-                  
-                  {/* Quick Actions */}
-                  {(payment.status === "pending" || payment.status === "unpaid") && (
-                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
-                        onClick={() => openConfirmDialog("paid", payment)}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-100"
-                        onClick={() => openConfirmDialog("rejected", payment)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+
+                    {/* Amount & Status */}
+                    <div className="text-right space-y-1">
+                      <div className="font-semibold">
+                        {formatCurrency(payment.amount)}
+                      </div>
+                      {getStatusBadge(payment.status)}
                     </div>
-                  )}
-                </div>
-              );
+
+                    {/* Quick Actions */}
+                    {(payment.status === "pending" ||
+                      payment.status === "unpaid") && (
+                      <div
+                        className="flex gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
+                          onClick={() => openConfirmDialog("paid", payment)}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-100"
+                          onClick={() =>
+                            openConfirmDialog("rejected", payment)
+                          }
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
               })}
             </div>
           )}
@@ -540,50 +596,87 @@ export default function AdminPaymentsPage() {
       </Card>
 
       {/* Confirm Dialog */}
-      <Dialog open={confirmDialog.open} onOpenChange={(open) => !updating && setConfirmDialog({ ...confirmDialog, open })}>
+      <Dialog
+        open={confirmDialog.open}
+        onOpenChange={(open) =>
+          !updating && setConfirmDialog({ ...confirmDialog, open })
+        }
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {confirmDialog.action === "paid" ? "Confirm Payment" : "Reject Payment"}
+              {confirmDialog.action === "paid"
+                ? "Confirm Payment"
+                : "Reject Payment"}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <p className="text-muted-foreground">
               {confirmDialog.action === "paid"
                 ? `Are you sure you want to mark ${confirmDialog.payments.length} payment(s) as confirmed?`
                 : `Are you sure you want to reject ${confirmDialog.payments.length} payment(s)?`}
             </p>
-            
+
             {confirmDialog.payments.length <= 5 && (
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {confirmDialog.payments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded">
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between text-sm p-2 bg-muted rounded"
+                  >
                     <span>{p.profile_name}</span>
-                    <span className="text-muted-foreground">{formatCurrency(p.amount)}</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(p.amount)}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
-            
+
             <div className="flex justify-between items-center text-sm font-medium pt-2 border-t">
               <span>Total</span>
-              <span>{formatCurrency(confirmDialog.payments.reduce((sum, p) => sum + p.amount, 0))}</span>
+              <span>
+                {formatCurrency(
+                  confirmDialog.payments.reduce(
+                    (sum, p) => sum + p.amount,
+                    0
+                  )
+                )}
+              </span>
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDialog({ ...confirmDialog, open: false })} disabled={updating}>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setConfirmDialog({ ...confirmDialog, open: false })
+              }
+              disabled={updating}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleUpdateStatus}
               disabled={updating}
-              className={confirmDialog.action === "paid" ? "bg-green-600 hover:bg-green-700" : ""}
-              variant={confirmDialog.action === "rejected" ? "destructive" : "default"}
+              className={
+                confirmDialog.action === "paid"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : ""
+              }
+              variant={
+                confirmDialog.action === "rejected"
+                  ? "destructive"
+                  : "default"
+              }
             >
-              {updating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {confirmDialog.action === "paid" ? "Confirm Paid" : "Reject"}
+              {updating && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {confirmDialog.action === "paid"
+                ? "Confirm Paid"
+                : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>

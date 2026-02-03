@@ -25,6 +25,8 @@ import {
   Users
 } from "lucide-react";
 import { useProfile } from "@/components/context/ProfileContext";
+import { useState } from "react";
+import { switchProfile } from "@/lib/switchProfile";
 import { useScrollDirection } from "@/lib/hooks/useScrollDirection";
 
 type Profile = {
@@ -54,7 +56,10 @@ export function Header({
   onSignOut
 }: Props) {
   const pathname = usePathname();
-  const { isAdmin, isKidProfile, kids } = useProfile();
+  const { isAdmin, isKidProfile, kids, playerId, activeProfileId, setActiveProfileId, refreshProfile } = useProfile();
+
+  // Local state for loading indicator on switch
+  const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(null);
   const { isHidden } = useScrollDirection({ threshold: 50, mobileOnly: true });
 
   // Auto-detect title from pathname if not provided
@@ -79,6 +84,25 @@ export function Header({
     if (pathname.includes("/browse")) return "Browse";
     return "Home";
   };
+
+  // Helper to get current user object for switchProfile util
+  const me = playerId ? { player_id: playerId } : null;
+
+  // Unified switch handler
+  async function handleHeaderSwitchProfile(profileId: string) {
+    if (!me) return;
+    setSwitchingProfileId(profileId);
+    try {
+      await switchProfile({
+        profileId,
+        me,
+        setContextProfileId: setActiveProfileId,
+        refreshProfile,
+      });
+    } finally {
+      setSwitchingProfileId(null);
+    }
+  }
 
   return (
     <header className={`sticky top-0 z-40 bg-card border-b transition-transform duration-300 ${
@@ -106,7 +130,7 @@ export function Header({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center justify-end gap-2">
           {/* Admin Link (Player variant only, when user is admin) */}
           {variant === "player" && isAdmin && (
             <Button variant="outline" size="sm" asChild className="text-[#1e3a5f] border-[#1e3a5f]/30 hover:bg-[#1e3a5f]/10">
@@ -117,22 +141,20 @@ export function Header({
             </Button>
           )}
 
-          {/* My Kids / My Parents Link removed. Now accessible via Profile tab only. */}
-
-          {/* Profile Link (Player only) */}
-          {variant === "player" && (
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/profile">
-                <UserCircle className="h-5 w-5" />
+          {/* Home Button (Admin only) */}
+          {variant === "admin" && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/home">
+                <Home className="h-4 w-4 mr-1" />
+                Home
               </Link>
             </Button>
           )}
-
-          {/* Profile Switcher (Player only) */}
-          {variant === "player" && currentProfile && profiles.length > 0 && (
+          {/* Profile Switcher (Player only, now context-driven) */}
+          {variant === "player" && currentProfile && profiles && profiles.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2 bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200">
                   {currentProfile.type === "kid" ? (
                     <Baby className="h-4 w-4" />
                   ) : (
@@ -146,9 +168,14 @@ export function Header({
                 <DropdownMenuLabel>Switch Profile</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {profiles.map((profile) => (
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     key={profile.id}
-                    onClick={() => onProfileSwitch?.(profile.id)}
+                    onClick={() => {
+                      if (profile.id !== currentProfile.id && !switchingProfileId) {
+                        handleHeaderSwitchProfile(profile.id);
+                      }
+                    }}
+                    disabled={!!switchingProfileId}
                     className="gap-2"
                   >
                     {profile.type === "kid" ? (
@@ -162,25 +189,27 @@ export function Header({
                         Active
                       </Badge>
                     )}
+                    {switchingProfileId === profile.id && (
+                      <span className="ml-2 animate-spin"><svg className="h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /></svg></span>
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
 
-          {/* Home Button (Admin only) */}
-          {variant === "admin" && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/home">
-                <Home className="h-4 w-4 mr-1" />
-                Home
+          {/* Profile Link (Player only) */}
+          {variant === "player" && (
+            <Button variant="outline" size="icon" asChild className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+              <Link href="/profile">
+                <UserCircle className="h-5 w-5" />
               </Link>
             </Button>
           )}
 
           {/* Sign Out (if callback provided) */}
           {onSignOut && (
-            <Button variant="ghost" size="icon" onClick={onSignOut}>
+            <Button variant="outline" size="icon" onClick={onSignOut} className="bg-red-100 text-red-800 border-red-300 hover:bg-red-200">
               <LogOut className="h-4 w-4" />
             </Button>
           )}

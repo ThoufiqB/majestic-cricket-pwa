@@ -10,7 +10,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, AlertCircle } from "lucide-react";
+import { Users, AlertCircle, Copy as CopyIcon } from "lucide-react";
+import { useState } from "react";
 import type { FriendsGoing, HomeEvent } from "../types";
 
 type Props = {
@@ -119,13 +120,39 @@ export function FriendsGoingModal(p: Props) {
                 const pct = block.total > 0 ? (block.yes / block.total) * 100 : 0;
                 const displayName = g === "kids" ? "Kids" : g.charAt(0).toUpperCase() + g.slice(1);
 
+                // Phase 1: Copy badge state
+                const [copiedGroup, setCopiedGroup] = useState<string | null>(null);
+
+                // Handler to copy names
+                const handleCopy = (names: string[], groupKey: string) => {
+                  if (!names.length) return;
+                  const text = names.join("\n");
+                  navigator.clipboard.writeText(text).then(() => {
+                    setCopiedGroup(groupKey);
+                    setTimeout(() => setCopiedGroup(null), 1200);
+                  });
+                };
+
                 return (
                   <div key={g} className="rounded-lg border p-4 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold">{displayName}</span>
-                      <Badge variant="secondary">
-                        {block.yes}/{block.total}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          {block.yes}/{block.total}
+                        </Badge>
+                        {block.people.length > 0 && (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-xs font-medium border border-muted-foreground/20 hover:bg-muted-foreground/10 transition-colors focus:outline-none"
+                            title="Copy names"
+                            onClick={() => handleCopy(block.people.map(p => p.name).filter(Boolean), g)}
+                          >
+                            <CopyIcon className="h-3 w-3" />
+                            {copiedGroup === g ? "Copied!" : "Copy"}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <Progress value={pct} className="h-2" />

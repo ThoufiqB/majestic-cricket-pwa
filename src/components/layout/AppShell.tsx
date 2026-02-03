@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useProfile } from "@/components/context/ProfileContext";
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 import { Header } from "./Header";
@@ -27,6 +28,8 @@ type Props = {
   maxWidth?: string;
   /** Hide the header */
   hideHeader?: boolean;
+  /** If true, render only children (login page) */
+  isLoginPage?: boolean;
 };
 
 export function AppShell({
@@ -34,15 +37,41 @@ export function AppShell({
   variant,
   title,
   subtitle,
-  currentProfile,
-  profiles,
-  onProfileSwitch,
   onSignOut,
   maxWidth = "600px",
   hideHeader = false,
+  isLoginPage = false,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
 
+  // Get profile context
+  const { playerId, playerName, activeProfileId, isKidProfile, kids, setActiveProfileId } = useProfile();
+
+  // Compose currentProfile and profiles for Header
+  let currentProfile = undefined;
+  let profiles: Profile[] = [];
+  if (playerId) {
+    if (isKidProfile) {
+      const kid = kids.find((k) => k.kid_id === activeProfileId);
+      if (kid) {
+        currentProfile = { id: kid.kid_id, name: kid.name, type: "kid" as const };
+      }
+    } else {
+      currentProfile = { id: playerId, name: playerName || "", type: "player" as const };
+    }
+    profiles = [
+      { id: playerId, name: playerName || "", type: "player" },
+      ...kids.map((kid) => ({ id: kid.kid_id, name: kid.name, type: "kid" as const })),
+    ];
+  }
+
+  function handleProfileSwitch(profileId: string) {
+    setActiveProfileId(profileId);
+  }
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <div className="flex">
@@ -59,7 +88,7 @@ export function AppShell({
               subtitle={subtitle}
               currentProfile={currentProfile}
               profiles={profiles}
-              onProfileSwitch={onProfileSwitch}
+              onProfileSwitch={handleProfileSwitch}
               onSignOut={onSignOut}
             />
           )}

@@ -268,7 +268,7 @@ export async function GET(req: NextRequest) {
           const isMale = playerGroup === "men";
 
           if (isMale) {
-            const isMaleGroup = eventGroup === "all" || eventGroup === "men";
+            const isMaleGroup = eventGroup === "all" || eventGroup === "men" || eventGroup === "mixed";
             if (isMaleGroup) {
               totalMen++;
               if (attending === "YES") {
@@ -276,7 +276,7 @@ export async function GET(req: NextRequest) {
               }
             }
           } else {
-            const isFemaleGroup = eventGroup === "all" || eventGroup === "women";
+            const isFemaleGroup = eventGroup === "all" || eventGroup === "women" || eventGroup === "mixed";
             if (isFemaleGroup) {
               totalWomen++;
               if (attending === "YES") {

@@ -1,3 +1,4 @@
+import { getFriendsSummaryForEvent } from "@/lib/friendsSummary";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
@@ -192,8 +193,6 @@ export async function GET(req: NextRequest) {
     const { start, end } = monthRangeUtc(month);
 
     // Query: fetch by date range only, filter type/group client-side to avoid composite index requirement
-    // TODO: Once Firestore composite index is created for (event_type, group, starts_at, __name__),
-    // update query to add: .where("event_type", "==", type).where("group", "==", group)
     let q: FirebaseFirestore.Query = eventsRef
       .where("starts_at", ">=", start)
       .where("starts_at", "<", end)
@@ -223,8 +222,18 @@ export async function GET(req: NextRequest) {
         return true;
       });
 
-    // IMPORTANT: attach "my" from /attendees/{uid} or /kids_attendance/{kidId}
+    // Attach "my" attendance/payment info
     events = isViewingAsKid ? await attachMyForKid(activeProfileId, events) : await attachMyForUser(uid, events);
+
+    // Phase 2: Attach friendsSummary to each event (non-blocking, sequential for now)
+    for (let i = 0; i < events.length; i++) {
+      try {
+        events[i].friendsSummary = await getFriendsSummaryForEvent(events[i]);
+      } catch (e) {
+        // If error, skip friendsSummary for this event
+        events[i].friendsSummary = undefined;
+      }
+    }
 
     return NextResponse.json({ events, group });
   } catch (e: any) {

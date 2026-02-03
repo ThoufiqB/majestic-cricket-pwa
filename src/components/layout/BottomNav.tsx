@@ -151,9 +151,11 @@ export function BottomNav({ variant, onMoreClick }: Props) {
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-50 bg-card border-t lg:hidden transition-transform duration-300 ${
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 border-t lg:hidden transition-transform duration-300",
+        "bg-gradient-to-b from-[#1e3a5f] to-[#2d5a8a]",
         isHidden ? "translate-y-full" : "translate-y-0"
-      }`}
+      )}
     >
       <div className="flex items-center justify-around h-16 px-2">
         {navItems.map((item) => {
@@ -163,13 +165,13 @@ export function BottomNav({ variant, onMoreClick }: Props) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[64px]",
-                active
-                  ? "text-[#1e3a5f] bg-[#1e3a5f]/10"
-                  : "text-muted-foreground hover:text-[#2d5a8a] hover:bg-[#2d5a8a]/10"
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[64px] text-white",
+                "hover:text-amber-300 hover:bg-white/20",
+                active && "bg-white/20 border-2 border-white text-white font-bold"
               )}
             >
-              {item.icon}
+              {/* Force icons to white (or gold on hover via group-hover) */}
+              <span className="[&>svg]:text-inherit">{item.icon}</span>
               <span className="text-[10px] font-medium">{item.label}</span>
             </Link>
           );
@@ -181,14 +183,13 @@ export function BottomNav({ variant, onMoreClick }: Props) {
             type="button"
             onClick={() => onMoreClick?.()}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[64px]",
-              isAdminMoreActive
-                ? "text-[#1e3a5f] bg-[#1e3a5f]/10"
-                : "text-muted-foreground hover:text-[#2d5a8a] hover:bg-[#2d5a8a]/10"
+              "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[64px] text-white",
+              "hover:text-amber-300 hover:bg-white/20",
+              isAdminMoreActive && "bg-white/20 border-2 border-white text-white font-bold"
             )}
             aria-label="More"
           >
-            <Menu className="h-5 w-5" />
+            <span className="[&>svg]:text-inherit"><Menu className="h-5 w-5" /></span>
             <span className="text-[10px] font-medium">More</span>
           </button>
         )}
