@@ -64,30 +64,32 @@ export async function POST(req: NextRequest) {
       }
 
       if (requestStatus === "rejected") {
-        // Allow re-requesting by updating the request
-        // Build update object with only defined values
-        const updateData: any = {
-          status: "pending" as RegistrationStatus,
-          requested_at: adminTs.now(),
-        };
+        // Return rejection details with previous data for resubmission
+        const canResubmit = requestData?.can_resubmit !== false; // default true
         
-        // Only include rejection history if it exists
-        if (requestData?.rejection_reason) {
-          updateData.previous_rejection_reason = requestData.rejection_reason;
+        if (!canResubmit) {
+          return NextResponse.json(
+            {
+              status: "rejected",
+              message: "Your access request has been rejected and resubmission is not allowed. Please contact admin.",
+            },
+            { status: 403 }
+          );
         }
-        if (requestData?.rejected_at) {
-          updateData.previous_rejected_at = requestData.rejected_at;
-        }
-        if (requestData?.rejected_by) {
-          updateData.previous_rejected_by = requestData.rejected_by;
-        }
-        
-        await requestRef.update(updateData);
 
+        // Return rejection details with previous form data
         return NextResponse.json(
           {
-            status: "pending_approval",
-            message: "Your access request has been resubmitted for admin review.",
+            status: "rejected",
+            can_resubmit: true,
+            rejection_reason: requestData?.rejection_reason,
+            rejection_notes: requestData?.rejection_notes,
+            message: requestData?.rejection_notes || "Your registration request was rejected. Please correct the issues and resubmit.",
+            previous_data: {
+              group: requestData?.group,
+              member_type: requestData?.member_type,
+              phone: requestData?.phone,
+            },
           },
           { status: 403 }
         );

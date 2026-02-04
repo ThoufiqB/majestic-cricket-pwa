@@ -62,13 +62,17 @@ export function useRegistrations() {
     }
   }
 
-  async function rejectRequest(uid: string, reason?: string) {
+  async function rejectRequest(uid: string, reason: string, notes?: string) {
     try {
       const response = await fetch(`/api/admin/registrations/${uid}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ reason: reason || "" }),
+        body: JSON.stringify({ 
+          reason,
+          notes: notes || undefined,
+          allow_resubmit: true,
+        }),
       });
 
       if (!response.ok) {

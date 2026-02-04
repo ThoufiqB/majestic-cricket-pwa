@@ -155,9 +155,9 @@ function RegistrationsPageContent() {
     setSelectedRequest(null);
   }
 
-  async function handleRejectConfirm(reason: string) {
+  async function handleRejectConfirm(reason: string, notes?: string) {
     if (!selectedRequest) return;
-    await rejectRequest(selectedRequest.uid, reason);
+    await rejectRequest(selectedRequest.uid, reason, notes);
     setRejectDialogOpen(false);
     setSelectedRequest(null);
   }

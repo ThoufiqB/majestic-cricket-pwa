@@ -17,6 +17,16 @@ export type PlayerStatus = "active" | "disabled" | "removed";
 export type RegistrationStatus = "pending" | "approved" | "rejected";
 
 /**
+ * Rejection reason types for structured rejection handling
+ */
+export type RejectionReason = 
+  | "incorrect_info" 
+  | "incomplete" 
+  | "wrong_group" 
+  | "duplicate" 
+  | "other";
+
+/**
  * Registration request document structure
  */
 export interface RegistrationRequest {
@@ -25,6 +35,11 @@ export interface RegistrationRequest {
   name: string;
   status: RegistrationStatus;
   requested_at: Date | FirebaseFirestore.Timestamp;
+  
+  // Registration form data
+  group?: string;
+  member_type?: string;
+  phone?: string;
   
   // If approved
   approved_by?: string;
@@ -35,6 +50,21 @@ export interface RegistrationRequest {
   rejected_by?: string;
   rejected_at?: Date | FirebaseFirestore.Timestamp;
   rejection_reason?: string;
+  rejection_notes?: string;
+  can_resubmit?: boolean;
+  
+  // Rejection history tracking
+  rejection_history?: Array<{
+    rejected_by: string;
+    rejected_at: Date | FirebaseFirestore.Timestamp;
+    reason: string;
+    notes?: string;
+  }>;
+  
+  // Resubmission tracking
+  resubmission_count?: number;
+  last_rejection_reason?: string;
+  last_rejected_at?: Date | FirebaseFirestore.Timestamp;
 }
 
 /**

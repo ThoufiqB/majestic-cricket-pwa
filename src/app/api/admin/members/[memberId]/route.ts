@@ -49,6 +49,7 @@ export async function GET(
       group: data.group || "men",
       member_type: data.member_type || "regular",
       role: data.role || "player",
+      status: data.status || "active",
       created_at: data.created_at?.toDate?.()?.toISOString() || null,
       kids,
     });
