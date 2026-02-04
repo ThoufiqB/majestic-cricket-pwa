@@ -6,7 +6,13 @@ function normEmail(s: string) {
   return String(s || "").trim().toLowerCase();
 }
 
+/**
+ * Verify user has admin role
+ * Inherits all checks from requireSessionUser (session valid, player exists, status active)
+ * Additionally checks role === "admin"
+ */
 export async function requireAdminUser() {
+  // This now includes status validation
   const u = await requireSessionUser();
   const uid = u.uid;
 

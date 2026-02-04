@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ClubLogo } from "@/components/ClubLogo";
 import { useProfile } from "@/components/context/ProfileContext";
+import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
 import {
   Calendar,
   Users,
@@ -21,6 +23,7 @@ type NavItem = {
   label: string;
   icon: React.ReactNode;
   matchPaths?: string[];
+  badge?: () => Promise<number>;
 };
 
 const adminNavItems: NavItem[] = [
@@ -40,7 +43,19 @@ const adminNavItems: NavItem[] = [
     href: "/admin/members",
     label: "Members",
     icon: <Users className="h-5 w-5" />,
-    matchPaths: ["/admin/members", "/admin/kids"],
+    matchPaths: ["/admin/members", "/admin/kids", "/admin/members/registrations"],
+    badge: async () => {
+      try {
+        const res = await fetch("/api/admin/registrations?status=pending", {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return data.requests?.length || 0;
+        }
+      } catch {}
+      return 0;
+    },
   },
   {
     href: "/admin/payments",
@@ -115,10 +130,32 @@ type Props = {
 export function Sidebar({ variant }: Props) {
   const pathname = usePathname();
   const { isKidProfile } = useProfile();
+  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
 
   // Select nav items based on variant and profile type
   const navItems =
     variant === "admin" ? adminNavItems : isKidProfile ? playerNavItemsKid : playerNavItems;
+
+  // Fetch badge counts for admin nav items
+  useEffect(() => {
+    if (variant === "admin") {
+      const fetchBadges = async () => {
+        const counts: Record<string, number> = {};
+        for (const item of adminNavItems) {
+          if (item.badge) {
+            counts[item.href] = await item.badge();
+          }
+        }
+        setBadgeCounts(counts);
+      };
+      
+      fetchBadges();
+      
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchBadges, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [variant]);
 
   const isActive = (item: NavItem) => {
     // Exact match
@@ -153,6 +190,8 @@ export function Sidebar({ variant }: Props) {
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
           const active = isActive(item);
+          const badgeCount = badgeCounts[item.href] || 0;
+          
           return (
             <Link
               key={item.href}
@@ -165,7 +204,12 @@ export function Sidebar({ variant }: Props) {
               )}
             >
               {item.icon}
-              <span className="font-medium text-sm">{item.label}</span>
+              <span className="font-medium text-sm flex-1">{item.label}</span>
+              {badgeCount > 0 && (
+                <Badge className="bg-yellow-500 hover:bg-yellow-600 text-xs px-1.5 py-0">
+                  {badgeCount}
+                </Badge>
+              )}
             </Link>
           );
         })}

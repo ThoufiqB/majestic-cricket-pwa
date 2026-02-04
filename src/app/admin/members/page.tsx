@@ -136,6 +136,16 @@ export default function AdminMembersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Quick Nav Links */}
+      <div className="flex gap-3 flex-wrap">
+        <Link href="/admin/members/registrations">
+          <Button variant="outline" size="sm" className="gap-2">
+            <UserCog className="h-4 w-4" />
+            New Registrations
+          </Button>
+        </Link>
+      </div>
+
       {/* Tabs */}
       <Tabs defaultValue="players" className="w-full">
         <TabsList className="grid w-full grid-cols-2">

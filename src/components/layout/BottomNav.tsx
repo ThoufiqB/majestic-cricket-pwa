@@ -41,7 +41,7 @@ const adminNavItemsCore: NavItem[] = [
     href: "/admin/members",
     label: "Members",
     icon: <Users className="h-5 w-5" />,
-    matchPaths: ["/admin/members", "/admin/kids"],
+    matchPaths: ["/admin/members", "/admin/kids", "/admin/members/registrations"],
   },
 ];
 

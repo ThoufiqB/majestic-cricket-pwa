@@ -30,6 +30,13 @@ export function AuthGuard({ children, fallback }: Props) {
           return;
         }
 
+        // Check if profile needs to be completed
+        if (me.profile_completed === false) {
+          setStatus("unauthorized");
+          router.replace("/complete-profile");
+          return;
+        }
+
         setStatus("authorized");
       } catch (e: any) {
         setStatus("unauthorized");

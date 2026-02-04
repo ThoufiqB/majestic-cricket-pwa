@@ -55,7 +55,32 @@ export default function LoginPage() {
       });
 
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Login failed");
+
+      // Handle different response statuses
+      if (!r.ok) {
+        // Check for specific status responses
+        if (data?.status === "pending_approval") {
+          // New user or resubmitted request - redirect to pending page
+          router.replace("/pending-approval");
+          return;
+        }
+
+        if (data?.status === "disabled") {
+          // Account disabled - redirect to disabled page
+          router.replace("/account-disabled");
+          return;
+        }
+
+        if (data?.status === "removed") {
+          // Account removed - show error message
+          setError(data?.message || "Your account has been removed. Please contact an admin.");
+          setSigningIn(false);
+          return;
+        }
+
+        // Other errors
+        throw new Error(data?.error || data?.message || "Login failed");
+      }
 
       // Ensure profile exists
       await apiPost("/api/me");
@@ -67,6 +92,13 @@ export default function LoginPage() {
       if (!playerWithKids || !playerWithKids.player_id) {
         setError("Could not load user profile. Please try again or contact support.");
         setSigningIn(false);
+        return;
+      }
+
+      // Check if profile is complete
+      if ((playerWithKids as any).profile_completed === false) {
+        // User needs to complete their profile
+        router.replace("/complete-profile");
         return;
       }
 
