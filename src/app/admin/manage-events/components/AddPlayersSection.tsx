@@ -265,12 +265,12 @@ export function AddPlayersSection() {
 
       {/* Filters */}
       <div className="space-y-3">
-        {/* Group and Month in same row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Group and Month in same row - always side by side, even on mobile */}
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <label className="text-sm font-medium">Group</label>
             <select
-              className="w-full border rounded-md p-2 bg-background"
+              className="w-full border rounded-md p-2 bg-background text-sm"
               value={group}
               onChange={(e) => setGroup(e.target.value as GroupFilter)}
             >
@@ -284,7 +284,7 @@ export function AddPlayersSection() {
           <div className="space-y-1">
             <label className="text-sm font-medium">Month</label>
             <select
-              className="w-full border rounded-md p-2 bg-background"
+              className="w-full border rounded-md p-2 bg-background text-sm"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
             >
