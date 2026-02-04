@@ -191,16 +191,6 @@ export default function AdminMembersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Quick Nav Links */}
-      <div className="flex gap-3 flex-wrap">
-        <Link href="/admin/members/registrations">
-          <Button variant="outline" size="sm" className="gap-2">
-            <UserCog className="h-4 w-4" />
-            New Registrations
-          </Button>
-        </Link>
-      </div>
-
       {/* Tabs */}
       <Tabs defaultValue="players" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -219,28 +209,28 @@ export default function AdminMembersPage() {
 
       {/* Stats Row 1: Men, Women, Kids, Total */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-blue-600">{stats.men}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold text-blue-600">{stats.men}</p>
               <p className="text-xs text-muted-foreground">Men</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-pink-600">{stats.women}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold text-pink-600">{stats.women}</p>
               <p className="text-xs text-muted-foreground">Women</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-purple-600">{stats.kids}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold text-purple-600">{stats.kids}</p>
               <p className="text-xs text-muted-foreground">Kids</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold">{stats.total}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold">{stats.total}</p>
               <p className="text-xs text-muted-foreground">Total</p>
             </CardContent>
           </Card>
@@ -249,28 +239,28 @@ export default function AdminMembersPage() {
 
       {/* Stats Row 2: Admins, Active, Disabled, Removed */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-amber-600">{stats.admins}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold text-amber-600">{stats.admins}</p>
               <p className="text-xs text-muted-foreground">Admins</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold text-green-600">{stats.active}</p>
               <p className="text-xs text-muted-foreground">Active</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-orange-600">{stats.disabled}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold text-orange-600">{stats.disabled}</p>
               <p className="text-xs text-muted-foreground">Disabled</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-red-600">{stats.removed}</p>
+            <CardContent className="pt-3 pb-3 text-center">
+              <p className="text-xl lg:text-2xl font-bold text-red-600">{stats.removed}</p>
               <p className="text-xs text-muted-foreground">Removed</p>
             </CardContent>
           </Card>
@@ -279,9 +269,9 @@ export default function AdminMembersPage() {
 
       {/* Search & Filters */}
       <Card>
-        <CardContent className="pt-4">
-          {/* Responsive search and filters grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <CardContent className="pt-4 pb-4">
+          {/* Mobile-optimized: search full-width, filters in one row */}
+          <div className="space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -291,37 +281,39 @@ export default function AdminMembersPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={groupFilter} onValueChange={setGroupFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Groups</SelectItem>
-                <SelectItem value="men">Men</SelectItem>
-                <SelectItem value="women">Women</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="admin">Admins</SelectItem>
-                <SelectItem value="player">Players</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="disabled">Disabled</SelectItem>
-                <SelectItem value="removed">Removed</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-3 gap-2">
+              <Select value={groupFilter} onValueChange={setGroupFilter}>
+                <SelectTrigger className="w-full h-9 text-xs">
+                  <SelectValue placeholder="Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  <SelectItem value="men">Men</SelectItem>
+                  <SelectItem value="women">Women</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-full h-9 text-xs">
+                  <SelectValue placeholder="Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="admin">Admins</SelectItem>
+                  <SelectItem value="player">Players</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full h-9 text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="disabled">Disabled</SelectItem>
+                  <SelectItem value="removed">Removed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -265,38 +265,39 @@ export function AddPlayersSection() {
 
       {/* Filters */}
       <div className="space-y-3">
-        {/* Group */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Group</label>
-          <select
-            className="w-full border rounded-md p-2 bg-background"
-            value={group}
-            onChange={(e) => setGroup(e.target.value as GroupFilter)}
-          >
-            <option value="all">All</option>
-            <option value="men">Men</option>
-            <option value="women">Women</option>
-            <option value="kids">Kids</option>
-          </select>
+        {/* Group and Month in same row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Group</label>
+            <select
+              className="w-full border rounded-md p-2 bg-background"
+              value={group}
+              onChange={(e) => setGroup(e.target.value as GroupFilter)}
+            >
+              <option value="all">All</option>
+              <option value="men">Men</option>
+              <option value="women">Women</option>
+              <option value="kids">Kids</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Month</label>
+            <select
+              className="w-full border rounded-md p-2 bg-background"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+            >
+              {monthOptions.map((m) => (
+                <option key={m} value={m}>
+                  {monthLabelFromKey(m)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Month */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Month</label>
-          <select
-            className="w-full border rounded-md p-2 bg-background"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          >
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>
-                {monthLabelFromKey(m)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Event */}
+        {/* Event in next row */}
         <div className="space-y-1">
           <label className="text-sm font-medium">Event</label>
           {loadingEvents ? (

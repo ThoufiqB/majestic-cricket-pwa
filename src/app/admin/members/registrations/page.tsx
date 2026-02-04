@@ -45,66 +45,65 @@ function RequestCard({ request, onApprove, onReject }: {
   onReject: () => void;
 }) {
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between gap-4">
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="pt-4 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           {/* User Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-lg truncate">{request.name}</h3>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-base">{request.name}</h3>
               {request.status === "pending" && (
-                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 text-xs">
                   <Clock className="w-3 h-3 mr-1" />
                   Pending
                 </Badge>
               )}
               {request.status === "approved" && (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Approved
                 </Badge>
               )}
               {request.status === "rejected" && (
-                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
+                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300 text-xs">
                   <XCircle className="w-3 h-3 mr-1" />
                   Rejected
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-gray-600 mb-2">{request.email}</p>
-            <p className="text-xs text-gray-500">
-              Requested: {formatDate(request.requested_at)}
-            </p>
+            
+            <p className="text-sm text-muted-foreground">{request.email}</p>
+            
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span>Requested: {formatDate(request.requested_at)}</span>
+              
+              {request.status === "approved" && request.approved_at && (
+                <span className="text-green-600">
+                  Approved: {formatDate(request.approved_at)}
+                </span>
+              )}
+              
+              {request.status === "rejected" && request.rejected_at && (
+                <span className="text-red-600">
+                  Rejected: {formatDate(request.rejected_at)}
+                </span>
+              )}
+            </div>
 
-            {/* Show additional info for approved/rejected */}
-            {request.status === "approved" && request.approved_at && (
-              <p className="text-xs text-green-600 mt-1">
-                Approved: {formatDate(request.approved_at)}
+            {request.status === "rejected" && request.rejection_reason && (
+              <p className="text-xs text-muted-foreground">
+                <strong>Reason:</strong> {request.rejection_reason}
               </p>
-            )}
-            {request.status === "rejected" && (
-              <>
-                {request.rejected_at && (
-                  <p className="text-xs text-red-600 mt-1">
-                    Rejected: {formatDate(request.rejected_at)}
-                  </p>
-                )}
-                {request.rejection_reason && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    Reason: {request.rejection_reason}
-                  </p>
-                )}
-              </>
             )}
           </div>
 
           {/* Actions (only for pending) */}
           {request.status === "pending" && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 sm:flex-col lg:flex-row">
               <Button
                 size="sm"
                 variant="outline"
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                className="text-green-600 hover:text-green-700 hover:bg-green-50 flex-1 sm:flex-none"
                 onClick={onApprove}
               >
                 <UserCheck className="w-4 h-4 mr-1" />
@@ -113,7 +112,7 @@ function RequestCard({ request, onApprove, onReject }: {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-1 sm:flex-none"
                 onClick={onReject}
               >
                 <UserX className="w-4 h-4 mr-1" />
@@ -163,25 +162,43 @@ function RegistrationsPageContent() {
   }
 
   const pendingCount = requests.filter(r => r.status === "pending").length;
+  const approvedCount = requests.filter(r => r.status === "approved").length;
+  const rejectedCount = requests.filter(r => r.status === "rejected").length;
+  const allCount = requests.length;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 lg:p-6 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Registration Requests</h1>
-        <p className="text-gray-600">Review and approve new member registrations</p>
+        <h1 className="text-2xl lg:text-3xl font-bold mb-2">Registration Requests</h1>
+        <p className="text-sm text-muted-foreground">Review and approve new member registrations</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="pending" className="relative">
-            Pending
-            {activeTab !== "pending" && pendingCount > 0 && (
-              <Badge className="ml-2 bg-yellow-500">{pendingCount}</Badge>
-            )}
+        <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsTrigger value="pending" className="flex-col gap-1 py-2">
+            <span>Pending</span>
+            <Badge variant="secondary" className="bg-yellow-500 text-white text-xs px-2">
+              {pendingCount}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
-          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="approved" className="flex-col gap-1 py-2">
+            <span>Approved</span>
+            <Badge variant="secondary" className="bg-green-500 text-white text-xs px-2">
+              {approvedCount}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="flex-col gap-1 py-2">
+            <span>Rejected</span>
+            <Badge variant="secondary" className="bg-red-500 text-white text-xs px-2">
+              {rejectedCount}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="all" className="flex-col gap-1 py-2">
+            <span>All</span>
+            <Badge variant="secondary" className="text-xs px-2">
+              {allCount}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         {loading && (
