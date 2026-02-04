@@ -146,8 +146,9 @@ export function BottomNav({ variant, onMoreClick }: Props) {
   // Admin "More" is considered active if you're on a page that lives in the drawer
   const isAdminMoreActive =
     variant === "admin" &&
-    adminNavItemsMovedToMore.some((x) => pathname === x.href || pathname.startsWith(x.href + "/")) ||
-    (variant === "admin" && pathname.startsWith("/admin/manage-events"));
+    (adminNavItemsMovedToMore.some((x) => pathname === x.href || pathname.startsWith(x.href + "/")) ||
+    pathname.startsWith("/admin/manage-events") ||
+    pathname.startsWith("/admin/members/registrations"));
 
   return (
     <nav

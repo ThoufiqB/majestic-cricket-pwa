@@ -16,6 +16,7 @@ import {
   Search,
   TrendingUp,
   ClipboardList,
+  UserPlus,
 } from "lucide-react";
 
 type NavItem = {
@@ -43,7 +44,13 @@ const adminNavItems: NavItem[] = [
     href: "/admin/members",
     label: "Members",
     icon: <Users className="h-5 w-5" />,
-    matchPaths: ["/admin/members", "/admin/kids", "/admin/members/registrations"],
+    matchPaths: ["/admin/members", "/admin/kids"],
+  },
+  {
+    href: "/admin/members/registrations",
+    label: "New Registrations",
+    icon: <UserPlus className="h-5 w-5" />,
+    matchPaths: ["/admin/members/registrations"],
     badge: async () => {
       try {
         const res = await fetch("/api/admin/registrations?status=pending", {
@@ -180,8 +187,7 @@ export function Sidebar({ variant }: Props) {
           <ClubLogo size="md" />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-bold text-[#1e3a5f]">Majestic</span>
-            <span className="text-sm font-bold text-[#1e3a5f]">Cricket</span>
-            <span className="text-xs text-[#1e3a5f]/70">Club</span>
+            <span className="text-sm font-bold text-[#1e3a5f]">WiTZy</span>
           </div>
         </div>
       </div>
