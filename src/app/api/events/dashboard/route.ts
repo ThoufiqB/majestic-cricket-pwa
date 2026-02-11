@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
 
     let nextEvent: any = null;
     let lastEvent: any = null;
+    let upcomingEvents: any[] = []; // Array to hold next 7 upcoming events
 
     for (const doc of eventsSnap.docs) {
       const data = doc.data();
@@ -150,7 +151,11 @@ export async function GET(req: NextRequest) {
 
       // Categorize as next or last event
       if (eventDate > nowIso && eventDate < futureLimit) {
-        // Future event - take the first (closest) one
+        // Future event - collect up to 7 upcoming events
+        if (upcomingEvents.length < 7) {
+          upcomingEvents.push(eventObj);
+        }
+        // Keep first event as nextEvent for backward compatibility
         if (!nextEvent) {
           nextEvent = eventObj;
         }
@@ -209,14 +214,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Calculate friendsSummary for nextEvent if it exists
-    let friendsSummary = undefined;
-    if (nextEvent) {
-      if (nextEvent.kids_event) {
+    // Calculate friendsSummary for upcoming events (first 3 for performance)
+    const eventsWithFriendsSummary = [];
+    
+    for (let i = 0; i < Math.min(upcomingEvents.length, 3); i++) {
+      const event = upcomingEvents[i];
+      let friendsSummary = undefined;
+
+      if (event.kids_event) {
         // For kids events, get kids attendance with names
         const kidsAttendanceSnap = await adminDb
           .collection("events")
-          .doc(nextEvent.event_id)
+          .doc(event.event_id)
           .collection("kids_attendance")
           .get();
 
@@ -244,11 +253,11 @@ export async function GET(req: NextRequest) {
         // For adult events, get attendees with names filtered by event group
         const attendeesSnap = await adminDb
           .collection("events")
-          .doc(nextEvent.event_id)
+          .doc(event.event_id)
           .collection("attendees")
           .get();
 
-        const eventGroup = nextEvent.group?.toLowerCase() || "all";
+        const eventGroup = event.group?.toLowerCase() || "all";
         const menYesList: { player_id: string; name: string }[] = [];
         const womenYesList: { player_id: string; name: string }[] = [];
         let totalMen = 0;
@@ -291,11 +300,22 @@ export async function GET(req: NextRequest) {
           women: { yes: womenYesList.length, total: totalWomen, people: womenYesList },
         };
       }
+
+      eventsWithFriendsSummary.push({ ...event, friendsSummary });
     }
+
+    // Add remaining events without friends summary (for performance)
+    for (let i = 3; i < upcomingEvents.length; i++) {
+      eventsWithFriendsSummary.push(upcomingEvents[i]);
+    }
+
+    // For backward compatibility, add friends summary to nextEvent if it exists
+    const nextEventWithFriends = eventsWithFriendsSummary.length > 0 ? eventsWithFriendsSummary[0] : null;
 
     return NextResponse.json({
       success: true,
-      nextEvent: nextEvent ? { ...nextEvent, friendsSummary } : null,
+      nextEvent: nextEventWithFriends, // Keep for backward compatibility
+      upcomingEvents: eventsWithFriendsSummary, // New array of upcoming events
       lastEvent,
       stats: {
         eventsAttendedThisMonth,

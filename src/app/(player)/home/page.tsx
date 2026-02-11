@@ -25,6 +25,7 @@ import {
   X,
   CreditCard,
   ChevronRight,
+  ChevronLeft,
   Calendar,
   AlertCircle,
   Users,
@@ -153,6 +154,8 @@ export default function PlayerHomePage() {
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [nextEvent, setNextEvent] = useState<DashboardEvent | null>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([]); // New: Array of upcoming events
+  const [currentEventIndex, setCurrentEventIndex] = useState(0); // New: Track which event to display
   const [lastEvent, setLastEvent] = useState<DashboardEvent | null>(null);
   const [stats, setStats] = useState<{ eventsAttendedThisMonth: number; pendingPayments: number } | null>(null);
   const [profile, setProfile] = useState<{ name: string; group: string; email: string } | null>(null);
@@ -208,8 +211,11 @@ export default function PlayerHomePage() {
       const dashData = await apiGet(`/api/events/dashboard${q}`);
 
       const ne: DashboardEvent | null = dashData.nextEvent || null;
+      const upcoming: DashboardEvent[] = dashData.upcomingEvents || [];
 
       setNextEvent(ne);
+      setUpcomingEvents(upcoming);
+      setCurrentEventIndex(0); // Reset to first event when data loads
       setLastEvent(dashData.lastEvent || null);
       setStats(dashData.stats || null);
       setProfile(dashData.profile || null);
@@ -250,6 +256,27 @@ export default function PlayerHomePage() {
       setLoading(false);
     }
   }
+
+  // Navigation functions for event carousel
+  function goToNextEvent() {
+    if (upcomingEvents.length === 0) return;
+    setCurrentEventIndex((prev) => (prev + 1) % upcomingEvents.length);
+  }
+
+  function goToPrevEvent() {
+    if (upcomingEvents.length === 0) return;
+    setCurrentEventIndex((prev) => (prev - 1 + upcomingEvents.length) % upcomingEvents.length);
+  }
+
+  function goToEvent(index: number) {
+    if (index >= 0 && index < upcomingEvents.length) {
+      setCurrentEventIndex(index);
+    }
+  }
+
+  // Get the currently displayed event
+  const displayedEvent = upcomingEvents.length > 0 ? upcomingEvents[currentEventIndex] : nextEvent;
+  const hasMultipleEvents = upcomingEvents.length > 1;
 
   async function signOut() {
     await signOutSession();
@@ -470,12 +497,37 @@ export default function PlayerHomePage() {
       </Card>
 
       {/* Next Event Card */}
-      <Card>
+      <Card className="relative">
+        {/* Floating Left Chevron */}
+        {hasMultipleEvents && (
+          <button
+            onClick={goToPrevEvent}
+            className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/50 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+            aria-label="Previous event"
+          >
+            <ChevronLeft className="h-5 w-5 text-primary" />
+          </button>
+        )}
+
+        {/* Floating Right Chevron */}
+        {hasMultipleEvents && (
+          <button
+            onClick={goToNextEvent}
+            className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/50 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+            aria-label="Next event"
+          >
+            <ChevronRight className="h-5 w-5 text-primary" />
+          </button>
+        )}
+
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
-              Next Event
+              {hasMultipleEvents 
+                ? `Upcoming Events (${currentEventIndex + 1}/${upcomingEvents.length})`
+                : "Next Event"
+              }
             </CardTitle>
             <Link href="/browse">
               <Button variant="ghost" size="sm" className="text-muted-foreground">
@@ -483,6 +535,24 @@ export default function PlayerHomePage() {
               </Button>
             </Link>
           </div>
+          
+          {/* Event Indicators (dots) */}
+          {hasMultipleEvents && (
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {upcomingEvents.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToEvent(index)}
+                  className={`h-2 w-2 rounded-full transition-all ${
+                    index === currentEventIndex
+                      ? "bg-primary w-6"
+                      : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  }`}
+                  aria-label={`Go to event ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -491,27 +561,27 @@ export default function PlayerHomePage() {
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : nextEvent ? (
+          ) : displayedEvent ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="font-semibold text-lg">{nextEvent.title}</h3>
-                <div>{getEventTypeBadge(nextEvent.event_type)}</div>
+                <h3 className="font-semibold text-lg">{displayedEvent.title}</h3>
+                <div>{getEventTypeBadge(displayedEvent.event_type)}</div>
               </div>
               <div className="space-y-1 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <CalendarDays className="h-4 w-4" />
-                  <span>{formatEventDate(nextEvent.starts_at)}</span>
+                  <span>{formatEventDate(displayedEvent.starts_at)}</span>
                   <span className="mx-1">•</span>
                   <Clock className="h-4 w-4" />
-                  <span>{formatEventTime(nextEvent.starts_at)}</span>
+                  <span>{formatEventTime(displayedEvent.starts_at)}</span>
                 </div>
-                {nextEvent.location && (
+                {displayedEvent.location && (
                   <div className="flex items-center gap-1">
                     <MapPin className="h-4 w-4" />
-                    <span>{nextEvent.location}</span>
+                    <span>{displayedEvent.location}</span>
                   </div>
                 )}
-                {nextEvent.event_type === "net_practice" && (
+                {displayedEvent.event_type === "net_practice" && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Attendance closes 48 hours before this net session.
                   </p>
@@ -520,14 +590,14 @@ export default function PlayerHomePage() {
 
               <div className="border-t pt-4">
                 {(() => {
-                  const isNetPractice = nextEvent.event_type === "net_practice";
+                  const isNetPractice = displayedEvent.event_type === "net_practice";
                   const { isNetPracticeOpen, isAfterCutoffBeforeStart } = isNetPractice
-                    ? getNetPracticeCutoffInfo(nextEvent.starts_at)
+                    ? getNetPracticeCutoffInfo(displayedEvent.starts_at)
                     : { isNetPracticeOpen: true, isAfterCutoffBeforeStart: false };
 
-                  const attending = nextEvent.my?.attending || "UNKNOWN";
+                  const attending = displayedEvent.my?.attending || "UNKNOWN";
                   const isGoing = attending === "YES";
-                  const requestAlreadySent = requestSentForEventId === nextEvent.event_id;
+                  const requestAlreadySent = requestSentForEventId === displayedEvent.event_id;
 
                   const canShowRequestButton =
                     isNetPractice &&
@@ -563,7 +633,7 @@ export default function PlayerHomePage() {
                         ) : (
                           <Button
                             className="w-full"
-                            onClick={() => requestParticipation(nextEvent.event_id)}
+                            onClick={() => requestParticipation(displayedEvent.event_id)}
                             disabled={requestStatusLoading || requestingParticipation}
                           >
                             {requestStatusLoading ? (
@@ -597,7 +667,7 @@ export default function PlayerHomePage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => markAttending(nextEvent.event_id, "NO")}
+                          onClick={() => markAttending(displayedEvent.event_id, "NO")}
                           disabled={markingAttendance || disableAttendanceButtons}
                         >
                           Change to Not Going
@@ -615,7 +685,7 @@ export default function PlayerHomePage() {
                         </div>
                         <Button
                           size="sm"
-                          onClick={() => markAttending(nextEvent.event_id, "YES")}
+                          onClick={() => markAttending(displayedEvent.event_id, "YES")}
                           disabled={markingAttendance || disableAttendanceButtons}
                           className="bg-green-600 hover:bg-green-700"
                         >
@@ -631,7 +701,7 @@ export default function PlayerHomePage() {
                       <div className="flex gap-2">
                         <Button
                           className="flex-1 bg-green-600 hover:bg-green-700"
-                          onClick={() => markAttending(nextEvent.event_id, "YES")}
+                          onClick={() => markAttending(displayedEvent.event_id, "YES")}
                           disabled={markingAttendance || disableAttendanceButtons}
                         >
                           <Check className="h-4 w-4 mr-2" />
@@ -640,7 +710,7 @@ export default function PlayerHomePage() {
                         <Button
                           variant="outline"
                           className="flex-1"
-                          onClick={() => markAttending(nextEvent.event_id, "NO")}
+                          onClick={() => markAttending(displayedEvent.event_id, "NO")}
                           disabled={markingAttendance || disableAttendanceButtons}
                         >
                           <X className="h-4 w-4 mr-2" />
@@ -658,37 +728,37 @@ export default function PlayerHomePage() {
                 })()}
               </div>
 
-              {nextEvent.friendsSummary && (
+              {displayedEvent.friendsSummary && (
                 <>
                   <Separator className="mt-4" />
                   <div className="flex items-center justify-between pt-4">
                     <Button
                       variant="link"
                       className="p-0 h-auto"
-                      onClick={() => setOpenFriendsEventId(nextEvent.event_id)}
+                      onClick={() => setOpenFriendsEventId(displayedEvent.event_id)}
                     >
                       <Users className="h-4 w-4 mr-1" />
                       Friends Going
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                      {nextEvent.kids_event ? (
+                      {displayedEvent.kids_event ? (
                         <>
-                          Kids {nextEvent.friendsSummary.kids?.yes || 0}/{nextEvent.friendsSummary.kids?.total || 0}
+                          Kids {displayedEvent.friendsSummary.kids?.yes || 0}/{displayedEvent.friendsSummary.kids?.total || 0}
                         </>
                       ) : (
                         <>
-                          {(nextEvent.group === "men" || nextEvent.group === "all") && nextEvent.friendsSummary.men && (
+                          {(displayedEvent.group === "men" || displayedEvent.group === "all") && displayedEvent.friendsSummary.men && (
                             <span>
-                              Men {nextEvent.friendsSummary.men.yes}/{nextEvent.friendsSummary.men.total}
+                              Men {displayedEvent.friendsSummary.men.yes}/{displayedEvent.friendsSummary.men.total}
                             </span>
                           )}
-                          {nextEvent.group === "all" &&
-                            nextEvent.friendsSummary.men &&
-                            nextEvent.friendsSummary.women && <span> • </span>}
-                          {(nextEvent.group === "women" || nextEvent.group === "all") &&
-                            nextEvent.friendsSummary.women && (
+                          {displayedEvent.group === "all" &&
+                            displayedEvent.friendsSummary.men &&
+                            displayedEvent.friendsSummary.women && <span> • </span>}
+                          {(displayedEvent.group === "women" || displayedEvent.group === "all") &&
+                            displayedEvent.friendsSummary.women && (
                               <span>
-                                Women {nextEvent.friendsSummary.women.yes}/{nextEvent.friendsSummary.women.total}
+                                Women {displayedEvent.friendsSummary.women.yes}/{displayedEvent.friendsSummary.women.total}
                               </span>
                             )}
                         </>
