@@ -101,7 +101,7 @@ export default function AdminKidsEventsPage() {
           </TabsTrigger>
           <TabsTrigger value="kids" className="flex items-center gap-2">
             <Baby className="h-4 w-4" />
-            Kids Events
+            Junior Events
           </TabsTrigger>
         </TabsList>
       </Tabs>

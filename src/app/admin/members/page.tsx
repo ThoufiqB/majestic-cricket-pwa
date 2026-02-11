@@ -201,7 +201,7 @@ export default function AdminMembersPage() {
           <TabsTrigger value="kids" asChild>
             <Link href="/admin/kids" className="gap-2 inline-flex items-center justify-center">
               <Baby className="h-4 w-4" />
-              Kids
+              Juniors
             </Link>
           </TabsTrigger>
         </TabsList>
@@ -225,7 +225,7 @@ export default function AdminMembersPage() {
           <Card>
             <CardContent className="pt-3 pb-3 text-center">
               <p className="text-xl lg:text-2xl font-bold text-purple-600">{stats.kids}</p>
-              <p className="text-xs text-muted-foreground">Kids</p>
+              <p className="text-xs text-muted-foreground">Juniors</p>
             </CardContent>
           </Card>
           <Card>
@@ -601,7 +601,7 @@ export default function AdminMembersPage() {
                 <div className="pt-2 border-t">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                     <Baby className="h-4 w-4" />
-                    Linked Kids ({selectedMember.kids.length})
+                    Linked Juniors ({selectedMember.kids.length})
                   </h4>
                   <div className="space-y-2">
                     {selectedMember.kids.map((kid) => (

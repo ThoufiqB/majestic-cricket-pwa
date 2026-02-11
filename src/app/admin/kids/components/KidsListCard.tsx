@@ -57,7 +57,7 @@ export function KidsListCard(p: KidsListCardProps) {
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
-            All Kids
+            All Juniors
           </span>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{activeCount} active</Badge>

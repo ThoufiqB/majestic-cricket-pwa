@@ -57,7 +57,7 @@ export default function AdminEventsPage() {
           <TabsTrigger value="kids" asChild>
             <a href="/admin/kids-events" className="gap-2 inline-flex items-center justify-center">
               <Baby className="h-4 w-4" />
-              Kids Events
+              Junior Events
             </a>
           </TabsTrigger>
         </TabsList>

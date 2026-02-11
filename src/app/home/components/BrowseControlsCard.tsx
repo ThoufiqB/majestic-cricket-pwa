@@ -151,7 +151,7 @@ export function BrowseControlsCard(p: Props) {
 
         {isKid && (
           <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-            👦 Showing all kids events
+            👦 Showing all junior events
           </Badge>
         )}
 

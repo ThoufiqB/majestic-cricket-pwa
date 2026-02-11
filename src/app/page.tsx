@@ -216,7 +216,7 @@ export default function LoginPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="text-green-600">✓</span>
-                  <span>Family profiles for kids</span>
+                  <span>Family profiles for juniors</span>
                 </div>
               </div>
 
