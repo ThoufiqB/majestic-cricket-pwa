@@ -68,7 +68,7 @@ export function Header({
     
     if (variant === "admin") {
       if (pathname.includes("/dashboard")) return "Dashboard";
-      if (pathname.includes("/kids-events")) return "Kids Events";
+      if (pathname.includes("/kids-events")) return "Junior Events";
       if (pathname.includes("/events")) return "Events";
       if (pathname.includes("/members") || pathname.includes("/kids")) return "Members";
       if (pathname.includes("/payments")) return "Payments";
@@ -78,7 +78,7 @@ export function Header({
     
     if (pathname.includes("/stats")) return "Stats";
     if (pathname.includes("/payments")) return "Payments";
-    if (pathname.includes("/my-kids")) return "My Kids";
+    if (pathname.includes("/my-kids")) return "My Juniors";
     if (pathname.includes("/my-parents")) return "My Parents";
     if (pathname.includes("/profile")) return "Profile";
     if (pathname.includes("/browse")) return "Browse";

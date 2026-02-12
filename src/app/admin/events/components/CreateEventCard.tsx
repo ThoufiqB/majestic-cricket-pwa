@@ -147,8 +147,9 @@ export function CreateEventCard(p: Props) {
               </Label>
               <Input
                 type="date"
-                className="h-9"
-                placeholder="Date"
+                className="h-9 [color-scheme:light] dark:[color-scheme:dark]"
+                placeholder="Select date"
+                required
                 value={p.dateStr}
                 onChange={(e) => {
                   p.setDateStr(e.target.value);

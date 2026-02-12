@@ -277,7 +277,7 @@ export function AddPlayersSection() {
               <option value="all">All</option>
               <option value="men">Men</option>
               <option value="women">Women</option>
-              <option value="kids">Kids</option>
+              <option value="kids">Juniors</option>
             </select>
           </div>
 

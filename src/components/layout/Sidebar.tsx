@@ -36,7 +36,7 @@ const adminNavItems: NavItem[] = [
   },
   {
     href: "/admin/browse",
-    label: "Browse",
+    label: "Events",
     icon: <Search className="h-5 w-5" />,
     matchPaths: ["/admin/browse", "/admin/events/", "/admin/kids-events/"],
   },

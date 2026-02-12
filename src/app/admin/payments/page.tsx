@@ -381,7 +381,7 @@ export default function AdminPaymentsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
                   <SelectItem value="adults">Adults</SelectItem>
-                  <SelectItem value="kids">Kids</SelectItem>
+                  <SelectItem value="kids">Juniors</SelectItem>
                 </SelectContent>
               </Select>
 

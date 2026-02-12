@@ -10,7 +10,7 @@ function groupBadge(g: string) {
   const gg = String(g || "").toLowerCase();
   if (gg === "men") return <Badge className="bg-blue-100 text-blue-800">Men</Badge>;
   if (gg === "women") return <Badge className="bg-pink-100 text-pink-800">Women</Badge>;
-  if (gg === "kids" || gg === "all_kids") return <Badge className="bg-purple-100 text-purple-800">Kids</Badge>;
+  if (gg === "kids" || gg === "all_kids") return <Badge className="bg-purple-100 text-purple-800">Juniors</Badge>;
   return <Badge variant="outline">{g || "All"}</Badge>;
 }
 

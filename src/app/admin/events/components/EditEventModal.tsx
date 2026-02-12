@@ -168,9 +168,11 @@ export function EditEventModal(props: {
               </Label>
               <Input
                 type="date"
+                className="[color-scheme:light] dark:[color-scheme:dark]"
                 value={dateStr}
                 onChange={(e) => setDateStr(e.target.value)}
                 disabled={isPast}
+                required
               />
             </div>
 

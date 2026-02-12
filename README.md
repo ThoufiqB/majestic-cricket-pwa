@@ -14,7 +14,7 @@ pnpm dev
 bun dev
 ```
 
-Open [https://majestic-cricket.vercel.app](https://majestic-cricket.vercel.app) with your browser to see the result.
+Open [https://www.majestic-foundation.com/](https://www.majestic-foundation.com/) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
