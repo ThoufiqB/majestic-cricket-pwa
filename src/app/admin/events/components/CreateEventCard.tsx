@@ -12,14 +12,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Calendar, Users, Banknote, Type, Clock, Eye } from "lucide-react";
-import { EVENT_TYPE_LABEL, EVENT_TYPE_OPTIONS, KIDS_EVENT_TYPE_OPTIONS } from "../constants";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Calendar, Users, Banknote, Type, Clock, Eye, ChevronDown } from "lucide-react";
+import { EVENT_TYPE_LABEL, EVENT_TYPE_OPTIONS, KIDS_EVENT_TYPE_OPTIONS, ALL_GROUPS } from "../constants";
 
 type Props = {
   eventType: string;
   setEventType: (v: string) => void;
-  createGroup: "men" | "women" | "mixed";
-  setCreateGroup: (v: "men" | "women" | "mixed") => void;
+  targetGroups: string[];
+  setTargetGroups: (v: string[]) => void;
   createKidsEvent: boolean;
   setCreateKidsEvent: (v: boolean) => void;
   isMembership: boolean;
@@ -87,23 +93,53 @@ export function CreateEventCard(p: Props) {
           <div className="space-y-1.5">
             <Label className="flex items-center gap-2 text-sm">
               <Users className="h-4 w-4 text-muted-foreground" />
-              Group
+              Target Groups *
             </Label>
-            <Select
-              value={p.createGroup}
-              onValueChange={(v) => p.setCreateGroup(v as "men" | "women" | "mixed")}
-            >
-              <SelectTrigger className="h-9 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="men">Men</SelectItem>
-                <SelectItem value="women">Women</SelectItem>
-                <SelectItem value="mixed">Mixed</SelectItem>
-              </SelectContent>
-            </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-between h-9">
+                  <span className="flex flex-wrap gap-1">
+                    {p.targetGroups.length === 0 ? (
+                      <span className="text-muted-foreground">Select groups...</span>
+                    ) : (
+                      p.targetGroups.map((group) => (
+                        <Badge key={group} variant="secondary" className="text-xs">
+                          {group}
+                        </Badge>
+                      ))
+                    )}
+                  </span>
+                  <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full p-2">
+                <div className="space-y-2">
+                  {ALL_GROUPS.map((group) => (
+                    <div key={group} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`event-group-${group}`}
+                        checked={p.targetGroups.includes(group)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            p.setTargetGroups([...p.targetGroups, group]);
+                          } else {
+                            p.setTargetGroups(p.targetGroups.filter((g) => g !== group));
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor={`event-group-${group}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {group}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <p className="text-xs text-muted-foreground">
-              Mixed events visible to both men and women.
+              Select multiple groups to make this event visible to them.
             </p>
           </div>
         )}

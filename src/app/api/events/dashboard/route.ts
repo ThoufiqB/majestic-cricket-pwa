@@ -79,16 +79,28 @@ export async function GET(req: NextRequest) {
       const eventDate = toIso(data.starts_at);
       if (!eventDate) continue;
 
-      const isKidsEvent = data.kids_event === true;
+      const isKidsEvent = data.kids_event === true || (data.targetGroups && data.targetGroups.includes("Kids"));
       
       // Filter based on profile type
       if (kidId) {
         // For kid profiles, only show kids events
         if (!isKidsEvent) continue;
       } else {
-        // For adult profiles, only show adult events matching their group
+        // For adult profiles, only show adult events matching their groups
         if (isKidsEvent) continue;
-        if (data.group && data.group !== "all" && data.group !== userGroup) continue;
+
+        // NEW: Check if user's groups intersect with event's targetGroups
+        const userGroups = (profileData as any).groups || [];
+        const eventTargetGroups = data.targetGroups || [];
+
+        if (eventTargetGroups.length > 0) {
+          // Check for intersection
+          const hasMatch = userGroups.some((ug: string) => eventTargetGroups.includes(ug));
+          if (!hasMatch) continue; // Skip events that don't match user's groups
+        } else {
+          // Fallback to legacy group filtering
+          if (data.group && data.group !== "all" && data.group !== userGroup) continue;
+        }
       }
 
       // Skip cancelled events
@@ -103,6 +115,7 @@ export async function GET(req: NextRequest) {
         fee: Number(data.fee || 0),
         status: data.status || "scheduled",
         group: data.group || "all",
+        targetGroups: data.targetGroups || [],
         kids_event: isKidsEvent,
         my: {
           attending: "UNKNOWN" as "YES" | "NO" | "UNKNOWN",

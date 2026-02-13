@@ -52,6 +52,18 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
         return;
       }
       
+      // Handle new user who needs to complete profile
+      if (data.status === "needs_profile") {
+        window.location.href = "/complete-profile";
+        return;
+      }
+      
+      // Handle pending approval
+      if (data.status === "pending_approval") {
+        window.location.href = "/pending-approval";
+        return;
+      }
+      
       if (!r.ok) throw new Error(data?.error || data?.message || "Login failed");
 
       // Ensure profile exists

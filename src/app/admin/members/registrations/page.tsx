@@ -74,6 +74,29 @@ function RequestCard({ request, onApprove, onReject }: {
             
             <p className="text-sm text-muted-foreground">{request.email}</p>
             
+            {/* NEW: Show Groups, Age, Payment Manager */}
+            {request.groups && request.groups.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {request.groups.map((group: string) => (
+                  <Badge key={group} variant="secondary" className="text-xs">
+                    {group}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            
+            {request.yearOfBirth && (
+              <p className="text-xs text-muted-foreground">
+                Age: {new Date().getFullYear() - request.yearOfBirth} (born {request.yearOfBirth})
+              </p>
+            )}
+            
+            {request.hasPaymentManager && request.paymentManagerName && (
+              <p className="text-xs text-blue-600 font-medium">
+                Payment Manager: {request.paymentManagerName}
+              </p>
+            )}
+            
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span>Requested: {formatDate(request.requested_at)}</span>
               

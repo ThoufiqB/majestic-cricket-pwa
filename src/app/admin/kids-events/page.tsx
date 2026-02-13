@@ -94,9 +94,9 @@ export default function AdminKidsEventsPage() {
       {/* Navigation Tabs */}
       <Tabs defaultValue="kids" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="adult" asChild>
+          <TabsTrigger value="club" asChild>
             <Link href="/admin/events" className="flex items-center gap-2">
-              Adult Events
+              Club Events
             </Link>
           </TabsTrigger>
           <TabsTrigger value="kids" className="flex items-center gap-2">

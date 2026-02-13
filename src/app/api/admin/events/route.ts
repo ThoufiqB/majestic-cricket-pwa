@@ -101,23 +101,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const title = String(body?.title || "").trim();
     const event_type = String(body?.event_type || "").trim().toLowerCase();
-    let group = String(body?.group || "").trim().toLowerCase();
+    const targetGroups = Array.isArray(body?.targetGroups) ? body.targetGroups : [];
     const fee = Number(body?.fee || 0);
     const starts_at_raw = body?.starts_at;
-    const kids_event = body?.kids_event === true;
-
-    // Kids events must use 'all_kids' group
-    if (kids_event) {
-      group = "all_kids";
-    }
 
     if (!title) throw new Error("title required");
     if (!event_type) throw new Error("event_type required");
     
-    if (kids_event) {
-      if (group !== "all_kids") throw new Error("Kids events must have group='all_kids'");
-    } else {
-      if (!["men", "women", "mixed"].includes(group)) throw new Error("Invalid group");
+    // Validate targetGroups
+    if (!Array.isArray(targetGroups) || targetGroups.length === 0) {
+      throw new Error("At least one target group is required");
+    }
+
+    const validGroups = ["Men", "Women", "U-13", "U-15", "U-18", "Kids"];
+    const invalidGroups = targetGroups.filter((g: string) => !validGroups.includes(g));
+    if (invalidGroups.length > 0) {
+      throw new Error(`Invalid groups: ${invalidGroups.join(", ")}`);
     }
     
     if (!Number.isFinite(fee) || fee < 0) throw new Error("Invalid fee");
@@ -134,10 +133,28 @@ export async function POST(req: NextRequest) {
 
     const now = adminTs.now();
 
+    // Determine if this is a kids event (for backward compatibility)
+    const kids_event = targetGroups.includes("Kids");
+    
+    // For backward compatibility, set group field
+    let legacyGroup = "";
+    if (kids_event) {
+      legacyGroup = "all_kids";
+    } else if (targetGroups.includes("Men") && targetGroups.includes("Women")) {
+      legacyGroup = "mixed";
+    } else if (targetGroups.includes("Men")) {
+      legacyGroup = "men";
+    } else if (targetGroups.includes("Women")) {
+      legacyGroup = "women";
+    } else {
+      legacyGroup = "youth";
+    }
+
     const ref = await adminDb.collection("events").add({
       title,
       event_type,
-      group,
+      targetGroups,
+      group: legacyGroup, // kept for backward compatibility
       fee,
       starts_at,
       kids_event,

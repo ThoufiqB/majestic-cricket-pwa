@@ -49,6 +49,7 @@ type DashboardEvent = {
   fee: number;
   status: string;
   group?: string;
+  targetGroups?: string[];
   kids_event?: boolean;
   friendsSummary?: {
     men?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
@@ -189,7 +190,11 @@ export default function PlayerHomePage() {
       const meData = await apiGet("/api/me");
       setMe(meData);
 
-      if (!meData.group || !meData.member_type) {
+      // Check if profile is complete - support both new (groups array) and legacy (group string)
+      const hasGroups = (Array.isArray(meData.groups) && meData.groups.length > 0) || !!meData.group;
+      const hasMemberType = !!meData.member_type;
+      
+      if (!hasGroups || !hasMemberType) {
         setNeedsProfile(true);
         return;
       }
@@ -581,6 +586,22 @@ export default function PlayerHomePage() {
                     <span>{displayedEvent.location}</span>
                   </div>
                 )}
+                {/* Target Groups */}
+                {displayedEvent.targetGroups && displayedEvent.targetGroups.length > 0 ? (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {displayedEvent.targetGroups.map((grp: string) => (
+                      <Badge key={grp} variant="outline" className="text-xs capitalize">
+                        {String(grp).toLowerCase()}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : displayedEvent.group ? (
+                  <div>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {String(displayedEvent.group).toLowerCase()}
+                    </Badge>
+                  </div>
+                ) : null}
                 {displayedEvent.event_type === "net_practice" && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Attendance closes 48 hours before this net session.
@@ -813,6 +834,22 @@ export default function PlayerHomePage() {
                     <div>{getEventTypeBadge(lastEvent.event_type)}</div>
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">{formatEventDate(lastEvent.starts_at)}</div>
+                  {/* Target Groups */}
+                  {lastEvent.targetGroups && lastEvent.targetGroups.length > 0 ? (
+                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                      {lastEvent.targetGroups.map((grp: string) => (
+                        <Badge key={grp} variant="outline" className="text-xs capitalize">
+                          {String(grp).toLowerCase()}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : lastEvent.group ? (
+                    <div className="mt-1">
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {String(lastEvent.group).toLowerCase()}
+                      </Badge>
+                    </div>
+                  ) : null}
                 </div>
                 {lastEvent.fee > 0 && (
                   <div className="text-right">

@@ -77,7 +77,7 @@ export function useAdminEvents() {
 
   // Create form
   const [eventType, setEventType] = useState<string>("net_practice");
-  const [createGroup, setCreateGroup] = useState<"men" | "women" | "mixed">("men");
+  const [targetGroups, setTargetGroups] = useState<string[]>([]);
   const [createKidsEvent, setCreateKidsEvent] = useState<boolean>(false);
 
   // For normal events
@@ -170,6 +170,11 @@ export function useAdminEvents() {
     if (!title) return setErr("Event Banner required");
     if (!Number.isFinite(Number(fee))) return setErr("Fee must be a number");
 
+    // Validate targetGroups
+    if (!createKidsEvent && targetGroups.length === 0) {
+      return setErr("Please select at least one target group");
+    }
+
     // Validate kids event
     if (createKidsEvent && isMembership) {
       return setErr("Kids events cannot be membership fees");
@@ -188,20 +193,17 @@ export function useAdminEvents() {
     }
 
     try {
-      // Kids events always use 'all_kids' group
-      const group = createKidsEvent ? "all_kids" : createGroup;
-
       await adminCreateEvent({
         title,
         event_type: eventType,
-        group,
+        targetGroups: createKidsEvent ? ["Kids"] : targetGroups,
         starts_at,
         fee: Number(fee || 0),
-        kids_event: createKidsEvent,
       });
 
       setFee(0);
       setBannerTouched(false);
+      setTargetGroups([]);
       setCreateKidsEvent(false);
       if (!isMembership) {
         setDateStr("");
@@ -230,7 +232,7 @@ export function useAdminEvents() {
     minute,
     ampm,
     eventType,
-    createGroup,
+    targetGroups,
     createKidsEvent,
     currentYear,
     loadBrowse,
@@ -329,17 +331,15 @@ export function useAdminEvents() {
 
   return {
     needsAuth,
-
     err,
     msg,
 
     eventType,
     setEventType,
-    createGroup,
-    setCreateGroup,
+    targetGroups,
+    setTargetGroups,
     createKidsEvent,
     setCreateKidsEvent,
-
     dateStr,
     setDateStr,
     hour12,
@@ -348,12 +348,9 @@ export function useAdminEvents() {
     setMinute,
     ampm,
     setAmpm,
-
-    currentYear,
-    yearOptions,
     membershipYear,
     setMembershipYear,
-
+    yearOptions,
     fee,
     setFee,
     banner,

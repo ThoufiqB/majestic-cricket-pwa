@@ -92,11 +92,18 @@ export function EventCard(p: Props) {
                 <Badge variant="secondary">
                   {EVENT_TYPE_LABEL[ev.event_type] || ev.event_type}
                 </Badge>
-                {ev.group && (
+                {/* Show target groups (multi-group support) */}
+                {ev.targetGroups && Array.isArray(ev.targetGroups) && ev.targetGroups.length > 0 ? (
+                  ev.targetGroups.map((grp: string) => (
+                    <Badge key={grp} variant="outline" className="capitalize">
+                      {String(grp).toLowerCase()}
+                    </Badge>
+                  ))
+                ) : ev.group ? (
                   <Badge variant="outline" className="capitalize">
                     {String(ev.group).toLowerCase()}
                   </Badge>
-                )}
+                ) : null}
                 <Badge className="bg-accent text-accent-foreground">
                   £{Number(ev.fee || 0).toFixed(2)}
                 </Badge>

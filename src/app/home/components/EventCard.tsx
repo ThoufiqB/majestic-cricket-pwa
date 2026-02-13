@@ -98,6 +98,10 @@ export function EventCard(p: Props) {
 
   const baseFee = Number((ev as any)?.fee || 0);
 
+  // Extract target groups for multi-group display
+  const targetGroups = (ev as any)?.targetGroups || [];
+  const legacyGroup = (ev as any)?.group;
+
   const dueRaw = (ev as any)?.my_fee_due ?? (ev as any)?.my?.fee_due;
   const due = dueRaw === "" || dueRaw === null || typeof dueRaw === "undefined" ? null : Number(dueRaw);
   const showDue = Number.isFinite(due as any);
@@ -140,6 +144,23 @@ export function EventCard(p: Props) {
               )}
             </CardDescription>
 
+            {/* Target Groups - Below Date/Time */}
+            {targetGroups.length > 0 ? (
+              <div className="mt-1 flex items-center gap-1 flex-wrap">
+                {targetGroups.map((grp: string) => (
+                  <Badge key={grp} variant="outline" className="text-xs capitalize">
+                    {String(grp).toLowerCase()}
+                  </Badge>
+                ))}
+              </div>
+            ) : legacyGroup ? (
+              <div className="mt-1">
+                <Badge variant="outline" className="text-xs capitalize">
+                  {String(legacyGroup).toLowerCase()}
+                </Badge>
+              </div>
+            ) : null}
+
             {/* ✅ Cutoff hint for Net Practice */}
             {!membership && isNetPractice && Number.isFinite(cutoffMs) && !eventPast && (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -147,8 +168,10 @@ export function EventCard(p: Props) {
               </p>
             )}
           </div>
-          <Badge variant="outline" className="capitalize shrink-0">
-            {String((ev as any).group || "").toLowerCase()}
+          
+          {/* Event Type Badge - Top Right */}
+          <Badge variant="secondary" className="text-xs shrink-0">
+            {EVENT_TYPE_LABEL[eventType] || eventType}
           </Badge>
         </div>
       </CardHeader>

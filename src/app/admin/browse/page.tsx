@@ -86,7 +86,7 @@ export default function AdminBrowsePage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Adult Events
+                  Club Events
                 </CardTitle>
                 <Badge variant="secondary">
                   {s.monthLabelFromKey(s.browseMonth)}
@@ -126,7 +126,7 @@ export default function AdminBrowsePage() {
                 {adultEvents.length === 0 && (
                   <div className="text-center py-8">
                     <Calendar className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                    <p className="text-muted-foreground">No adult events for this selection.</p>
+                    <p className="text-muted-foreground">No club events for this selection.</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       Adjust filters or create new events from the Events tab.
                     </p>
