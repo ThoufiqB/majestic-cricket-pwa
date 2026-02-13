@@ -55,8 +55,7 @@ export async function POST(req: NextRequest) {
       .where("starts_at", "<", end)
       .orderBy("starts_at", "asc");
 
-    if (group !== "all") q = q.where("group", "==", group);
-
+    // Note: Cannot filter targetGroups array in query, will filter client-side
     const snap = await q.get();
 
     // ✅ compute stats from attendees or kids_attendance based on event type
@@ -68,6 +67,20 @@ export async function POST(req: NextRequest) {
         // view filter
         if (view === "scheduled" && started) return null;
         if (view === "past" && !started) return null;
+
+        // group filter (supports both legacy group field and new targetGroups array)
+        if (group !== "all") {
+          const targetGroups = raw.targetGroups || [];
+          const legacyGroup = String(raw.group || "").toLowerCase();
+          const groupLower = group.toLowerCase();
+          
+          // Check if event matches the selected group
+          const matchesTargetGroups = Array.isArray(targetGroups) && 
+            targetGroups.some((g: string) => String(g || "").toLowerCase() === groupLower);
+          const matchesLegacyGroup = legacyGroup === groupLower;
+          
+          if (!matchesTargetGroups && !matchesLegacyGroup) return null;
+        }
 
         // ✅ For kids events, use kids_attendance collection
         const isKidsEvent = raw.kids_event === true;

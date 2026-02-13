@@ -103,7 +103,7 @@ export function useAdminEvents() {
   // Browse
   const monthOptions = useMemo(() => buildMonthOptions(7), []);
   const [browseMonth, setBrowseMonth] = useState<string>(monthKeyFromDate(new Date()));
-  const [browseGroup, setBrowseGroup] = useState<"all" | "men" | "women" | "mixed">("all");
+  const [browseGroup, setBrowseGroup] = useState<"all" | "men" | "women" | "u-13" | "u-15" | "u-18">("all");
   const [browseView, setBrowseView] = useState<"scheduled" | "past" | "all">("scheduled");
   const [events, setEvents] = useState<EventRow[]>([]);
 

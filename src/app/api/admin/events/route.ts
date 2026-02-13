@@ -43,46 +43,47 @@ export async function GET(req: NextRequest) {
       .where("starts_at", "<", end)
       .orderBy("starts_at", "asc");
 
-    let events = [];
-    if (group === "kids") {
-      // For kids, fetch all events for the month, filter in-memory for all kids events
-      // (group === 'kids' OR group === 'all_kids' OR kids_event === true)
-      // This avoids breaking other group logic and works around Firestore OR limitations
-      // (If you have a lot of events, consider optimizing this with Firestore 'in' queries)
-      // view filter (optional)
-      if (view === "scheduled") q = q.where("starts_at", ">=", now);
-      else if (view === "past") q = q.where("starts_at", "<", now);
-      // view === "all" -> no extra filter
-      const snap = await q.get();
-      events = snap.docs.map((d) => {
-        const data = d.data() as any;
-        const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
-        return {
-          event_id: d.id,
-          ...data,
-          _is_past: starts.getTime() <= now.getTime(),
-        };
-      }).filter(ev => {
-        const g = String(ev.group || "").toLowerCase();
-        return g === "kids" || g === "all_kids" || ev.kids_event === true;
-      });
-    } else {
-      // All other groups: keep existing logic
-      if (group !== "all") q = q.where("group", "==", group);
-      if (view === "scheduled") q = q.where("starts_at", ">=", now);
-      else if (view === "past") q = q.where("starts_at", "<", now);
-      // view === "all" -> no extra filter
-      const snap = await q.get();
-      events = snap.docs.map((d) => {
-        const data = d.data() as any;
-        const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
-        return {
-          event_id: d.id,
-          ...data,
-          _is_past: starts.getTime() <= now.getTime(),
-        };
-      });
-    }
+    // Note: Cannot filter targetGroups array in Firestore query, will filter client-side
+    const snap = await q.get();
+
+    const events = snap.docs.map((d) => {
+      const data = d.data() as any;
+      const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
+      return {
+        event_id: d.id,
+        ...data,
+        starts_at: starts,
+        _is_past: starts.getTime() <= now.getTime(),
+      };
+    }).filter((ev) => {
+      // View filter
+      if (view === "scheduled" && ev._is_past) return false;
+      if (view === "past" && !ev._is_past) return false;
+      
+      // Group filter (supports both targetGroups array and legacy group field)
+      if (group !== "all") {
+        const targetGroups = ev.targetGroups || [];
+        const legacyGroup = String(ev.group || "").toLowerCase();
+        const groupLower = group.toLowerCase();
+        
+        // Special handling for "kids" filter (includes all kids events)
+        const isKidsFilter = groupLower === "kids";
+        const isKidsEvent = ev.kids_event === true || 
+          legacyGroup === "all_kids" || 
+          legacyGroup === "kids";
+        
+        if (isKidsFilter && isKidsEvent) return true;
+        
+        // Check if event matches the selected group
+        const matchesTargetGroups = Array.isArray(targetGroups) && 
+          targetGroups.some((g: string) => String(g || "").toLowerCase() === groupLower);
+        const matchesLegacyGroup = legacyGroup === groupLower;
+        
+        if (!matchesTargetGroups && !matchesLegacyGroup) return false;
+      }
+      
+      return true;
+    });
 
     return NextResponse.json({ events });
   } catch (e: any) {

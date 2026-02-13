@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiGet } from "@/app/client/api";
 import { X } from "lucide-react";
 
-type GroupFilter = "all" | "men" | "women" | "kids";
+type GroupFilter = "all" | "men" | "women" | "u-13" | "u-15" | "u-18" | "kids";
 
 type Person = {
   id: string; // player_id or kid_id
@@ -188,16 +188,32 @@ export function AddPlayersSection() {
   // Phase 1: Add client-side group filter to ensure only events matching the selected group are shown
   const filteredEvents = useMemo(() => {
     const list = Array.isArray(events) ? events : [];
-    // Always show all if group is 'all', otherwise filter by normalized group
+    
     let filtered;
     if (group === "all") {
       filtered = list;
     } else if (group === "kids") {
       // Only show events that are truly kids events
-      filtered = list.filter((ev: any) => ev?.kids_event === true || String(ev?.group || "").toLowerCase() === "all_kids");
+      filtered = list.filter((ev: any) => 
+        ev?.kids_event === true || 
+        String(ev?.group || "").toLowerCase() === "all_kids"
+      );
     } else {
-      filtered = list.filter((ev: any) => normalizeGroupFromEvent(ev) === group);
+      // Check targetGroups array (matches backend filtering logic)
+      filtered = list.filter((ev: any) => {
+        const targetGroups = ev?.targetGroups || [];
+        const legacyGroup = String(ev?.group || "").toLowerCase();
+        const groupLower = group.toLowerCase();
+        
+        // Match if group is in targetGroups OR matches legacy group
+        const matchesTargetGroups = Array.isArray(targetGroups) && 
+          targetGroups.some((g: string) => String(g || "").toLowerCase() === groupLower);
+        const matchesLegacyGroup = legacyGroup === groupLower;
+        
+        return matchesTargetGroups || matchesLegacyGroup;
+      });
     }
+    
     return filtered.sort((a: any, b: any) => new Date(a?.starts_at).getTime() - new Date(b?.starts_at).getTime());
   }, [events, group]);
 
@@ -277,6 +293,9 @@ export function AddPlayersSection() {
               <option value="all">All</option>
               <option value="men">Men</option>
               <option value="women">Women</option>
+              <option value="u-13">U-13</option>
+              <option value="u-15">U-15</option>
+              <option value="u-18">U-18</option>
               <option value="kids">Juniors</option>
             </select>
           </div>
