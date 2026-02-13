@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { RegistrationRequest } from "@/lib/types/auth";
 
 /**
@@ -11,7 +11,7 @@ export function useRegistrations() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
-  async function fetchRequests(status: "pending" | "approved" | "rejected" | "all" = "pending") {
+  const fetchRequests = useCallback(async (status: "pending" | "approved" | "rejected" | "all" = "pending") => {
     setLoading(true);
     setError("");
     try {
@@ -32,7 +32,7 @@ export function useRegistrations() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   async function approveRequest(uid: string, details?: {
     group?: string;

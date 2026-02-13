@@ -876,12 +876,19 @@ export default function PlayerHomePage() {
                       <X className="h-5 w-5" />
                       <span className="font-medium">Payment Rejected</span>
                     </div>
-                    <Button className="w-full" onClick={() => markPaid(lastEvent.event_id)} disabled={markingPayment}>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Re-submit Payment
-                    </Button>
+                    {!me?.hasPaymentManager ? (
+                      <Button className="w-full" onClick={() => markPaid(lastEvent.event_id)} disabled={markingPayment}>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Re-submit Payment
+                      </Button>
+                    ) : (
+                      <div className="flex items-center gap-2 text-amber-600">
+                        <AlertCircle className="h-5 w-5" />
+                        <span className="text-sm">Payment managed by {me.paymentManagerName}</span>
+                      </div>
+                    )}
                   </div>
-                ) : lastEvent.fee > 0 && lastEvent.my.attended ? (
+                ) : lastEvent.fee > 0 && lastEvent.my.attended && !me?.hasPaymentManager ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <AlertCircle className="h-5 w-5" />
@@ -891,6 +898,11 @@ export default function PlayerHomePage() {
                       <CreditCard className="h-4 w-4 mr-2" />
                       Mark as Paid
                     </Button>
+                  </div>
+                ) : lastEvent.fee > 0 && lastEvent.my.attended && me?.hasPaymentManager ? (
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertCircle className="h-5 w-5" />
+                    <span className="text-sm">Payment managed by {me.paymentManagerName}</span>
                   </div>
                 ) : lastEvent.fee > 0 && !lastEvent.my.attended ? (
                   <div className="flex items-center gap-2 text-muted-foreground">

@@ -26,6 +26,34 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const body = await req.json().catch(() => ({}));
     const paid_status = normPaid(body?.paid_status);
+    const paidOnBehalfOf = body?.paidOnBehalfOf || null; // Optional: userId when parent pays for child
+
+    // Player should only be able to set PENDING
+    if (paid_status !== "PENDING") {
+      return NextResponse.json({ error: "Invalid paid_status" }, { status: 400 });
+    }
+
+    // Determine target user (self or managed child)
+    let targetUserId = u.uid;
+    let paidByUserId = null;
+    let paidByName = null;
+
+    if (paidOnBehalfOf && paidOnBehalfOf !== u.uid) {
+      // Verify permission: current user must be payment manager for target user
+      const targetUserSnap = await adminDb.collection("players").doc(paidOnBehalfOf).get();
+      if (!targetUserSnap.exists) {
+        return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+      }
+      const targetUserData = targetUserSnap.data() || {};
+      
+      if (targetUserData.paymentManagerId !== u.uid) {
+        return NextResponse.json({ error: "Not authorized to pay for this user" }, { status: 403 });
+      }
+
+      targetUserId = paidOnBehalfOf;
+      paidByUserId = u.uid;
+      paidByName = u.name || "Payment Manager";
+    }
 
     // Player should only be able to set PENDING
     if (paid_status !== "PENDING") {
@@ -51,7 +79,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     // SINGLE SOURCE OF TRUTH: events/{eventId}/attendees/{playerId}
-    const attendeeRef = evRef.collection("attendees").doc(u.uid);
+    const attendeeRef = evRef.collection("attendees").doc(targetUserId);
     const attendeeSnap = await attendeeRef.get();
     const attendeeData: any = attendeeSnap.data() || {};
 
@@ -73,15 +101,25 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }
     }
 
+    // Get target user info for the record
+    const targetUserSnap = await adminDb.collection("players").doc(targetUserId).get();
+    const targetUserData = targetUserSnap.data() || {};
+
     // Build update payload
     const update: any = {
-      player_id: u.uid,
-      name: String(u.name || ""),
-      email: String(u.email || ""),
+      player_id: targetUserId,
+      name: String(targetUserData.name || ""),
+      email: String(targetUserData.email || ""),
       paid_status: "PENDING",
       paid_updated_at: adminTs.now(),
       updated_at: adminTs.now(),
     };
+
+    // Add payment manager tracking if paying on behalf of someone
+    if (paidByUserId) {
+      update.paidByUserId = paidByUserId;
+      update.paidByName = paidByName;
+    }
 
     // For membership fees: auto-mark attending YES (no RSVP concept)
     if (isMembership) {

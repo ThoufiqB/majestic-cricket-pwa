@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminGuard } from "@/components/guards/AdminGuard";
+import { useBadges } from "@/components/context/BadgeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -151,6 +152,7 @@ function RequestCard({ request, onApprove, onReject }: {
 
 function RegistrationsPageContent() {
   const { requests, loading, error, fetchRequests, approveRequest, rejectRequest } = useRegistrations();
+  const { refreshBadges } = useBadges();
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -158,7 +160,7 @@ function RegistrationsPageContent() {
 
   useEffect(() => {
     fetchRequests(activeTab);
-  }, [activeTab]);
+  }, [activeTab, fetchRequests]);
 
   function handleApproveClick(request: RegistrationRequest) {
     setSelectedRequest(request);
@@ -175,6 +177,8 @@ function RegistrationsPageContent() {
     await approveRequest(selectedRequest.uid, details);
     setApproveDialogOpen(false);
     setSelectedRequest(null);
+    // Refresh badge count after approval
+    refreshBadges();
   }
 
   async function handleRejectConfirm(reason: string, notes?: string) {
@@ -182,6 +186,8 @@ function RegistrationsPageContent() {
     await rejectRequest(selectedRequest.uid, reason, notes);
     setRejectDialogOpen(false);
     setSelectedRequest(null);
+    // Refresh badge count after rejection
+    refreshBadges();
   }
 
   const pendingCount = requests.filter(r => r.status === "pending").length;

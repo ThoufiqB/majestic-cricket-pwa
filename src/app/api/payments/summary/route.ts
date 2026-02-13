@@ -55,6 +55,7 @@ async function getAttendanceDocsForKid(kidId: string) {
  *
  * Query Parameters:
  * - profile: "all" | playerId | kidId
+ * - viewAsUser: optional userId to view payments for (for payment managers)
  * - status: "all" | "paid" | "pending" | "unpaid" | "rejected"
  * - dateFrom/dateTo: optional ISO range
  * - sort/order: optional
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const profileFilter = searchParams.get("profile") || "all";
+    const viewAsUserId = searchParams.get("viewAsUser") || null;
     const statusFilter = (searchParams.get("status") || "all") as "all" | Status;
     const dateFromStr = searchParams.get("dateFrom");
     const dateToStr = searchParams.get("dateTo");
@@ -75,8 +77,25 @@ export async function GET(req: NextRequest) {
     const dateFrom = dateFromStr ? new Date(dateFromStr) : new Date(new Date().getFullYear(), 0, 1);
     const dateTo = dateToStr ? new Date(dateToStr) : new Date(new Date().getFullYear(), 11, 31, 23, 59, 59);
 
+    // Determine which user's data to fetch
+    const targetUserId = viewAsUserId || user.uid;
+
+    // If viewing as another user, verify permission
+    if (viewAsUserId && viewAsUserId !== user.uid) {
+      const viewedUserSnap = await adminDb.collection("players").doc(viewAsUserId).get();
+      if (!viewedUserSnap.exists) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      const viewedUserData = viewedUserSnap.data() || {};
+      
+      // Check if current user is the payment manager for the viewed user
+      if (viewedUserData.paymentManagerId !== user.uid) {
+        return NextResponse.json({ error: "Not authorized to view this user's payments" }, { status: 403 });
+      }
+    }
+
     // Player profile
-    const playerSnap = await adminDb.collection("players").doc(user.uid).get();
+    const playerSnap = await adminDb.collection("players").doc(targetUserId).get();
     if (!playerSnap.exists) return NextResponse.json({ error: "Player not found" }, { status: 404 });
 
     const playerData = playerSnap.data() || {};
@@ -84,8 +103,8 @@ export async function GET(req: NextRequest) {
 
     // Kids (backward compatible)
     const [kidsSnap1, kidsSnap2] = await Promise.all([
-      adminDb.collection("kids_profiles").where("parent_id", "==", user.uid).get(),
-      adminDb.collection("kids_profiles").where("player_id", "==", user.uid).get(),
+      adminDb.collection("kids_profiles").where("parent_id", "==", targetUserId).get(),
+      adminDb.collection("kids_profiles").where("player_id", "==", targetUserId).get(),
     ]);
 
     const kidsMap = new Map<string, any>();
@@ -98,7 +117,7 @@ export async function GET(req: NextRequest) {
     const kids = Array.from(kidsMap.values());
 
     const profiles = [
-      { profile_id: user.uid, profile_name: playerName, type: "player" as const },
+      { profile_id: targetUserId, profile_name: playerName, type: "player" as const },
       ...kids.map((k) => ({ profile_id: k.kid_id, profile_name: k.name, type: "kid" as const })),
     ];
 
@@ -133,7 +152,7 @@ export async function GET(req: NextRequest) {
 
     for (const profile of activeProfiles) {
       if (profile.type === "player") {
-        const docs = await getAttendanceDocsForPlayer(user.uid);
+        const docs = await getAttendanceDocsForPlayer(targetUserId);
 
         for (const doc of docs) {
           const attendance = doc.data() || {};
@@ -152,8 +171,9 @@ export async function GET(req: NextRequest) {
           // Billable is now strictly admin-confirmed attendance (attended === true)
           const billable = isBillable(attendance);
 
-          // "Unpaid" list should only show billable unpaid (confirmed attendance)
-          if (statusFilter === "unpaid" && !billable) continue;
+          // Always exclude non-billable events (no admin-confirmed attendance)
+          // This prevents showing events where user marked attendance but admin hasn't confirmed
+          if (!billable) continue;
           if (statusFilter !== "all" && status !== statusFilter) continue;
 
           allPayments.push({
@@ -173,6 +193,10 @@ export async function GET(req: NextRequest) {
             confirmed_at: toIso(attendance.confirmed_at),
             fee_due: attendance.fee_due ? Number(attendance.fee_due) : null,
             billable,
+            
+            // NEW: Payment manager tracking
+            paidByUserId: attendance.paidByUserId || null,
+            paidByName: attendance.paidByName || null,
           });
         }
       } else {
@@ -194,7 +218,8 @@ export async function GET(req: NextRequest) {
           const status: Status = normStatus(attendance.payment_status || attendance.paid_status);
           const billable = isBillable(attendance);
 
-          if (statusFilter === "unpaid" && !billable) continue;
+          // Always exclude non-billable events (no admin-confirmed attendance)
+          if (!billable) continue;
           if (statusFilter !== "all" && status !== statusFilter) continue;
 
           allPayments.push({
@@ -214,6 +239,10 @@ export async function GET(req: NextRequest) {
             confirmed_at: toIso(attendance.confirmed_at),
             fee_due: attendance.fee_due ? Number(attendance.fee_due) : null,
             billable,
+            
+            // NEW: Payment manager tracking
+            paidByUserId: attendance.paidByUserId || null,
+            paidByName: attendance.paidByName || null,
           });
         }
       }
@@ -249,8 +278,11 @@ export async function GET(req: NextRequest) {
         summary.total_pending += amount;
         summary.count_pending++;
       } else if (p.status === "rejected") {
-        summary.total_rejected += amount;
-        summary.count_rejected++;
+        // Rejected payments are unpaid (admin rejected, user needs to resubmit)
+        if (p.billable) {
+          summary.total_unpaid += amount;
+          summary.count_unpaid++;
+        }
       } else {
         if (p.billable) {
           summary.total_unpaid += amount;
