@@ -46,6 +46,7 @@ export async function POST(
     const { 
       group,  // deprecated, keep for backward compat
       groups, 
+      gender,
       member_type, 
       phone, 
       notes,
@@ -79,6 +80,7 @@ export async function POST(
     // Use groups from request data or body
     const playerGroups = requestData?.groups || groups || (group ? [group] : []);
     const playerYearOfBirth = requestData?.yearOfBirth || yearOfBirth;
+    const playerGender = requestData?.gender || gender;
     const playerHasPaymentManager = requestData?.hasPaymentManager || hasPaymentManager || false;
     const playerPaymentManagerId = requestData?.paymentManagerId || paymentManagerId;
     const playerPaymentManagerName = requestData?.paymentManagerName || paymentManagerName;
@@ -105,6 +107,7 @@ export async function POST(
       status: "active" as PlayerStatus,
       groups: playerGroups,
       yearOfBirth: playerYearOfBirth,
+      gender: playerGender,
       member_type: playerMemberType,
       phone: playerPhone,
       hasPaymentManager: playerHasPaymentManager,
@@ -138,13 +141,6 @@ export async function POST(
     if (playerHasPaymentManager && playerPaymentManagerId) {
       playerData.paymentManagerId = playerPaymentManagerId;
       playerData.paymentManagerName = playerPaymentManagerName;
-    }
-
-    // Backward compatibility: set single group field
-    if (playerGroups.includes("Men") || playerGroups.includes("men")) {
-      playerData.group = "men";
-    } else if (playerGroups.includes("Women") || playerGroups.includes("women")) {
-      playerData.group = "women";
     }
 
     // NEW ARCHITECTURE: Use batch write for atomicity

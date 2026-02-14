@@ -46,16 +46,16 @@ export async function GET(req: NextRequest) {
     const nowIso = now.toISOString();
 
     // Get user's profile to determine group (prefer 'players', fallback to 'profiles')
-    let profileData: { group?: string; name?: string; email?: string } = {};
+    let profileData: { group?: string; gender?: string; hasPaymentManager?: boolean; name?: string; email?: string } = {};
     let userGroup = "men";
     let playerSnap = await adminDb.collection("players").doc(user.uid).get();
     if (playerSnap.exists) {
-      profileData = (playerSnap.data() || {}) as { group?: string; name?: string; email?: string };
-      userGroup = profileData.group || "men";
+      profileData = (playerSnap.data() || {}) as any;
+      userGroup = deriveCategory(profileData.gender, profileData.hasPaymentManager, profileData.group);
     } else {
       const profileSnap = await adminDb.collection("profiles").doc(user.uid).get();
-      profileData = (profileSnap.data() || {}) as { group?: string; name?: string; email?: string };
-      userGroup = profileData.group || "men";
+      profileData = (profileSnap.data() || {}) as any;
+      userGroup = deriveCategory(profileData.gender, profileData.hasPaymentManager, profileData.group);
     }
 
     // Get upcoming events (next 30 days)

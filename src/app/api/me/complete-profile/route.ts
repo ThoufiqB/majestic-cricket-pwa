@@ -39,6 +39,7 @@ export async function PUT(req: NextRequest) {
     const { 
       groups, 
       yearOfBirth, 
+      gender,
       member_type, 
       phone,
       hasPaymentManager,
@@ -57,6 +58,13 @@ export async function PUT(req: NextRequest) {
     if (!yearOfBirth || !Number.isInteger(yearOfBirth)) {
       return NextResponse.json(
         { error: "Valid year of birth is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!gender || !["Male", "Female"].includes(gender)) {
+      return NextResponse.json(
+        { error: "Gender is required (Male or Female)" },
         { status: 400 }
       );
     }
@@ -126,6 +134,7 @@ export async function PUT(req: NextRequest) {
       const updateData: any = {
         groups,
         yearOfBirth,
+        gender,
         member_type,
         phone,
         hasPaymentManager: hasPaymentManager || false,
@@ -137,13 +146,6 @@ export async function PUT(req: NextRequest) {
       if (hasPaymentManager) {
         updateData.paymentManagerId = paymentManagerId;
         updateData.paymentManagerName = paymentManagerName;
-      }
-
-      // Keep backward compatibility
-      if (groups.includes("Men")) {
-        updateData.group = "men";
-      } else if (groups.includes("Women")) {
-        updateData.group = "women";
       }
 
       await playerRef.update(updateData);
@@ -164,6 +166,7 @@ export async function PUT(req: NextRequest) {
       name,
       groups,
       yearOfBirth,
+      gender,
       member_type,
       phone,
       hasPaymentManager: hasPaymentManager || false,

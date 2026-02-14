@@ -1,4 +1,5 @@
 import { adminDb } from "./firebaseAdmin";
+import { deriveCategory } from "./deriveCategory";
 
 function normAttending(v: any) {
   const s = String(v || "").toUpperCase();
@@ -58,9 +59,13 @@ export async function getFriendsSummaryForEvent(event: any) {
       const playerSnap = await adminDb.collection("players").doc(playerId).get();
       const playerData = playerSnap.data();
       const playerName = playerData?.name || "Unknown Player";
-      // Use group field from player profile to determine gender
-      const playerGroup = playerData?.group?.toLowerCase() || "all";
-      const isMale = playerGroup === "men";
+      // Derive category from gender + hasPaymentManager
+      const playerCategory = deriveCategory(
+        playerData?.gender,
+        playerData?.hasPaymentManager,
+        playerData?.group  // Fallback for legacy
+      );
+      const isMale = playerCategory === "men";
 
       if (isMale) {
         const isMaleGroup = eventGroup === "all" || eventGroup === "men" || eventGroup === "mixed";

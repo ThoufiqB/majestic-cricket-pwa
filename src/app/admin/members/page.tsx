@@ -41,7 +41,8 @@ interface Member {
   name: string;
   email: string;
   phone?: string;
-  group: "men" | "women";
+  group: "men" | "women" | "juniors";
+  gender?: "Male" | "Female";
   member_type?: string;
   role?: string;
   status?: "active" | "disabled" | "removed";
@@ -52,11 +53,11 @@ interface MemberStats {
   total: number;
   men: number;
   women: number;
+  juniors: number;
   admins: number;
   active: number;
   disabled: number;
   removed: number;
-  kids: number;
 }
 
 interface MemberDetail extends Member {
@@ -224,7 +225,7 @@ export default function AdminMembersPage() {
           </Card>
           <Card>
             <CardContent className="pt-3 pb-3 text-center">
-              <p className="text-xl lg:text-2xl font-bold text-purple-600">{stats.kids}</p>
+              <p className="text-xl lg:text-2xl font-bold text-purple-600">{stats.juniors}</p>
               <p className="text-xs text-muted-foreground">Juniors</p>
             </CardContent>
           </Card>
@@ -290,6 +291,8 @@ export default function AdminMembersPage() {
                   <SelectItem value="all">All Groups</SelectItem>
                   <SelectItem value="men">Men</SelectItem>
                   <SelectItem value="women">Women</SelectItem>
+                  <SelectItem value="youth">Youth</SelectItem>
+                  <SelectItem value="juniors">Juniors</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={roleFilter} onValueChange={setRoleFilter}>

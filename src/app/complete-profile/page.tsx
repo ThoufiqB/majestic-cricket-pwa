@@ -40,6 +40,7 @@ export default function CompleteProfilePage() {
     member_type: "",
     phone: "",
     yearOfBirth: "",
+    gender: "",
     hasPaymentManager: false,
     paymentManagerId: "",
     paymentManagerName: "",
@@ -148,6 +149,10 @@ export default function CompleteProfilePage() {
       setError("Please select your year of birth");
       return;
     }
+    if (!formData.gender) {
+      setError("Please select your gender");
+      return;
+    }
     if (!formData.member_type || formData.member_type === "none") {
       setError("Please select your member type");
       return;
@@ -198,6 +203,7 @@ export default function CompleteProfilePage() {
         body: JSON.stringify({
           groups: formData.groups,
           yearOfBirth: parseInt(formData.yearOfBirth),
+          gender: formData.gender,
           member_type: formData.member_type,
           phone: formData.phone,
           hasPaymentManager: formData.hasPaymentManager,
@@ -260,8 +266,8 @@ export default function CompleteProfilePage() {
           </CardHeader>
           <CardContent className="p-4 md:p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Year of Birth and Groups - 2 Column Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Year of Birth, Gender, and Groups - 3 Column Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* Year of Birth */}
                 <div className="space-y-2">
                   <Label htmlFor="yearOfBirth" className="flex items-center gap-2">
@@ -286,6 +292,26 @@ export default function CompleteProfilePage() {
                           {year}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Gender */}
+                <div className="space-y-2">
+                  <Label htmlFor="gender">
+                    Gender <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                    required
+                  >
+                    <SelectTrigger id="gender" className="w-full">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 function normEmail(s: string) {
   return String(s || "").trim().toLowerCase();
@@ -56,6 +57,8 @@ export async function GET() {
     return NextResponse.json({
       player_id: uid,
       ...data,
+      // Derive category from gender + hasPaymentManager (backward compatible)
+      group: deriveCategory(data.gender, data.hasPaymentManager, data.group),
       // IMPORTANT: overwrite any existing kids_profiles (IDs) with hydrated objects
       kids_profiles,
     });
@@ -78,7 +81,6 @@ export async function POST() {
         email: normEmail(u.email),
         name: String(u.name || ""),
         role: "player",
-        group: "",
         member_type: "",
         phone: "",
         created_at: now,
@@ -89,10 +91,11 @@ export async function POST() {
     const snap2 = await ref.get();
     const data = snap2.data() || {};
 
-    // NOTE: POST remains "create if missing". Do NOT hydrate here to avoid breaking callers
+    // NOTE: POST remains "create if missing". Derive group for response
     return NextResponse.json({
       player_id: uid,
       ...data,
+      group: deriveCategory(data?.gender, data?.hasPaymentManager, data?.group),
     });
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 401 });
