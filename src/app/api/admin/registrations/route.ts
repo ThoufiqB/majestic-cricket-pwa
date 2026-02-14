@@ -67,6 +67,10 @@ export async function GET(req: NextRequest) {
           member_type: data.member_type,
           phone: data.phone,
           yearOfBirth: data.yearOfBirth,
+          gender: data.gender,
+          hasPaymentManager: data.hasPaymentManager,
+          paymentManagerId: data.paymentManagerId,
+          paymentManagerName: data.paymentManagerName,
         } as RegistrationRequest;
       });
       
@@ -134,6 +138,10 @@ export async function GET(req: NextRequest) {
           member_type: data.member_type,
           phone: data.phone,
           yearOfBirth: data.yearOfBirth,
+          gender: data.gender,
+          hasPaymentManager: data.hasPaymentManager,
+          paymentManagerId: data.paymentManagerId,
+          paymentManagerName: data.paymentManagerName,
         } as RegistrationRequest;
       });
 

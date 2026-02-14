@@ -44,6 +44,7 @@ export interface RegistrationRequest {
   // NEW: Multi-group registration
   groups?: string[];
   yearOfBirth?: number;
+  gender?: "Male" | "Female";
   hasPaymentManager?: boolean;
   paymentManagerId?: string;
   paymentManagerName?: string;
