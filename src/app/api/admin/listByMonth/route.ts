@@ -68,18 +68,16 @@ export async function POST(req: NextRequest) {
         if (view === "scheduled" && started) return null;
         if (view === "past" && !started) return null;
 
-        // group filter (supports both legacy group field and new targetGroups array)
+        // group filter using targetGroups array
         if (group !== "all") {
           const targetGroups = raw.targetGroups || [];
-          const legacyGroup = String(raw.group || "").toLowerCase();
           const groupLower = group.toLowerCase();
           
           // Check if event matches the selected group
           const matchesTargetGroups = Array.isArray(targetGroups) && 
             targetGroups.some((g: string) => String(g || "").toLowerCase() === groupLower);
-          const matchesLegacyGroup = legacyGroup === groupLower;
           
-          if (!matchesTargetGroups && !matchesLegacyGroup) return null;
+          if (!matchesTargetGroups) return null;
         }
 
         // ✅ For kids events, use kids_attendance collection

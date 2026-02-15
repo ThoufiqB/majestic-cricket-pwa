@@ -48,13 +48,14 @@ export async function POST(req: NextRequest) {
     for (const d of snap.docs) {
       const ev = d.data() as any;
       const evType = norm(ev.event_type);
-      const evGroup = norm(ev.group);
       const startsAt: Date = ev.starts_at?.toDate ? ev.starts_at.toDate() : new Date(ev.starts_at);
 
-      // Group visibility:
-      // - mixed visible to both
-      // - otherwise match player group (if set)
-      if (group && !(evGroup === "mixed" || evGroup === group)) continue;
+      // Group visibility: check targetGroups array
+      if (group) {
+        const eventTargetGroups = ev.targetGroups || [];
+        const hasMatch = eventTargetGroups.some((tg: string) => norm(tg) === group);
+        if (!hasMatch) continue;
+      }
 
       // Type filter
       if (type !== "all" && evType !== type) continue;
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
         event_id: d.id,
         title: ev.title,
         event_type: ev.event_type,
-        group: ev.group,
+        targetGroups: ev.targetGroups || [],
         starts_at: startsAt.toISOString(),
         fee: Number(ev.fee || 0),
         status: ev.status,

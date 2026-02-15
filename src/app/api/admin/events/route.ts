@@ -60,26 +60,22 @@ export async function GET(req: NextRequest) {
       if (view === "scheduled" && ev._is_past) return false;
       if (view === "past" && !ev._is_past) return false;
       
-      // Group filter (supports both targetGroups array and legacy group field)
+      // Group filter using targetGroups array
       if (group !== "all") {
         const targetGroups = ev.targetGroups || [];
-        const legacyGroup = String(ev.group || "").toLowerCase();
         const groupLower = group.toLowerCase();
         
-        // Special handling for "kids" filter (includes all kids events)
+        // Special handling for "kids" filter
         const isKidsFilter = groupLower === "kids";
-        const isKidsEvent = ev.kids_event === true || 
-          legacyGroup === "all_kids" || 
-          legacyGroup === "kids";
+        const isKidsEvent = ev.kids_event === true;
         
         if (isKidsFilter && isKidsEvent) return true;
         
         // Check if event matches the selected group
         const matchesTargetGroups = Array.isArray(targetGroups) && 
           targetGroups.some((g: string) => String(g || "").toLowerCase() === groupLower);
-        const matchesLegacyGroup = legacyGroup === groupLower;
         
-        if (!matchesTargetGroups && !matchesLegacyGroup) return false;
+        if (!matchesTargetGroups) return false;
       }
       
       return true;

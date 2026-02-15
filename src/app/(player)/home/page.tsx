@@ -55,6 +55,7 @@ type DashboardEvent = {
     men?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
     women?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
     kids?: { yes: number; total: number; people?: { kid_id: string; name: string }[] };
+    juniors?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
   };
   my: {
     attending: "YES" | "NO" | "UNKNOWN";
@@ -768,20 +769,26 @@ export default function PlayerHomePage() {
                         </>
                       ) : (
                         <>
-                          {(displayedEvent.group === "men" || displayedEvent.group === "all") && displayedEvent.friendsSummary.men && (
+                          {displayedEvent.friendsSummary.men && (
                             <span>
                               Men {displayedEvent.friendsSummary.men.yes}/{displayedEvent.friendsSummary.men.total}
                             </span>
                           )}
-                          {displayedEvent.group === "all" &&
-                            displayedEvent.friendsSummary.men &&
+                          {displayedEvent.friendsSummary.men &&
                             displayedEvent.friendsSummary.women && <span> • </span>}
-                          {(displayedEvent.group === "women" || displayedEvent.group === "all") &&
-                            displayedEvent.friendsSummary.women && (
+                          {displayedEvent.friendsSummary.women && (
                               <span>
                                 Women {displayedEvent.friendsSummary.women.yes}/{displayedEvent.friendsSummary.women.total}
                               </span>
                             )}
+                          {displayedEvent.friendsSummary.juniors && displayedEvent.friendsSummary.juniors.total > 0 && (
+                            <>
+                              <span> • </span>
+                              <span>
+                                Youth {displayedEvent.friendsSummary.juniors.yes}/{displayedEvent.friendsSummary.juniors.total}
+                              </span>
+                            </>
+                          )}
                         </>
                       )}
                     </span>
@@ -929,11 +936,12 @@ export default function PlayerHomePage() {
       <FriendsGoingModal
         openEventId={openFriendsEventId}
         me={me}
-        events={nextEvent ? [nextEvent as any] : []}
+        events={upcomingEvents as any[]}
         modalData={
-          nextEvent && openFriendsEventId === nextEvent.event_id && nextEvent.friendsSummary
-            ? (nextEvent.friendsSummary as any)
-            : null
+          (() => {
+            const event = upcomingEvents.find(e => e.event_id === openFriendsEventId);
+            return (event?.friendsSummary as any) || null;
+          })()
         }
         loading={false}
         err=""

@@ -20,6 +20,7 @@ export type FriendsGoing = {
   men?: { yes: number; total: number; people: { player_id: string; name: string }[] };
   women?: { yes: number; total: number; people: { player_id: string; name: string }[] };
   kids?: { yes: number; total: number; people: { player_id: string; name: string }[] };
+  juniors?: { yes: number; total: number; people: { player_id: string; name: string }[] };
 };
 
 export type PaymentRecord = {

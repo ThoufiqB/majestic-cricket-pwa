@@ -38,50 +38,52 @@ export async function getFriendsSummaryForEvent(event: any) {
       kids: { yes: kidsYesList.length, total: totalKids, people: kidsYesList },
     };
   } else {
-    // For adult events, get attendees with names filtered by event group
+    // Adult events - categorize ALL attendees (no filtering - already filtered when marking attendance)
     const attendeesSnap = await adminDb
       .collection("events")
       .doc(event.event_id)
       .collection("attendees")
       .get();
 
-    const eventGroup = event.group?.toLowerCase() || "all";
     const menYesList: { player_id: string; name: string }[] = [];
     const womenYesList: { player_id: string; name: string }[] = [];
+    const juniorsYesList: { player_id: string; name: string }[] = [];
     let totalMen = 0;
     let totalWomen = 0;
+    let totalJuniors = 0;
 
     for (const doc of attendeesSnap.docs) {
       const data = doc.data();
       const attending = normAttending(data.attending);
       const playerId = doc.id;
-      // Get player's data from players collection to get group (male/female) and name
+      
+      // Get player data
       const playerSnap = await adminDb.collection("players").doc(playerId).get();
       const playerData = playerSnap.data();
       const playerName = playerData?.name || "Unknown Player";
-      // Derive category from gender + hasPaymentManager
+      
+      // Derive category (men/women/juniors)
       const playerCategory = deriveCategory(
         playerData?.gender,
         playerData?.hasPaymentManager,
-        playerData?.group  // Fallback for legacy
+        undefined
       );
-      const isMale = playerCategory === "men";
 
-      if (isMale) {
-        const isMaleGroup = eventGroup === "all" || eventGroup === "men" || eventGroup === "mixed";
-        if (isMaleGroup) {
-          totalMen++;
-          if (attending === "YES") {
-            menYesList.push({ player_id: playerId, name: playerName });
-          }
+      // Categorize and count (NO filtering - attendees are pre-filtered!)
+      if (playerCategory === "men") {
+        totalMen++;
+        if (attending === "YES") {
+          menYesList.push({ player_id: playerId, name: playerName });
         }
-      } else {
-        const isFemaleGroup = eventGroup === "all" || eventGroup === "women" || eventGroup === "mixed";
-        if (isFemaleGroup) {
-          totalWomen++;
-          if (attending === "YES") {
-            womenYesList.push({ player_id: playerId, name: playerName });
-          }
+      } else if (playerCategory === "women") {
+        totalWomen++;
+        if (attending === "YES") {
+          womenYesList.push({ player_id: playerId, name: playerName });
+        }
+      } else if (playerCategory === "juniors") {
+        totalJuniors++;
+        if (attending === "YES") {
+          juniorsYesList.push({ player_id: playerId, name: playerName });
         }
       }
     }
@@ -89,6 +91,7 @@ export async function getFriendsSummaryForEvent(event: any) {
     return {
       men: { yes: menYesList.length, total: totalMen, people: menYesList },
       women: { yes: womenYesList.length, total: totalWomen, people: womenYesList },
+      juniors: { yes: juniorsYesList.length, total: totalJuniors, people: juniorsYesList },
     };
   }
 }

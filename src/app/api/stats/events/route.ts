@@ -18,8 +18,7 @@ export async function GET(req: NextRequest) {
     
     const playerData = playerSnap.data() || {};
     const me = { 
-      player_id: sessionUser.uid, 
-      group: playerData.group as string | undefined,
+      player_id: sessionUser.uid,
       ...playerData 
     };
     
@@ -51,8 +50,12 @@ export async function GET(req: NextRequest) {
       userGroups = ["U-13", "U-15", "U-18", "Kids"]; // All youth groups
     } else {
       // Derive category from player's gender + hasPaymentManager
-      category = deriveCategory(me.gender, me.hasPaymentManager, me.group);
-      userGroups = Array.isArray(me.groups) ? me.groups : [];
+      category = deriveCategory(
+        (me as any).gender, 
+        (me as any).hasPaymentManager, 
+        (me as any).group
+      );
+      userGroups = Array.isArray((me as any).groups) ? (me as any).groups : [];
     }
 
     // Helper to convert Firestore timestamp to Date
@@ -93,12 +96,6 @@ export async function GET(req: NextRequest) {
       
       // Check if player's groups overlap with event's targetGroups
       const targetGroups = event.targetGroups || [];
-      
-      // If no targetGroups (legacy event), try legacy group field
-      if (targetGroups.length === 0) {
-        const legacyGroup = String(event.group || "").toLowerCase();
-        return legacyGroup === category;
-      }
       
       // Check array intersection: player belongs to at least one target group
       return userGroups.some(playerGroup => 

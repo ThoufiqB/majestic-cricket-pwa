@@ -182,11 +182,6 @@ export async function GET(req: NextRequest) {
             if (!hasMatch) {
               return false;
             }
-          } else {
-            // Fallback to legacy group filtering
-            if (group !== "all" && String(ev.group || "").toLowerCase() !== group.toLowerCase()) {
-              return false;
-            }
           }
 
           return true;
@@ -239,12 +234,6 @@ export async function GET(req: NextRequest) {
         if (eventTargetGroups.length > 0) {
           const hasMatch = userGroups.some((ug: string) => eventTargetGroups.includes(ug));
           if (!hasMatch) {
-            return false; // User's groups don't match event's targetGroups
-          }
-        } else {
-          // Fallback to legacy group filtering for old events without targetGroups
-          const evGroup = String(ev.group || "").toLowerCase();
-          if (group !== "all" && evGroup !== group.toLowerCase()) {
             return false;
           }
         }

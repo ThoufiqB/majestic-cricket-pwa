@@ -27,7 +27,7 @@ type Props = {
   onClose: () => void;
 };
 
-type GroupKey = "men" | "women" | "kids";
+type GroupKey = "men" | "women" | "kids" | "juniors";
 
 function safeGroupBlock(modalData: FriendsGoing | null | undefined, g: GroupKey) {
   const b: any = modalData ? (modalData as any)[g] : null;
@@ -62,18 +62,13 @@ export function FriendsGoingModal(p: Props) {
   const evGroup = String(ev?.group || "").trim().toLowerCase();
   const isKidsEvent = ev?.kids_event === true;
 
-  let groupsToShow: GroupKey[] = ["men", "women"];
+  let groupsToShow: GroupKey[] = [];
 
   if (isKidsEvent) {
     groupsToShow = ["kids"];
   } else {
-    if (!isAdminLocal) {
-      if (evGroup === "mixed") groupsToShow = ["men", "women"];
-      else if (playerGroup === "men" || playerGroup === "women") groupsToShow = [playerGroup as GroupKey];
-      else groupsToShow = ["men"];
-    } else {
-      if (evGroup === "men" || evGroup === "women") groupsToShow = [evGroup as GroupKey];
-    }
+    // For adult events, show all categories (men, women, juniors)
+    groupsToShow = ["men", "women", "juniors"];
   }
 
   return (
@@ -118,7 +113,10 @@ export function FriendsGoingModal(p: Props) {
               {groupsToShow.map((g) => {
                 const block = safeGroupBlock(p.modalData, g);
                 const pct = block.total > 0 ? (block.yes / block.total) * 100 : 0;
-                const displayName = g === "kids" ? "Kids" : g.charAt(0).toUpperCase() + g.slice(1);
+                const displayName = 
+                  g === "kids" ? "Kids" : 
+                  g === "juniors" ? "Youth" : 
+                  g.charAt(0).toUpperCase() + g.slice(1);
 
                 // Phase 1: Copy badge state
                 const [copiedGroup, setCopiedGroup] = useState<string | null>(null);
