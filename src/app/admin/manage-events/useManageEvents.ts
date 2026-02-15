@@ -133,6 +133,7 @@ export function useManageEvents() {
       const params = new URLSearchParams();
       if (month) params.append("month", month);
       if (group) params.append("group", group);
+      params.append("view", "all"); // ✅ Show all events (past, scheduled, future)
       const url = `/api/admin/events?${params.toString()}`;
       const data = await apiGet(url);
       setEvents((data?.events || []) as AdminEvent[]);
