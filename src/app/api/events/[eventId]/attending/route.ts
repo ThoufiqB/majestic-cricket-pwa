@@ -68,6 +68,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const category = deriveCategory(me.gender, me.hasPaymentManager, me.group);
     const groups = Array.isArray(me.groups) ? me.groups : [];
 
+    // Calculate fee_due based on member_type (student gets 25% discount)
+    const memberType = String(me.member_type || "standard").toLowerCase();
+    const baseFee = Number(ev.fee || 0);
+    const fee_due = memberType === "student" ? baseFee * 0.75 : baseFee;
+
     const ref = adminDb.collection("events").doc(id).collection("attendees").doc(u.uid);
 
     await ref.set(
@@ -78,6 +83,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         category, // Derived category (men/women/juniors)
         groups, // User's groups array
         attending,
+        fee_due, // Calculated fee with student discount applied
         updated_at: adminTs.now(),
       },
       { merge: true }
