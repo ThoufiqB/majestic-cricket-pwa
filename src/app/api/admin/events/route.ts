@@ -134,28 +134,13 @@ export async function POST(req: NextRequest) {
 
     const now = adminTs.now();
 
-    // Determine if this is a kids event (for backward compatibility)
+    // Determine if this is a kids event
     const kids_event = targetGroups.includes("Kids");
-    
-    // For backward compatibility, set group field
-    let legacyGroup = "";
-    if (kids_event) {
-      legacyGroup = "all_kids";
-    } else if (targetGroups.includes("Men") && targetGroups.includes("Women")) {
-      legacyGroup = "mixed";
-    } else if (targetGroups.includes("Men")) {
-      legacyGroup = "men";
-    } else if (targetGroups.includes("Women")) {
-      legacyGroup = "women";
-    } else {
-      legacyGroup = "youth";
-    }
 
     const ref = await adminDb.collection("events").add({
       title,
       event_type,
       targetGroups,
-      group: legacyGroup, // kept for backward compatibility
       fee,
       starts_at,
       kids_event,

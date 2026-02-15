@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 type Ctx = { params: Promise<{ eventId: string }> };
 
@@ -62,8 +63,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // pull player profile for consistent group/name
     const meSnap = await adminDb.collection("players").doc(u.uid).get();
     const me: any = meSnap.data() || {};
-    const group = String(me.group || "").toLowerCase();
-    const safeGroup = group === "men" || group === "women" ? group : "";
+    
+    // Derive category from gender + hasPaymentManager
+    const category = deriveCategory(me.gender, me.hasPaymentManager, me.group);
+    const groups = Array.isArray(me.groups) ? me.groups : [];
 
     const ref = adminDb.collection("events").doc(id).collection("attendees").doc(u.uid);
 
@@ -72,7 +75,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         player_id: u.uid,
         name: String(me.name || u.name || ""),
         email: String(me.email || u.email || ""),
-        group: safeGroup, // ✅ important for Friends Going
+        category, // Derived category (men/women/juniors)
+        groups, // User's groups array
         attending,
         updated_at: adminTs.now(),
       },
