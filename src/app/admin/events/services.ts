@@ -10,6 +10,7 @@ export type EventRow = {
   fee: number;
   status?: string;
   _is_past?: boolean;
+  kids_event?: boolean;
   stats?: { going: number; paid: number; unpaid: number; pending: number; rejected?: number };
 };
 
