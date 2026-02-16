@@ -112,7 +112,11 @@ export function CreateEventCard(p: Props) {
                   <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-full p-2">
+              <DropdownMenuContent 
+                align="start" 
+                className="p-2"
+                style={{ width: 'var(--radix-dropdown-menu-trigger-width)' }}
+              >
                 <div className="space-y-2">
                   {ALL_GROUPS.map((group) => (
                     <div key={group} className="flex items-center space-x-2">
