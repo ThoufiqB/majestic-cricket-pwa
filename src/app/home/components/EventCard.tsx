@@ -9,6 +9,7 @@ import type { HomeEvent } from "../types";
 import { EVENT_TYPE_LABEL } from "../constants";
 import { isMembershipEvent, paidLabel } from "../helpers";
 import { calculateAge, isAgeInRange, getAgeEligibilityMessage } from "@/lib/ageCalculator";
+import { calculateFee } from "@/lib/calculateFee";
 
 type Props = {
   ev: HomeEvent;
@@ -27,6 +28,9 @@ type Props = {
 
   isKidProfile?: boolean;
   kidBirthDate?: Date | null;
+  
+  /** User's member type for fee calculation */
+  userMemberType?: string | null;
 };
 
 type Attending = "YES" | "NO" | "UNKNOWN";
@@ -180,8 +184,13 @@ export function EventCard(p: Props) {
         {/* Fee display */}
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold text-primary">
-            £{(showDue ? (due as number) : baseFee).toFixed(2)}
+            £{(showDue ? (due as number) : calculateFee(baseFee, p.userMemberType)).toFixed(2)}
           </span>
+          {!showDue && p.userMemberType === "student" && baseFee > 0 && (
+            <span className="text-xs text-green-600 font-medium">
+              Student rate (25% off)
+            </span>
+          )}
           {showDue && due !== baseFee && (
             <span className="text-sm text-muted-foreground">
               Standard: £{baseFee.toFixed(2)}

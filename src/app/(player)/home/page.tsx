@@ -36,6 +36,7 @@ import { apiGet, apiPost, apiPatch } from "@/app/client/api";
 import { signOutSession } from "@/app/auth";
 import { toast } from "sonner";
 import { useProfile } from "@/components/context/ProfileContext";
+import { calculateFee } from "@/lib/calculateFee";
 
 import { AuthGateCard } from "@/app/home/components/AuthGateCard";
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
@@ -608,6 +609,18 @@ export default function PlayerHomePage() {
                     Attendance closes 48 hours before this net session.
                   </p>
                 )}
+                {displayedEvent.fee > 0 && (
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-lg font-bold text-primary">
+                      £{calculateFee(displayedEvent.fee, me?.member_type)}
+                    </span>
+                    {me?.member_type === "student" && (
+                      <span className="text-xs text-green-600 font-medium">
+                        Student rate (25% off)
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="border-t pt-4">
@@ -860,8 +873,10 @@ export default function PlayerHomePage() {
                 </div>
                 {lastEvent.fee > 0 && (
                   <div className="text-right">
-                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? lastEvent.fee}</div>
-                    <div className="text-xs text-muted-foreground">Fee</div>
+                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? calculateFee(lastEvent.fee, me?.member_type)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {me?.member_type === "student" && !lastEvent.my.fee_due ? "Student rate" : "Fee"}
+                    </div>
                   </div>
                 )}
               </div>
