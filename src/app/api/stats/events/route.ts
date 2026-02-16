@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,8 +18,7 @@ export async function GET(req: NextRequest) {
     
     const playerData = playerSnap.data() || {};
     const me = { 
-      player_id: sessionUser.uid, 
-      group: playerData.group as string | undefined,
+      player_id: sessionUser.uid,
       ...playerData 
     };
     
@@ -40,13 +40,22 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Get player/kid data to determine group
-    let group: string;
+    // Get player/kid data to determine category and groups
+    let category: string;
+    let userGroups: string[];
+    
     if (isKidProfile) {
-      const kidDoc = await adminDb.collection("kids_profiles").doc(profileId).get();
-      group = kidDoc.data()?.group || "all_kids";
+      // Kids always have category "juniors"
+      category = "juniors";
+      userGroups = ["U-13", "U-15", "U-18", "Kids"]; // All youth groups
     } else {
-      group = me.group || "men";
+      // Derive category from player's gender + hasPaymentManager
+      category = deriveCategory(
+        (me as any).gender, 
+        (me as any).hasPaymentManager, 
+        (me as any).group
+      );
+      userGroups = Array.isArray((me as any).groups) ? (me as any).groups : [];
     }
 
     // Helper to convert Firestore timestamp to Date
@@ -71,12 +80,30 @@ export async function GET(req: NextRequest) {
       .where("starts_at", "<", endOfYear)
       .get();
 
-    // Filter events based on profile type
-    // For kids: only kids_event=true events
-    // For adults: only events matching their group (not kids events)
-    const filteredDocs = isKidProfile 
-      ? eventsSnapshot.docs.filter(doc => doc.data().kids_event === true)
-      : eventsSnapshot.docs.filter(doc => doc.data().group === group && doc.data().kids_event !== true);
+    // Filter events based on profile type and targetGroups
+    const filteredDocs = eventsSnapshot.docs.filter(doc => {
+      const event = doc.data();
+      
+      // Kids: only kids events
+      if (isKidProfile) {
+        return event.kids_event === true;
+      }
+      
+      // Adults: exclude kids events
+      if (event.kids_event === true) {
+        return false;
+      }
+      
+      // Check if player's groups overlap with event's targetGroups
+      const targetGroups = event.targetGroups || [];
+      
+      // Check array intersection: player belongs to at least one target group
+      return userGroups.some(playerGroup => 
+        targetGroups.some((targetGroup: string) => 
+          String(targetGroup || "").toLowerCase() === String(playerGroup || "").toLowerCase()
+        )
+      );
+    });
     
     // Count stats
     let totalEvents = 0;

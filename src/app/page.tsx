@@ -82,8 +82,14 @@ export default function LoginPage() {
       // Handle different response statuses
       if (!r.ok) {
         // Check for specific status responses
+        if (data?.status === "needs_profile") {
+          // New user - needs to complete profile first
+          router.replace("/complete-profile");
+          return;
+        }
+
         if (data?.status === "pending_approval") {
-          // New user or resubmitted request - redirect to pending page
+          // Registration request submitted - redirect to pending page
           router.replace("/pending-approval");
           return;
         }
@@ -118,13 +124,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if profile is complete
-      if ((playerWithKids as any).profile_completed === false) {
-        // User needs to complete their profile
-        router.replace("/complete-profile");
-        return;
-      }
-
+      // Check if user has kids - show profile selector
       if (Array.isArray(playerWithKids.kids_profiles) && playerWithKids.kids_profiles.length > 0) {
         setUser(playerWithKids);
         setShowProfileSelector(true);
@@ -216,7 +216,7 @@ export default function LoginPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="text-green-600">✓</span>
-                  <span>Family profiles for kids</span>
+                  <span>Family profiles for juniors</span>
                 </div>
               </div>
 

@@ -90,6 +90,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         payment_status: "PENDING",
         paid_updated_at: adminTs.now(),
         updated_at: adminTs.now(),
+        // NEW: Track who paid (parent ID and name)
+        paidByUserId: u.uid,
+        paidByName: u.name || "Parent",
       },
       { merge: true }
     );

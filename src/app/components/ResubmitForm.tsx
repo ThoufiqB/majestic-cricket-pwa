@@ -192,7 +192,7 @@ export function ResubmitForm({
               <Input
                 id="phone"
                 type="tel"
-                placeholder="+1234567890"
+                placeholder="07700 909000"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 required

@@ -25,6 +25,7 @@ import type { HomeEvent as HomeEventType, FriendsGoing } from "@/app/home/types"
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
 import { apiGet, apiPost } from "@/app/client/api";
 import { toast } from "sonner";
+import { calculateFee } from "@/lib/calculateFee";
 
 type HomeEvent = HomeEventType & {
   location?: string;
@@ -129,9 +130,9 @@ function getAttendingBadge(attending: string | undefined, isPast: boolean) {
 }
 
 export default function BrowsePage() {
+  const [me, setMe] = useState<any>(null);
   const [events, setEvents] = useState<HomeEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [me, setMe] = useState<any>(null);
   const { activeProfileId, isKidProfile } = useProfile();
   const [selectedMonth, setSelectedMonth] = useState(
     monthKeyFromDate(new Date())
@@ -463,7 +464,7 @@ export default function BrowsePage() {
                         {getAttendingBadge(myAttending, isPast)}
                         {event.fee > 0 && (
                           <Badge className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200">
-                            £{event.fee}
+                            £{calculateFee(event.fee, me?.member_type)}
                           </Badge>
                         )}
                       </div>

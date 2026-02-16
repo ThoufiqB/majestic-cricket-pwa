@@ -48,16 +48,16 @@ export default function AdminEventsPage() {
   return (
     <div className="space-y-6">
       {/* Navigation Tabs */}
-      <Tabs defaultValue="adults" className="w-full">
+      <Tabs defaultValue="club" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="adults" className="gap-2">
+          <TabsTrigger value="club" className="gap-2">
             <Users className="h-4 w-4" />
-            Adult Events
+            Club Events
           </TabsTrigger>
           <TabsTrigger value="kids" asChild>
             <a href="/admin/kids-events" className="gap-2 inline-flex items-center justify-center">
               <Baby className="h-4 w-4" />
-              Kids Events
+              Junior Events
             </a>
           </TabsTrigger>
         </TabsList>
@@ -77,8 +77,8 @@ export default function AdminEventsPage() {
       <CreateEventCard
         eventType={s.eventType}
         setEventType={s.setEventType}
-        createGroup={s.createGroup}
-        setCreateGroup={s.setCreateGroup}
+        targetGroups={s.targetGroups}
+        setTargetGroups={s.setTargetGroups}
         createKidsEvent={false}
         setCreateKidsEvent={() => {}}
         isMembership={s.isMembership}

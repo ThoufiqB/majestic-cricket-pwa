@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { AdminGuard } from "@/components/guards/AdminGuard";
+import { BadgeProvider } from "@/components/context/BadgeContext";
 import { AppShell } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -46,9 +47,11 @@ export default function AdminLayout({
         </div>
       }
     >
-      <AppShell variant="admin" maxWidth="600px" onSignOut={handleSignOut}>
-        {children}
-      </AppShell>
+      <BadgeProvider>
+        <AppShell variant="admin" maxWidth="600px" onSignOut={handleSignOut}>
+          {children}
+        </AppShell>
+      </BadgeProvider>
     </AdminGuard>
   );
 }

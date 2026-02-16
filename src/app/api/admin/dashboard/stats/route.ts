@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { getPendingPaymentsCount } from "../../payments/utils";
 import { requireAdminUser } from "@/lib/requireAdmin";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 export async function GET() {
   // Check admin auth
@@ -36,13 +37,17 @@ export async function GET() {
       // Dashboard stats API removed as per requirements.
     let menCount = 0;
     let womenCount = 0;
+    let juniorsCount = 0;
     const recentSignups: any[] = [];
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     playersSnap.docs.forEach((doc) => {
       const data = doc.data();
-      if (data.group === "men") menCount++;
-      else if (data.group === "women") womenCount++;
+      const category = deriveCategory(data.gender, data.hasPaymentManager, data.group);
+      
+      if (category === "men") menCount++;
+      else if (category === "women") womenCount++;
+      else if (category === "juniors") juniorsCount++;
 
       // Check for recent signups (created in last 7 days)
       if (data.created_at) {

@@ -171,10 +171,19 @@ export async function GET(req: NextRequest) {
           if (evStart < start.getTime() || evStart >= end.getTime()) {
             return false;
           }
-          // Filter by group if not "all"
-          if (group !== "all" && String(ev.group || "").toLowerCase() !== group.toLowerCase()) {
-            return false;
+
+          // NEW: Check if user's groups intersect with event's targetGroups
+          const userGroups = me.groups || [];
+          const eventTargetGroups = ev.targetGroups || [];
+
+          // If event has targetGroups, check for intersection
+          if (eventTargetGroups.length > 0) {
+            const hasMatch = userGroups.some((ug: string) => eventTargetGroups.includes(ug));
+            if (!hasMatch) {
+              return false;
+            }
           }
+
           return true;
         })
         .sort((a: any, b: any) => {
@@ -204,21 +213,31 @@ export async function GET(req: NextRequest) {
       .filter((ev: any) => {
         // For kids events request, only show kids_event=true
         if (isKidsEventRequest) {
-          return ev.kids_event === true && String(ev.group || "").toLowerCase() === "all_kids";
+          return ev.kids_event === true || (ev.targetGroups && ev.targetGroups.includes("Kids"));
         }
 
-        // For adult events: filter by type
+        // Don't show kids events in adult view
+        if (ev.kids_event === true || (ev.targetGroups && ev.targetGroups.includes("Kids"))) {
+          return false;
+        }
+
+        // Filter by event type
         if (type !== "all" && String(ev.event_type || "").toLowerCase() !== type.toLowerCase()) {
           return false;
         }
-        // Filter by group (exclude kids events from adult view)
-        if (group !== "all" && String(ev.group || "").toLowerCase() !== group.toLowerCase()) {
-          return false;
+
+        // NEW: Check if user's groups intersect with event's targetGroups
+        const userGroups = me.groups || [];
+        const eventTargetGroups = ev.targetGroups || [];
+
+        // If event has targetGroups, check for intersection with user's groups
+        if (eventTargetGroups.length > 0) {
+          const hasMatch = userGroups.some((ug: string) => eventTargetGroups.includes(ug));
+          if (!hasMatch) {
+            return false;
+          }
         }
-        // Don't show kids events in adult view
-        if (ev.kids_event === true) {
-          return false;
-        }
+
         return true;
       });
 

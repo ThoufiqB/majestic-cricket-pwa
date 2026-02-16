@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { AdminGuard } from "@/components/guards/AdminGuard";
+import { useBadges } from "@/components/context/BadgeContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRegistrations } from "./useRegistrations";
-import { ApproveDialog } from "./components/ApproveDialog";
 import { RejectDialog } from "./components/RejectDialog";
 import type { RegistrationRequest } from "@/lib/types/auth";
 import { UserCheck, UserX, Clock, CheckCircle, XCircle } from "lucide-react";
+import { toast } from "sonner";
 
 function formatDate(date: Date | FirebaseFirestore.Timestamp | null): string {
   if (!date) return "N/A";
@@ -49,7 +50,8 @@ function RequestCard({ request, onApprove, onReject }: {
       <CardContent className="pt-4 pb-4">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           {/* User Info */}
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 min-w-0 space-y-3">
+            {/* Header: Name + Status */}
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-base">{request.name}</h3>
               {request.status === "pending" && (
@@ -74,6 +76,105 @@ function RequestCard({ request, onApprove, onReject }: {
             
             <p className="text-sm text-muted-foreground">{request.email}</p>
             
+            {/* Personal Information Section */}
+            <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                Personal Information
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {/* Gender */}
+                {request.gender && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Gender:</span>
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${
+                        request.gender === "Male" 
+                          ? "bg-blue-100 text-blue-700 border-blue-200" 
+                          : "bg-pink-100 text-pink-700 border-pink-200"
+                      }`}
+                    >
+                      {request.gender}
+                    </Badge>
+                  </div>
+                )}
+                
+                {/* Member Type */}
+                {request.member_type && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Member Type:</span>
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${
+                        request.member_type === "student"
+                          ? "bg-green-100 text-green-700 border-green-200"
+                          : ""
+                      }`}
+                    >
+                      {request.member_type === "student" 
+                        ? "Student (25% off)" 
+                        : "Standard"}
+                    </Badge>
+                  </div>
+                )}
+                
+                {/* Phone */}
+                {request.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Phone:</span>
+                    <span className="font-medium">{request.phone}</span>
+                  </div>
+                )}
+                
+                {/* Age */}
+                {request.yearOfBirth && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Age:</span>
+                    <span className="font-medium">
+                      {new Date().getFullYear() - request.yearOfBirth}
+                      <span className="text-muted-foreground ml-1">
+                        (born {request.yearOfBirth})
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Teams Section */}
+            {request.groups && request.groups.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                  Teams
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {request.groups.map((group: string) => (
+                    <Badge key={group} variant="secondary" className="text-xs">
+                      {group}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Payment Manager Section */}
+            {request.hasPaymentManager && (
+              <div className="bg-blue-50 rounded-lg p-3 space-y-1 border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                  💳 Payment Manager (Youth)
+                </p>
+                <p className="text-sm font-medium text-blue-900">
+                  {request.paymentManagerName || "Not specified"}
+                </p>
+                {request.paymentManagerId && (
+                  <p className="text-xs text-blue-600 font-mono">
+                    ID: {request.paymentManagerId.substring(0, 12)}...
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {/* Timestamps */}
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span>Requested: {formatDate(request.requested_at)}</span>
               
@@ -90,10 +191,18 @@ function RequestCard({ request, onApprove, onReject }: {
               )}
             </div>
 
+            {/* Rejection Reason */}
             {request.status === "rejected" && request.rejection_reason && (
-              <p className="text-xs text-muted-foreground">
-                <strong>Reason:</strong> {request.rejection_reason}
-              </p>
+              <div className="bg-red-50 rounded-lg p-2 border border-red-200">
+                <p className="text-xs text-red-700">
+                  <strong>Rejection Reason:</strong> {request.rejection_reason}
+                </p>
+                {request.rejection_notes && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {request.rejection_notes}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
@@ -128,18 +237,33 @@ function RequestCard({ request, onApprove, onReject }: {
 
 function RegistrationsPageContent() {
   const { requests, loading, error, fetchRequests, approveRequest, rejectRequest } = useRegistrations();
+  const { refreshBadges } = useBadges();
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
-  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
 
+  // Fetch all registration requests once on mount
   useEffect(() => {
-    fetchRequests(activeTab);
-  }, [activeTab]);
+    fetchRequests("all");
+  }, [fetchRequests]);
 
-  function handleApproveClick(request: RegistrationRequest) {
-    setSelectedRequest(request);
-    setApproveDialogOpen(true);
+  // Filter requests for display based on active tab
+  const displayedRequests = activeTab === "all" 
+    ? requests 
+    : requests.filter(r => r.status === activeTab);
+
+  async function handleApproveClick(request: RegistrationRequest) {
+    if (!confirm(`Approve registration for ${request.name}?`)) return;
+    
+    try {
+      await approveRequest(request.uid, {});
+      toast.success(`${request.name} has been approved`);
+      // Refresh all requests to update badge counts
+      await fetchRequests("all");
+      refreshBadges();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to approve request");
+    }
   }
 
   function handleRejectClick(request: RegistrationRequest) {
@@ -147,18 +271,14 @@ function RegistrationsPageContent() {
     setRejectDialogOpen(true);
   }
 
-  async function handleApproveConfirm(details: any) {
-    if (!selectedRequest) return;
-    await approveRequest(selectedRequest.uid, details);
-    setApproveDialogOpen(false);
-    setSelectedRequest(null);
-  }
-
   async function handleRejectConfirm(reason: string, notes?: string) {
     if (!selectedRequest) return;
     await rejectRequest(selectedRequest.uid, reason, notes);
     setRejectDialogOpen(false);
     setSelectedRequest(null);
+    // Refresh all requests to update badge counts
+    await fetchRequests("all");
+    refreshBadges();
   }
 
   const pendingCount = requests.filter(r => r.status === "pending").length;
@@ -219,9 +339,9 @@ function RegistrationsPageContent() {
           </div>
         )}
 
-        {!loading && !error && requests.length > 0 && (
+        {!loading && !error && displayedRequests.length > 0 && (
           <div className="space-y-3">
-            {requests.map((request) => (
+            {displayedRequests.map((request) => (
               <RequestCard
                 key={request.uid}
                 request={request}
@@ -235,22 +355,13 @@ function RegistrationsPageContent() {
 
       {/* Dialogs */}
       {selectedRequest && (
-        <>
-          <ApproveDialog
-            open={approveDialogOpen}
-            onClose={() => setApproveDialogOpen(false)}
-            onApprove={handleApproveConfirm}
-            requestName={selectedRequest.name}
-            requestEmail={selectedRequest.email}
-          />
-          <RejectDialog
-            open={rejectDialogOpen}
-            onClose={() => setRejectDialogOpen(false)}
-            onReject={handleRejectConfirm}
-            requestName={selectedRequest.name}
-            requestEmail={selectedRequest.email}
-          />
-        </>
+        <RejectDialog
+          open={rejectDialogOpen}
+          onClose={() => setRejectDialogOpen(false)}
+          onReject={handleRejectConfirm}
+          requestName={selectedRequest.name}
+          requestEmail={selectedRequest.email}
+        />
       )}
     </div>
   );

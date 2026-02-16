@@ -30,13 +30,9 @@ export function AuthGuard({ children, fallback }: Props) {
           return;
         }
 
-        // Check if profile needs to be completed
-        if (me.profile_completed === false) {
-          setStatus("unauthorized");
-          router.replace("/complete-profile");
-          return;
-        }
-
+        // Active users can access protected pages
+        // Note: profile_completed check removed - only applies during registration flow
+        // Active approved users may have incomplete profiles from legacy data
         setStatus("authorized");
       } catch (e: any) {
         setStatus("unauthorized");

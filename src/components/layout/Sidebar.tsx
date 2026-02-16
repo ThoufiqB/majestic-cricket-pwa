@@ -5,8 +5,9 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/components/context/ProfileContext";
+import { useBadges } from "@/components/context/BadgeContext";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   Calendar,
   Users,
@@ -24,7 +25,7 @@ type NavItem = {
   label: string;
   icon: React.ReactNode;
   matchPaths?: string[];
-  badge?: () => Promise<number>;
+  badgeKey?: string;
 };
 
 const adminNavItems: NavItem[] = [
@@ -36,7 +37,7 @@ const adminNavItems: NavItem[] = [
   },
   {
     href: "/admin/browse",
-    label: "Browse",
+    label: "Events",
     icon: <Search className="h-5 w-5" />,
     matchPaths: ["/admin/browse", "/admin/events/", "/admin/kids-events/"],
   },
@@ -51,18 +52,7 @@ const adminNavItems: NavItem[] = [
     label: "New Registrations",
     icon: <UserPlus className="h-5 w-5" />,
     matchPaths: ["/admin/members/registrations"],
-    badge: async () => {
-      try {
-        const res = await fetch("/api/admin/registrations?status=pending", {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          return data.requests?.length || 0;
-        }
-      } catch {}
-      return 0;
-    },
+    badgeKey: "pendingRegistrations",
   },
   {
     href: "/admin/payments",
@@ -137,32 +127,18 @@ type Props = {
 export function Sidebar({ variant }: Props) {
   const pathname = usePathname();
   const { isKidProfile } = useProfile();
-  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
+  const { pendingRegistrations, refreshBadges } = useBadges();
 
   // Select nav items based on variant and profile type
   const navItems =
     variant === "admin" ? adminNavItems : isKidProfile ? playerNavItemsKid : playerNavItems;
 
-  // Fetch badge counts for admin nav items
+  // Fetch badge counts on mount only (no polling)
   useEffect(() => {
     if (variant === "admin") {
-      const fetchBadges = async () => {
-        const counts: Record<string, number> = {};
-        for (const item of adminNavItems) {
-          if (item.badge) {
-            counts[item.href] = await item.badge();
-          }
-        }
-        setBadgeCounts(counts);
-      };
-      
-      fetchBadges();
-      
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchBadges, 30000);
-      return () => clearInterval(interval);
+      refreshBadges();
     }
-  }, [variant]);
+  }, [variant, refreshBadges]);
 
   const isActive = (item: NavItem) => {
     // Exact match
@@ -224,7 +200,8 @@ export function Sidebar({ variant }: Props) {
         <nav className="flex-1 p-3 space-y-1">
           {navItems.map((item) => {
             const active = isActive(item);
-            const badgeCount = badgeCounts[item.href] || 0;
+            // Get badge count from context if this item has a badgeKey
+            const badgeCount = item.badgeKey === "pendingRegistrations" ? pendingRegistrations : 0;
             
             return (
               <Link

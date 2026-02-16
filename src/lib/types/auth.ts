@@ -41,6 +41,14 @@ export interface RegistrationRequest {
   member_type?: string;
   phone?: string;
   
+  // NEW: Multi-group registration
+  groups?: string[];
+  yearOfBirth?: number;
+  gender?: "Male" | "Female";
+  hasPaymentManager?: boolean;
+  paymentManagerId?: string;
+  paymentManagerName?: string;
+  
   // If approved
   approved_by?: string;
   approved_at?: Date | FirebaseFirestore.Timestamp;
@@ -76,6 +84,19 @@ export interface PlayerWithStatus {
   name: string;
   role: "player" | "admin";
   status: PlayerStatus;
+  
+  // NEW: Multi-group support
+  groups?: string[];  // ["Men", "Women", "U-13", "U-15", "U-18"]
+  
+  // NEW: Year of birth (for age validation)
+  yearOfBirth?: number;
+  
+  // NEW: Payment Manager (for youth players)
+  hasPaymentManager?: boolean;
+  paymentManagerId?: string | null;
+  paymentManagerName?: string | null;
+  
+  // DEPRECATED (keep for backward compatibility)
   group?: string;
   member_type?: string;
   phone?: string;

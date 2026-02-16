@@ -21,3 +21,8 @@ export const KIDS_EVENT_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: "net_practice", label: "Net Practice" },
   { value: "match", label: "Match" },
 ];
+
+// Available groups for multi-select in event creation
+export const ALL_GROUPS = ["Men", "Women", "U-13", "U-15", "U-18"] as const;
+export const ADULT_GROUPS = ["Men", "Women"] as const;
+export const YOUTH_GROUPS = ["U-13", "U-15", "U-18"] as const;

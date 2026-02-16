@@ -31,19 +31,12 @@ export async function POST(req: NextRequest) {
       const requestSnap = await requestRef.get();
 
       if (!requestSnap.exists) {
-        // First time requesting access - create registration request
-        await requestRef.set({
-          uid,
-          email,
-          name,
-          status: "pending" as RegistrationStatus,
-          requested_at: adminTs.now(),
-        });
-
+        // First time user - needs to complete profile
+        // Don't create registration request yet - let complete-profile do it
         return NextResponse.json(
           {
-            status: "pending_approval",
-            message: "Your access request has been submitted. An admin will review it shortly.",
+            status: "needs_profile",
+            message: "Please complete your profile to continue.",
           },
           { status: 403 }
         );
@@ -95,7 +88,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Status is "approved" but no player document - edge case
+      // ARCHITECTURE NOTE (Feb 2026):
+      // This case should NEVER happen with the new architecture because:
+      // - When admin approves, registration_request is DELETED (batch write)
+      // - If request exists with status="approved", it's legacy data
+      // - This is a safety fallback for edge cases or data migration
       return NextResponse.json(
         { error: "Account setup error. Please contact admin." },
         { status: 500 }

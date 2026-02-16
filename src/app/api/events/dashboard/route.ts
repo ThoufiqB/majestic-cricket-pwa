@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 function toIso(v: any): string | null {
   if (!v) return null;
@@ -46,16 +47,24 @@ export async function GET(req: NextRequest) {
     const nowIso = now.toISOString();
 
     // Get user's profile to determine group (prefer 'players', fallback to 'profiles')
-    let profileData: { group?: string; name?: string; email?: string } = {};
+    let profileData: { group?: string; gender?: string; hasPaymentManager?: boolean; name?: string; email?: string } = {};
     let userGroup = "men";
     let playerSnap = await adminDb.collection("players").doc(user.uid).get();
     if (playerSnap.exists) {
-      profileData = (playerSnap.data() || {}) as { group?: string; name?: string; email?: string };
-      userGroup = profileData.group || "men";
+      profileData = (playerSnap.data() || {}) as any;
+      userGroup = deriveCategory(
+        profileData.gender as "Male" | "Female" | undefined, 
+        profileData.hasPaymentManager, 
+        profileData.group
+      );
     } else {
       const profileSnap = await adminDb.collection("profiles").doc(user.uid).get();
-      profileData = (profileSnap.data() || {}) as { group?: string; name?: string; email?: string };
-      userGroup = profileData.group || "men";
+      profileData = (profileSnap.data() || {}) as any;
+      userGroup = deriveCategory(
+        profileData.gender as "Male" | "Female" | undefined, 
+        profileData.hasPaymentManager, 
+        profileData.group
+      );
     }
 
     // Get upcoming events (next 30 days)
@@ -72,22 +81,32 @@ export async function GET(req: NextRequest) {
 
     let nextEvent: any = null;
     let lastEvent: any = null;
+    let upcomingEvents: any[] = []; // Array to hold next 7 upcoming events
 
     for (const doc of eventsSnap.docs) {
       const data = doc.data();
       const eventDate = toIso(data.starts_at);
       if (!eventDate) continue;
 
-      const isKidsEvent = data.kids_event === true;
+      const isKidsEvent = data.kids_event === true || (data.targetGroups && data.targetGroups.includes("Kids"));
       
       // Filter based on profile type
       if (kidId) {
         // For kid profiles, only show kids events
         if (!isKidsEvent) continue;
       } else {
-        // For adult profiles, only show adult events matching their group
+        // For adult profiles, only show adult events matching their groups
         if (isKidsEvent) continue;
-        if (data.group && data.group !== "all" && data.group !== userGroup) continue;
+
+        // NEW: Check if user's groups intersect with event's targetGroups
+        const userGroups = (profileData as any).groups || [];
+        const eventTargetGroups = data.targetGroups || [];
+
+        if (eventTargetGroups.length > 0) {
+          // Check for intersection
+          const hasMatch = userGroups.some((ug: string) => eventTargetGroups.includes(ug));
+          if (!hasMatch) continue;
+        }
       }
 
       // Skip cancelled events
@@ -101,7 +120,7 @@ export async function GET(req: NextRequest) {
         location: data.location || "",
         fee: Number(data.fee || 0),
         status: data.status || "scheduled",
-        group: data.group || "all",
+        targetGroups: data.targetGroups || [],
         kids_event: isKidsEvent,
         my: {
           attending: "UNKNOWN" as "YES" | "NO" | "UNKNOWN",
@@ -150,7 +169,11 @@ export async function GET(req: NextRequest) {
 
       // Categorize as next or last event
       if (eventDate > nowIso && eventDate < futureLimit) {
-        // Future event - take the first (closest) one
+        // Future event - collect up to 7 upcoming events
+        if (upcomingEvents.length < 7) {
+          upcomingEvents.push(eventObj);
+        }
+        // Keep first event as nextEvent for backward compatibility
         if (!nextEvent) {
           nextEvent = eventObj;
         }
@@ -177,7 +200,17 @@ export async function GET(req: NextRequest) {
       // Filter based on profile type
       if (kidId && !isKidsEvent) continue;
       if (!kidId && isKidsEvent) continue;
-      if (!kidId && data.group && data.group !== "all" && data.group !== userGroup) continue;
+      
+      // For adults, check group matching
+      if (!kidId) {
+        const userGroups = (profileData as any).groups || [];
+        const eventTargetGroups = data.targetGroups || [];
+        
+        if (eventTargetGroups.length > 0) {
+          const hasMatch = userGroups.some((ug: string) => eventTargetGroups.includes(ug));
+          if (!hasMatch) continue;
+        }
+      }
 
       // Get attendance
       const collectionName = kidId ? "kids_attendance" : "attendees";
@@ -209,14 +242,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Calculate friendsSummary for nextEvent if it exists
-    let friendsSummary = undefined;
-    if (nextEvent) {
-      if (nextEvent.kids_event) {
+    // Calculate friendsSummary for upcoming events (first 3 for performance)
+    const eventsWithFriendsSummary = [];
+    
+    for (let i = 0; i < Math.min(upcomingEvents.length, 3); i++) {
+      const event = upcomingEvents[i];
+      let friendsSummary = undefined;
+
+      if (event.kids_event) {
         // For kids events, get kids attendance with names
         const kidsAttendanceSnap = await adminDb
           .collection("events")
-          .doc(nextEvent.event_id)
+          .doc(event.event_id)
           .collection("kids_attendance")
           .get();
 
@@ -244,44 +281,47 @@ export async function GET(req: NextRequest) {
         // For adult events, get attendees with names filtered by event group
         const attendeesSnap = await adminDb
           .collection("events")
-          .doc(nextEvent.event_id)
+          .doc(event.event_id)
           .collection("attendees")
           .get();
 
-        const eventGroup = nextEvent.group?.toLowerCase() || "all";
         const menYesList: { player_id: string; name: string }[] = [];
         const womenYesList: { player_id: string; name: string }[] = [];
+        const juniorsYesList: { player_id: string; name: string }[] = [];
         let totalMen = 0;
         let totalWomen = 0;
+        let totalJuniors = 0;
 
         for (const doc of attendeesSnap.docs) {
           const data = doc.data();
           const attending = normAttending(data.attending);
           const playerId = doc.id;
 
-          // Get player's data from players collection to get group (male/female) and name
           const playerSnap = await adminDb.collection("players").doc(playerId).get();
           const playerData = playerSnap.data();
           const playerName = playerData?.name || "Unknown Player";
-          // Use group field from player profile to determine gender
-          const playerGroup = playerData?.group?.toLowerCase() || "all";
-          const isMale = playerGroup === "men";
+          
+          const playerCategory = deriveCategory(
+            playerData?.gender,
+            playerData?.hasPaymentManager,
+            undefined
+          );
 
-          if (isMale) {
-            const isMaleGroup = eventGroup === "all" || eventGroup === "men" || eventGroup === "mixed";
-            if (isMaleGroup) {
-              totalMen++;
-              if (attending === "YES") {
-                menYesList.push({ player_id: playerId, name: playerName });
-              }
+          // Categorize all attendees (no filtering)
+          if (playerCategory === "men") {
+            totalMen++;
+            if (attending === "YES") {
+              menYesList.push({ player_id: playerId, name: playerName });
             }
-          } else {
-            const isFemaleGroup = eventGroup === "all" || eventGroup === "women" || eventGroup === "mixed";
-            if (isFemaleGroup) {
-              totalWomen++;
-              if (attending === "YES") {
-                womenYesList.push({ player_id: playerId, name: playerName });
-              }
+          } else if (playerCategory === "women") {
+            totalWomen++;
+            if (attending === "YES") {
+              womenYesList.push({ player_id: playerId, name: playerName });
+            }
+          } else if (playerCategory === "juniors") {
+            totalJuniors++;
+            if (attending === "YES") {
+              juniorsYesList.push({ player_id: playerId, name: playerName });
             }
           }
         }
@@ -289,13 +329,25 @@ export async function GET(req: NextRequest) {
         friendsSummary = {
           men: { yes: menYesList.length, total: totalMen, people: menYesList },
           women: { yes: womenYesList.length, total: totalWomen, people: womenYesList },
+          juniors: { yes: juniorsYesList.length, total: totalJuniors, people: juniorsYesList },
         };
       }
+
+      eventsWithFriendsSummary.push({ ...event, friendsSummary });
     }
+
+    // Add remaining events without friends summary (for performance)
+    for (let i = 3; i < upcomingEvents.length; i++) {
+      eventsWithFriendsSummary.push(upcomingEvents[i]);
+    }
+
+    // For backward compatibility, add friends summary to nextEvent if it exists
+    const nextEventWithFriends = eventsWithFriendsSummary.length > 0 ? eventsWithFriendsSummary[0] : null;
 
     return NextResponse.json({
       success: true,
-      nextEvent: nextEvent ? { ...nextEvent, friendsSummary } : null,
+      nextEvent: nextEventWithFriends, // Keep for backward compatibility
+      upcomingEvents: eventsWithFriendsSummary, // New array of upcoming events
       lastEvent,
       stats: {
         eventsAttendedThisMonth,
