@@ -41,7 +41,11 @@ export function EventCard(p: Props) {
   const isPast = !!ev._is_past;
 
   return (
-    <Card className={`overflow-hidden transition-all hover:shadow-md ${isPast ? "opacity-75" : ""}`}>
+    <Card className={`overflow-hidden transition-all hover:shadow-md ${
+      isPast 
+        ? "border-l-4 border-l-blue-200 bg-blue-50/30 dark:bg-blue-950/20 dark:border-l-blue-800" 
+        : "border-l-4 border-l-green-200 bg-green-50/30 dark:bg-green-950/20 dark:border-l-green-800"
+    }`}>
       <CardContent className="p-4">
         <div className="relative flex items-start gap-4 pt-0.5">
           {/* WhatsApp Copy Icon Top Right */}
