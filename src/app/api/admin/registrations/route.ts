@@ -13,6 +13,22 @@ function toDateSafe(v: any): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function toMs(v: any): number {
+  if (!v) return 0;
+  // Firestore Timestamp
+  if (typeof v === "object" && typeof v.toDate === "function") {
+    return v.toDate().getTime();
+  }
+  // Date object
+  if (v instanceof Date) {
+    return v.getTime();
+  }
+  // ISO string or number
+  const d = new Date(v);
+  const ms = d.getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 /**
  * GET /api/admin/registrations
  * List all registration requests with optional status filter
@@ -146,8 +162,8 @@ export async function GET(req: NextRequest) {
       // 3. Merge and sort by timestamp
       requests = [...approvedRequests, ...pendingRejectedRequests]
         .sort((a, b) => {
-          const aTime = a.requested_at?.getTime() || 0;
-          const bTime = b.requested_at?.getTime() || 0;
+          const aTime = toMs(a.requested_at);
+          const bTime = toMs(b.requested_at);
           return bTime - aTime;
         })
         .slice(0, limit);
