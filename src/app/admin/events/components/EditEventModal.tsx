@@ -207,7 +207,7 @@ export function EditEventModal(props: {
                   style={{ width: 'var(--radix-dropdown-menu-trigger-width)' }}
                 >
                   <div className="space-y-2">
-                    {ALL_GROUPS.filter(g => g !== "Kids").map((group) => (
+                    {ALL_GROUPS.map((group) => (
                       <div key={group} className="flex items-center space-x-2">
                         <Checkbox
                           id={`edit-group-${group}`}
