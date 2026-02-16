@@ -41,14 +41,13 @@ export default function AdminKidsEventsPage() {
     }
 
     try {
-      // Always create kids event with all_kids group
+      // Always create kids event with Kids target group
       await adminCreateEvent({
         title,
         event_type: s.eventType,
-        group: "all_kids",
+        targetGroups: ["Kids"],
         starts_at,
         fee: Number(s.fee || 0),
-        kids_event: true, // ALWAYS true for this page
       });
 
       s.setFee(0);
