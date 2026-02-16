@@ -91,7 +91,7 @@ export function BrowseFilters(p: Props) {
           <div className="flex-1 min-w-0">
             <Select
               value={p.browseGroup}
-              onValueChange={(v) => p.setBrowseGroup(v as "all" | "men" | "women" | "mixed")}
+              onValueChange={(v) => p.setBrowseGroup(v as "all" | "men" | "women" | "u-13" | "u-15" | "u-18")}
             >
               <SelectTrigger className="h-7 text-xs px-2 w-full">
                 <SelectValue />
