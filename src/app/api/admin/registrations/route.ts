@@ -74,31 +74,101 @@ export async function GET(req: NextRequest) {
         } as RegistrationRequest;
       });
       
+    } else if (statusFilter === "all") {
+      // Fetch from BOTH collections and merge results
+      
+      // 1. Get approved requests from players collection
+      const playersRef = adminDb.collection("players");
+      const playersSnapshot = await playersRef
+        .where("approval.is_approved", "==", true)
+        .orderBy("approval.approved_at", "desc")
+        .limit(limit)
+        .get();
+
+      const approvedRequests = playersSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        const approval = data.approval || {};
+        return {
+          uid: doc.id,
+          email: data.email || "",
+          name: data.name || "",
+          status: "approved" as RegistrationStatus,
+          requested_at: toDateSafe(approval.requested_at || data.created_at),
+          approved_by: approval.approved_by,
+          approved_at: toDateSafe(approval.approved_at),
+          player_id: doc.id,
+          admin_notes: approval.admin_notes,
+          groups: data.groups || [],
+          group: data.group,
+          member_type: data.member_type,
+          phone: data.phone,
+          yearOfBirth: data.yearOfBirth,
+          gender: data.gender,
+          hasPaymentManager: data.hasPaymentManager,
+          paymentManagerId: data.paymentManagerId,
+          paymentManagerName: data.paymentManagerName,
+        } as RegistrationRequest;
+      });
+
+      // 2. Get pending/rejected requests from registration_requests collection
+      const regRequestsSnapshot = await adminDb.collection("registration_requests")
+        .orderBy("requested_at", "desc")
+        .limit(limit)
+        .get();
+
+      const pendingRejectedRequests = regRequestsSnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          email: data.email || "",
+          name: data.name || "",
+          status: (data.status || "pending") as RegistrationStatus,
+          requested_at: toDateSafe(data.requested_at),
+          approved_by: data.approved_by,
+          approved_at: toDateSafe(data.approved_at),
+          player_id: data.player_id,
+          rejected_by: data.rejected_by,
+          rejected_at: toDateSafe(data.rejected_at),
+          rejection_reason: data.rejection_reason,
+          rejection_notes: data.rejection_notes,
+          groups: data.groups || [],
+          group: data.group,
+          member_type: data.member_type,
+          phone: data.phone,
+          yearOfBirth: data.yearOfBirth,
+          gender: data.gender,
+          hasPaymentManager: data.hasPaymentManager,
+          paymentManagerId: data.paymentManagerId,
+          paymentManagerName: data.paymentManagerName,
+        } as RegistrationRequest;
+      });
+
+      // 3. Merge and sort by timestamp
+      requests = [...approvedRequests, ...pendingRejectedRequests]
+        .sort((a, b) => {
+          const aTime = a.requested_at?.getTime() || 0;
+          const bTime = b.requested_at?.getTime() || 0;
+          return bTime - aTime;
+        })
+        .slice(0, limit);
+      
     } else {
-      // Query registration_requests for pending, rejected, or all
+      // Query registration_requests for pending or rejected
       let query;
 
-      if (statusFilter !== "all") {
-        query = adminDb.collection("registration_requests")
-          .where("status", "==", statusFilter)
-          .limit(limit * 2);
-      } else {
-        query = adminDb.collection("registration_requests")
-          .orderBy("requested_at", "desc")
-          .limit(limit);
-      }
+      query = adminDb.collection("registration_requests")
+        .where("status", "==", statusFilter)
+        .limit(limit * 2);
 
       const snapshot = await query.get();
       let docs = snapshot.docs;
       
       // Sort client-side when filtering by status
-      if (statusFilter !== "all") {
-        docs = docs.sort((a, b) => {
-          const aTime = a.data().requested_at?.toMillis?.() || 0;
-          const bTime = b.data().requested_at?.toMillis?.() || 0;
-          return bTime - aTime;
-        }).slice(0, limit);
-      }
+      docs = docs.sort((a, b) => {
+        const aTime = a.data().requested_at?.toMillis?.() || 0;
+        const bTime = b.data().requested_at?.toMillis?.() || 0;
+        return bTime - aTime;
+      }).slice(0, limit);
 
       // NEW: Cleanup rejected requests older than 15 days
       const fifteenDaysAgo = new Date();

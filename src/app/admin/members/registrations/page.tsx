@@ -242,9 +242,15 @@ function RegistrationsPageContent() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
 
+  // Fetch all registration requests once on mount
   useEffect(() => {
-    fetchRequests(activeTab);
-  }, [activeTab, fetchRequests]);
+    fetchRequests("all");
+  }, [fetchRequests]);
+
+  // Filter requests for display based on active tab
+  const displayedRequests = activeTab === "all" 
+    ? requests 
+    : requests.filter(r => r.status === activeTab);
 
   async function handleApproveClick(request: RegistrationRequest) {
     if (!confirm(`Approve registration for ${request.name}?`)) return;
@@ -252,6 +258,8 @@ function RegistrationsPageContent() {
     try {
       await approveRequest(request.uid, {});
       toast.success(`${request.name} has been approved`);
+      // Refresh all requests to update badge counts
+      await fetchRequests("all");
       refreshBadges();
     } catch (e: any) {
       toast.error(e?.message || "Failed to approve request");
@@ -268,7 +276,8 @@ function RegistrationsPageContent() {
     await rejectRequest(selectedRequest.uid, reason, notes);
     setRejectDialogOpen(false);
     setSelectedRequest(null);
-    // Refresh badge count after rejection
+    // Refresh all requests to update badge counts
+    await fetchRequests("all");
     refreshBadges();
   }
 
@@ -330,9 +339,9 @@ function RegistrationsPageContent() {
           </div>
         )}
 
-        {!loading && !error && requests.length > 0 && (
+        {!loading && !error && displayedRequests.length > 0 && (
           <div className="space-y-3">
-            {requests.map((request) => (
+            {displayedRequests.map((request) => (
               <RequestCard
                 key={request.uid}
                 request={request}
