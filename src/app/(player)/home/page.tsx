@@ -25,6 +25,7 @@ import {
   X,
   CreditCard,
   ChevronRight,
+  ChevronLeft,
   Calendar,
   AlertCircle,
   Users,
@@ -35,6 +36,7 @@ import { apiGet, apiPost, apiPatch } from "@/app/client/api";
 import { signOutSession } from "@/app/auth";
 import { toast } from "sonner";
 import { useProfile } from "@/components/context/ProfileContext";
+import { calculateFee } from "@/lib/calculateFee";
 
 import { AuthGateCard } from "@/app/home/components/AuthGateCard";
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
@@ -48,11 +50,13 @@ type DashboardEvent = {
   fee: number;
   status: string;
   group?: string;
+  targetGroups?: string[];
   kids_event?: boolean;
   friendsSummary?: {
     men?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
     women?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
     kids?: { yes: number; total: number; people?: { kid_id: string; name: string }[] };
+    juniors?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
   };
   my: {
     attending: "YES" | "NO" | "UNKNOWN";
@@ -153,6 +157,8 @@ export default function PlayerHomePage() {
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [nextEvent, setNextEvent] = useState<DashboardEvent | null>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([]); // New: Array of upcoming events
+  const [currentEventIndex, setCurrentEventIndex] = useState(0); // New: Track which event to display
   const [lastEvent, setLastEvent] = useState<DashboardEvent | null>(null);
   const [stats, setStats] = useState<{ eventsAttendedThisMonth: number; pendingPayments: number } | null>(null);
   const [profile, setProfile] = useState<{ name: string; group: string; email: string } | null>(null);
@@ -186,7 +192,11 @@ export default function PlayerHomePage() {
       const meData = await apiGet("/api/me");
       setMe(meData);
 
-      if (!meData.group || !meData.member_type) {
+      // Check if profile is complete - support both new (groups array) and legacy (group string)
+      const hasGroups = (Array.isArray(meData.groups) && meData.groups.length > 0) || !!meData.group;
+      const hasMemberType = !!meData.member_type;
+      
+      if (!hasGroups || !hasMemberType) {
         setNeedsProfile(true);
         return;
       }
@@ -208,8 +218,11 @@ export default function PlayerHomePage() {
       const dashData = await apiGet(`/api/events/dashboard${q}`);
 
       const ne: DashboardEvent | null = dashData.nextEvent || null;
+      const upcoming: DashboardEvent[] = dashData.upcomingEvents || [];
 
       setNextEvent(ne);
+      setUpcomingEvents(upcoming);
+      setCurrentEventIndex(0); // Reset to first event when data loads
       setLastEvent(dashData.lastEvent || null);
       setStats(dashData.stats || null);
       setProfile(dashData.profile || null);
@@ -250,6 +263,27 @@ export default function PlayerHomePage() {
       setLoading(false);
     }
   }
+
+  // Navigation functions for event carousel
+  function goToNextEvent() {
+    if (upcomingEvents.length === 0) return;
+    setCurrentEventIndex((prev) => (prev + 1) % upcomingEvents.length);
+  }
+
+  function goToPrevEvent() {
+    if (upcomingEvents.length === 0) return;
+    setCurrentEventIndex((prev) => (prev - 1 + upcomingEvents.length) % upcomingEvents.length);
+  }
+
+  function goToEvent(index: number) {
+    if (index >= 0 && index < upcomingEvents.length) {
+      setCurrentEventIndex(index);
+    }
+  }
+
+  // Get the currently displayed event
+  const displayedEvent = upcomingEvents.length > 0 ? upcomingEvents[currentEventIndex] : nextEvent;
+  const hasMultipleEvents = upcomingEvents.length > 1;
 
   async function signOut() {
     await signOutSession();
@@ -470,12 +504,37 @@ export default function PlayerHomePage() {
       </Card>
 
       {/* Next Event Card */}
-      <Card>
+      <Card className="relative">
+        {/* Floating Left Chevron */}
+        {hasMultipleEvents && (
+          <button
+            onClick={goToPrevEvent}
+            className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/50 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+            aria-label="Previous event"
+          >
+            <ChevronLeft className="h-5 w-5 text-primary" />
+          </button>
+        )}
+
+        {/* Floating Right Chevron */}
+        {hasMultipleEvents && (
+          <button
+            onClick={goToNextEvent}
+            className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/50 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+            aria-label="Next event"
+          >
+            <ChevronRight className="h-5 w-5 text-primary" />
+          </button>
+        )}
+
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
-              Next Event
+              {hasMultipleEvents 
+                ? `Upcoming Events (${currentEventIndex + 1}/${upcomingEvents.length})`
+                : "Next Event"
+              }
             </CardTitle>
             <Link href="/browse">
               <Button variant="ghost" size="sm" className="text-muted-foreground">
@@ -483,6 +542,24 @@ export default function PlayerHomePage() {
               </Button>
             </Link>
           </div>
+          
+          {/* Event Indicators (dots) */}
+          {hasMultipleEvents && (
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {upcomingEvents.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToEvent(index)}
+                  className={`h-2 w-2 rounded-full transition-all ${
+                    index === currentEventIndex
+                      ? "bg-primary w-6"
+                      : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  }`}
+                  aria-label={`Go to event ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -491,43 +568,71 @@ export default function PlayerHomePage() {
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-10 w-full" />
             </div>
-          ) : nextEvent ? (
+          ) : displayedEvent ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="font-semibold text-lg">{nextEvent.title}</h3>
-                <div>{getEventTypeBadge(nextEvent.event_type)}</div>
+                <h3 className="font-semibold text-lg">{displayedEvent.title}</h3>
+                <div>{getEventTypeBadge(displayedEvent.event_type)}</div>
               </div>
               <div className="space-y-1 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <CalendarDays className="h-4 w-4" />
-                  <span>{formatEventDate(nextEvent.starts_at)}</span>
+                  <span>{formatEventDate(displayedEvent.starts_at)}</span>
                   <span className="mx-1">•</span>
                   <Clock className="h-4 w-4" />
-                  <span>{formatEventTime(nextEvent.starts_at)}</span>
+                  <span>{formatEventTime(displayedEvent.starts_at)}</span>
                 </div>
-                {nextEvent.location && (
+                {displayedEvent.location && (
                   <div className="flex items-center gap-1">
                     <MapPin className="h-4 w-4" />
-                    <span>{nextEvent.location}</span>
+                    <span>{displayedEvent.location}</span>
                   </div>
                 )}
-                {nextEvent.event_type === "net_practice" && (
+                {/* Target Groups */}
+                {displayedEvent.targetGroups && displayedEvent.targetGroups.length > 0 ? (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {displayedEvent.targetGroups.map((grp: string) => (
+                      <Badge key={grp} variant="outline" className="text-xs capitalize">
+                        {String(grp).toLowerCase()}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : displayedEvent.group ? (
+                  <div>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {String(displayedEvent.group).toLowerCase()}
+                    </Badge>
+                  </div>
+                ) : null}
+                {displayedEvent.event_type === "net_practice" && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Attendance closes 48 hours before this net session.
                   </p>
+                )}
+                {displayedEvent.fee > 0 && (
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-lg font-bold text-primary">
+                      £{calculateFee(displayedEvent.fee, me?.member_type)}
+                    </span>
+                    {me?.member_type === "student" && (
+                      <span className="text-xs text-green-600 font-medium">
+                        Student rate (25% off)
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
 
               <div className="border-t pt-4">
                 {(() => {
-                  const isNetPractice = nextEvent.event_type === "net_practice";
+                  const isNetPractice = displayedEvent.event_type === "net_practice";
                   const { isNetPracticeOpen, isAfterCutoffBeforeStart } = isNetPractice
-                    ? getNetPracticeCutoffInfo(nextEvent.starts_at)
+                    ? getNetPracticeCutoffInfo(displayedEvent.starts_at)
                     : { isNetPracticeOpen: true, isAfterCutoffBeforeStart: false };
 
-                  const attending = nextEvent.my?.attending || "UNKNOWN";
+                  const attending = displayedEvent.my?.attending || "UNKNOWN";
                   const isGoing = attending === "YES";
-                  const requestAlreadySent = requestSentForEventId === nextEvent.event_id;
+                  const requestAlreadySent = requestSentForEventId === displayedEvent.event_id;
 
                   const canShowRequestButton =
                     isNetPractice &&
@@ -563,7 +668,7 @@ export default function PlayerHomePage() {
                         ) : (
                           <Button
                             className="w-full"
-                            onClick={() => requestParticipation(nextEvent.event_id)}
+                            onClick={() => requestParticipation(displayedEvent.event_id)}
                             disabled={requestStatusLoading || requestingParticipation}
                           >
                             {requestStatusLoading ? (
@@ -597,7 +702,7 @@ export default function PlayerHomePage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => markAttending(nextEvent.event_id, "NO")}
+                          onClick={() => markAttending(displayedEvent.event_id, "NO")}
                           disabled={markingAttendance || disableAttendanceButtons}
                         >
                           Change to Not Going
@@ -615,7 +720,7 @@ export default function PlayerHomePage() {
                         </div>
                         <Button
                           size="sm"
-                          onClick={() => markAttending(nextEvent.event_id, "YES")}
+                          onClick={() => markAttending(displayedEvent.event_id, "YES")}
                           disabled={markingAttendance || disableAttendanceButtons}
                           className="bg-green-600 hover:bg-green-700"
                         >
@@ -631,7 +736,7 @@ export default function PlayerHomePage() {
                       <div className="flex gap-2">
                         <Button
                           className="flex-1 bg-green-600 hover:bg-green-700"
-                          onClick={() => markAttending(nextEvent.event_id, "YES")}
+                          onClick={() => markAttending(displayedEvent.event_id, "YES")}
                           disabled={markingAttendance || disableAttendanceButtons}
                         >
                           <Check className="h-4 w-4 mr-2" />
@@ -640,7 +745,7 @@ export default function PlayerHomePage() {
                         <Button
                           variant="outline"
                           className="flex-1"
-                          onClick={() => markAttending(nextEvent.event_id, "NO")}
+                          onClick={() => markAttending(displayedEvent.event_id, "NO")}
                           disabled={markingAttendance || disableAttendanceButtons}
                         >
                           <X className="h-4 w-4 mr-2" />
@@ -658,39 +763,45 @@ export default function PlayerHomePage() {
                 })()}
               </div>
 
-              {nextEvent.friendsSummary && (
+              {displayedEvent.friendsSummary && (
                 <>
                   <Separator className="mt-4" />
                   <div className="flex items-center justify-between pt-4">
                     <Button
                       variant="link"
                       className="p-0 h-auto"
-                      onClick={() => setOpenFriendsEventId(nextEvent.event_id)}
+                      onClick={() => setOpenFriendsEventId(displayedEvent.event_id)}
                     >
                       <Users className="h-4 w-4 mr-1" />
                       Friends Going
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                      {nextEvent.kids_event ? (
+                      {displayedEvent.kids_event ? (
                         <>
-                          Kids {nextEvent.friendsSummary.kids?.yes || 0}/{nextEvent.friendsSummary.kids?.total || 0}
+                          Kids {displayedEvent.friendsSummary.kids?.yes || 0}/{displayedEvent.friendsSummary.kids?.total || 0}
                         </>
                       ) : (
                         <>
-                          {(nextEvent.group === "men" || nextEvent.group === "all") && nextEvent.friendsSummary.men && (
+                          {displayedEvent.friendsSummary.men && (
                             <span>
-                              Men {nextEvent.friendsSummary.men.yes}/{nextEvent.friendsSummary.men.total}
+                              Men {displayedEvent.friendsSummary.men.yes}/{displayedEvent.friendsSummary.men.total}
                             </span>
                           )}
-                          {nextEvent.group === "all" &&
-                            nextEvent.friendsSummary.men &&
-                            nextEvent.friendsSummary.women && <span> • </span>}
-                          {(nextEvent.group === "women" || nextEvent.group === "all") &&
-                            nextEvent.friendsSummary.women && (
+                          {displayedEvent.friendsSummary.men &&
+                            displayedEvent.friendsSummary.women && <span> • </span>}
+                          {displayedEvent.friendsSummary.women && (
                               <span>
-                                Women {nextEvent.friendsSummary.women.yes}/{nextEvent.friendsSummary.women.total}
+                                Women {displayedEvent.friendsSummary.women.yes}/{displayedEvent.friendsSummary.women.total}
                               </span>
                             )}
+                          {displayedEvent.friendsSummary.juniors && displayedEvent.friendsSummary.juniors.total > 0 && (
+                            <>
+                              <span> • </span>
+                              <span>
+                                Youth {displayedEvent.friendsSummary.juniors.yes}/{displayedEvent.friendsSummary.juniors.total}
+                              </span>
+                            </>
+                          )}
                         </>
                       )}
                     </span>
@@ -743,11 +854,29 @@ export default function PlayerHomePage() {
                     <div>{getEventTypeBadge(lastEvent.event_type)}</div>
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">{formatEventDate(lastEvent.starts_at)}</div>
+                  {/* Target Groups */}
+                  {lastEvent.targetGroups && lastEvent.targetGroups.length > 0 ? (
+                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                      {lastEvent.targetGroups.map((grp: string) => (
+                        <Badge key={grp} variant="outline" className="text-xs capitalize">
+                          {String(grp).toLowerCase()}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : lastEvent.group ? (
+                    <div className="mt-1">
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {String(lastEvent.group).toLowerCase()}
+                      </Badge>
+                    </div>
+                  ) : null}
                 </div>
                 {lastEvent.fee > 0 && (
                   <div className="text-right">
-                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? lastEvent.fee}</div>
-                    <div className="text-xs text-muted-foreground">Fee</div>
+                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? calculateFee(lastEvent.fee, me?.member_type)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {me?.member_type === "student" && !lastEvent.my.fee_due ? "Student rate" : "Fee"}
+                    </div>
                   </div>
                 )}
               </div>
@@ -769,12 +898,19 @@ export default function PlayerHomePage() {
                       <X className="h-5 w-5" />
                       <span className="font-medium">Payment Rejected</span>
                     </div>
-                    <Button className="w-full" onClick={() => markPaid(lastEvent.event_id)} disabled={markingPayment}>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Re-submit Payment
-                    </Button>
+                    {!me?.hasPaymentManager ? (
+                      <Button className="w-full" onClick={() => markPaid(lastEvent.event_id)} disabled={markingPayment}>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Re-submit Payment
+                      </Button>
+                    ) : (
+                      <div className="flex items-center gap-2 text-amber-600">
+                        <AlertCircle className="h-5 w-5" />
+                        <span className="text-sm">Payment managed by {me.paymentManagerName}</span>
+                      </div>
+                    )}
                   </div>
-                ) : lastEvent.fee > 0 && lastEvent.my.attended ? (
+                ) : lastEvent.fee > 0 && lastEvent.my.attended && !me?.hasPaymentManager ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <AlertCircle className="h-5 w-5" />
@@ -784,6 +920,11 @@ export default function PlayerHomePage() {
                       <CreditCard className="h-4 w-4 mr-2" />
                       Mark as Paid
                     </Button>
+                  </div>
+                ) : lastEvent.fee > 0 && lastEvent.my.attended && me?.hasPaymentManager ? (
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertCircle className="h-5 w-5" />
+                    <span className="text-sm">Payment managed by {me.paymentManagerName}</span>
                   </div>
                 ) : lastEvent.fee > 0 && !lastEvent.my.attended ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
@@ -810,11 +951,12 @@ export default function PlayerHomePage() {
       <FriendsGoingModal
         openEventId={openFriendsEventId}
         me={me}
-        events={nextEvent ? [nextEvent as any] : []}
+        events={upcomingEvents as any[]}
         modalData={
-          nextEvent && openFriendsEventId === nextEvent.event_id && nextEvent.friendsSummary
-            ? (nextEvent.friendsSummary as any)
-            : null
+          (() => {
+            const event = upcomingEvents.find(e => e.event_id === openFriendsEventId);
+            return (event?.friendsSummary as any) || null;
+          })()
         }
         loading={false}
         err=""

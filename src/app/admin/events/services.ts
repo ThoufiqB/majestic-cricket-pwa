@@ -4,7 +4,8 @@ export type EventRow = {
   event_id: string;
   title: string;
   event_type: string;
-  group?: string;
+  targetGroups?: string[]; // ["Men", "Women", "U-13", "U-15", "U-18"]
+  group?: string; // deprecated, kept for backward compatibility
   starts_at: string;
   fee: number;
   status?: string;
@@ -29,10 +30,9 @@ export async function adminListEventsByMonth(args: {
 export async function adminCreateEvent(args: {
   title: string;
   event_type: string;
-  group: string;
+  targetGroups: string[];
   starts_at: string;
   fee: number;
-  kids_event?: boolean;
 }) {
   return apiPost("/api/admin/events", args);
 }

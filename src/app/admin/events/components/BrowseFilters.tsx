@@ -17,8 +17,8 @@ type Props = {
   monthOptions: MonthOption[];
   browseMonth: string;
   setBrowseMonth: (v: string) => void;
-  browseGroup: "all" | "men" | "women" | "mixed";
-  setBrowseGroup: (v: "all" | "men" | "women" | "mixed") => void;
+  browseGroup: "all" | "men" | "women" | "u-13" | "u-15" | "u-18";
+  setBrowseGroup: (v: "all" | "men" | "women" | "u-13" | "u-15" | "u-18") => void;
   browseView: "scheduled" | "past" | "all";
   setBrowseView: (v: "scheduled" | "past" | "all") => void;
   hideGroup?: boolean;
@@ -91,7 +91,7 @@ export function BrowseFilters(p: Props) {
           <div className="flex-1 min-w-0">
             <Select
               value={p.browseGroup}
-              onValueChange={(v) => p.setBrowseGroup(v as "all" | "men" | "women" | "mixed")}
+              onValueChange={(v) => p.setBrowseGroup(v as "all" | "men" | "women" | "u-13" | "u-15" | "u-18")}
             >
               <SelectTrigger className="h-7 text-xs px-2 w-full">
                 <SelectValue />
@@ -100,7 +100,9 @@ export function BrowseFilters(p: Props) {
                 <SelectItem value="all" className="text-xs">All Groups</SelectItem>
                 <SelectItem value="men" className="text-xs">Men</SelectItem>
                 <SelectItem value="women" className="text-xs">Women</SelectItem>
-                <SelectItem value="mixed" className="text-xs">Mixed</SelectItem>
+                <SelectItem value="u-13" className="text-xs">U-13</SelectItem>
+                <SelectItem value="u-15" className="text-xs">U-15</SelectItem>
+                <SelectItem value="u-18" className="text-xs">U-18</SelectItem>
               </SelectContent>
             </Select>
           </div>

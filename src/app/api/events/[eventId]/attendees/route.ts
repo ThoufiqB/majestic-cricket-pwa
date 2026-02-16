@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 type Ctx = { params: Promise<{ eventId: string }> };
 
@@ -21,7 +22,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     const ev: any = evSnap.data() || {};
     const isKidsEvent = ev.kids_event === true;
-    const evGroup = String(ev.group || "").toLowerCase();
+    const eventTargetGroups = Array.isArray(ev.targetGroups) ? ev.targetGroups : [];
 
     // For kids events, return kids attendees
     if (isKidsEvent) {
@@ -80,17 +81,16 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     // totals are based on eligible players for that event
     for (const [pid, pd] of activeById.entries()) {
-      const g = String(pd.group || "").toLowerCase();
-      if (g !== "men" && g !== "women") continue;
+      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group);
+      if (category !== "men" && category !== "women") continue;
 
-      const eligible =
-        evGroup === "mixed" ? true :
-        evGroup === "men" ? g === "men" :
-        evGroup === "women" ? g === "women" :
-        true;
+      // Check if player's groups intersect with event's targetGroups
+      const playerGroups = Array.isArray(pd.groups) ? pd.groups : [];
+      const hasMatchingGroup = eventTargetGroups.length === 0 || 
+        playerGroups.some((pg: string) => eventTargetGroups.includes(pg));
 
-      if (!eligible) continue;
-      out[g as "men" | "women"].total += 1;
+      if (!hasMatchingGroup) continue;
+      out[category as "men" | "women"].total += 1;
     }
 
     // YES names are from attendees docs
@@ -99,24 +99,24 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       const pid = d.id;
 
       const pd = activeById.get(pid);
-      const g = String(pd?.group || a.group || "").toLowerCase();
-      if (g !== "men" && g !== "women") return;
+      if (!pd) return;
 
-      // respect event eligibility
-      const eligible =
-        evGroup === "mixed" ? true :
-        evGroup === "men" ? g === "men" :
-        evGroup === "women" ? g === "women" :
-        true;
+      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group);
+      if (category !== "men" && category !== "women") return;
 
-      if (!eligible) return;
+      // Check if player's groups intersect with event's targetGroups
+      const playerGroups = Array.isArray(pd.groups) ? pd.groups : [];
+      const hasMatchingGroup = eventTargetGroups.length === 0 || 
+        playerGroups.some((pg: string) => eventTargetGroups.includes(pg));
+
+      if (!hasMatchingGroup) return;
 
       const attending = String(a.attending || "").toUpperCase();
       if (attending !== "YES") return;
 
       const nm = safeName(a.name) || safeName(pd?.name) || "Unknown";
-      out[g as "men" | "women"].yes += 1;
-      out[g as "men" | "women"].people.push({ player_id: pid, name: nm });
+      out[category as "men" | "women"].yes += 1;
+      out[category as "men" | "women"].people.push({ player_id: pid, name: nm });
     });
 
     // stable ordering

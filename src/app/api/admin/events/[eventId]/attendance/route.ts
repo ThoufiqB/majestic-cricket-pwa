@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 type PaidStatus = "UNPAID" | "PENDING" | "PAID" | "REJECTED";
 
@@ -62,7 +63,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ eventId: s
       updated_at: toIso(rawEv.updated_at),
     };
 
-    const group = String(rawEv.group || "").toLowerCase();
+    const eventTargetGroups = Array.isArray(rawEv.targetGroups) ? rawEv.targetGroups : [];
     const isKidsEvent = rawEv.kids_event === true;
 
     let rows: any[] = [];
@@ -107,32 +108,24 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ eventId: s
         };
       });
     } else {
-      // Load eligible players (men/women/mixed) - fetch all then filter to avoid composite index requirement
-      // TODO: Once Firestore composite index is created for (group, status, __name__),
-      // update query to: .where("group", "==", group).where("status", "!=", "inactive")
+      // Load eligible players based on event's targetGroups
       const playersCol = adminDb.collection("players");
-      let playerDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
-
-      if (group === "men" || group === "women") {
-        const q = await playersCol.where("group", "==", group).get();
-        playerDocs = q.docs.filter((d) => {
-          const status = String((d.data() as any)?.status || "active").toLowerCase();
-          return status !== "inactive";
-        });
-      } else {
-        const [m, w] = await Promise.all([
-          playersCol.where("group", "==", "men").get(),
-          playersCol.where("group", "==", "women").get(),
-        ]);
-        const map = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-        [...m.docs, ...w.docs]
-          .filter((d) => {
-            const status = String((d.data() as any)?.status || "active").toLowerCase();
-            return status !== "inactive";
-          })
-          .forEach((d) => map.set(d.id, d));
-        playerDocs = Array.from(map.values());
-      }
+      const allPlayersSnap = await playersCol.get();
+      
+      const playerDocs = allPlayersSnap.docs.filter((d) => {
+        const data = d.data() as any;
+        const status = String(data?.status || "active").toLowerCase();
+        if (status === "inactive") return false;
+        
+        // Check if player's groups intersect with event's targetGroups
+        const playerGroups = Array.isArray(data.groups) ? data.groups : [];
+        
+        // If event has no targetGroups, include all players (backward compat)
+        if (eventTargetGroups.length === 0) return true;
+        
+        // Check intersection between player groups and event target groups
+        return playerGroups.some((pg: string) => eventTargetGroups.includes(pg));
+      });
 
       // ✅ SINGLE SOURCE OF TRUTH:
       // Everything for admin + player lives here:
@@ -160,11 +153,13 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ eventId: s
               ? null
               : Number(feeRaw);
 
+          const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group);
+          
           return {
             player_id: p.id,
             name: String(pd.name || a.name || ""),
             email: String(pd.email || a.email || ""),
-            group: String(pd.group || a.group || ""),
+            group: category, // Use derived category for display
 
             attending,
             attended: !!a.attended,

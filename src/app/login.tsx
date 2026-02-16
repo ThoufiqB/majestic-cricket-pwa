@@ -5,12 +5,24 @@ import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebaseClient";
 import { apiGet, apiPatch, apiPost } from "@/app/client/api";
 import { ProfileSelector } from "@/app/components/ProfileSelector";
+import { ResubmitForm } from "@/app/components/ResubmitForm";
 import type { PlayerWithKids } from "@/lib/types/kids";
+
+type RejectionData = {
+  rejection_reason?: string;
+  rejection_notes?: string;
+  previous_data?: {
+    group?: string;
+    member_type?: string;
+    phone?: string;
+  };
+};
 
 export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const [err, setErr] = useState("");
   const [user, setUser] = useState<PlayerWithKids | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
+  const [rejectionData, setRejectionData] = useState<RejectionData | null>(null);
 
   async function login() {
     setErr("");
@@ -29,7 +41,30 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
       });
 
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Login failed");
+      
+      // Handle rejection with resubmission
+      if (data.status === "rejected" && data.can_resubmit) {
+        setRejectionData({
+          rejection_reason: data.rejection_reason,
+          rejection_notes: data.rejection_notes,
+          previous_data: data.previous_data,
+        });
+        return;
+      }
+      
+      // Handle new user who needs to complete profile
+      if (data.status === "needs_profile") {
+        window.location.href = "/complete-profile";
+        return;
+      }
+      
+      // Handle pending approval
+      if (data.status === "pending_approval") {
+        window.location.href = "/pending-approval";
+        return;
+      }
+      
+      if (!r.ok) throw new Error(data?.error || data?.message || "Login failed");
 
       // Ensure profile exists
       await apiPost("/api/me");
@@ -75,6 +110,18 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
         playerEmail={user.email}
         kids={user.kids_profiles || []}
         onSelect={handleSelectProfile}
+      />
+    );
+  }
+
+  if (rejectionData) {
+    return (
+      <ResubmitForm
+        rejectionReason={rejectionData.rejection_reason}
+        rejectionNotes={rejectionData.rejection_notes}
+        previousData={rejectionData.previous_data}
+        onBack={() => setRejectionData(null)}
+        onSuccess={onSignedIn}
       />
     );
   }

@@ -43,46 +43,43 @@ export async function GET(req: NextRequest) {
       .where("starts_at", "<", end)
       .orderBy("starts_at", "asc");
 
-    let events = [];
-    if (group === "kids") {
-      // For kids, fetch all events for the month, filter in-memory for all kids events
-      // (group === 'kids' OR group === 'all_kids' OR kids_event === true)
-      // This avoids breaking other group logic and works around Firestore OR limitations
-      // (If you have a lot of events, consider optimizing this with Firestore 'in' queries)
-      // view filter (optional)
-      if (view === "scheduled") q = q.where("starts_at", ">=", now);
-      else if (view === "past") q = q.where("starts_at", "<", now);
-      // view === "all" -> no extra filter
-      const snap = await q.get();
-      events = snap.docs.map((d) => {
-        const data = d.data() as any;
-        const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
-        return {
-          event_id: d.id,
-          ...data,
-          _is_past: starts.getTime() <= now.getTime(),
-        };
-      }).filter(ev => {
-        const g = String(ev.group || "").toLowerCase();
-        return g === "kids" || g === "all_kids" || ev.kids_event === true;
-      });
-    } else {
-      // All other groups: keep existing logic
-      if (group !== "all") q = q.where("group", "==", group);
-      if (view === "scheduled") q = q.where("starts_at", ">=", now);
-      else if (view === "past") q = q.where("starts_at", "<", now);
-      // view === "all" -> no extra filter
-      const snap = await q.get();
-      events = snap.docs.map((d) => {
-        const data = d.data() as any;
-        const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
-        return {
-          event_id: d.id,
-          ...data,
-          _is_past: starts.getTime() <= now.getTime(),
-        };
-      });
-    }
+    // Note: Cannot filter targetGroups array in Firestore query, will filter client-side
+    const snap = await q.get();
+
+    const events = snap.docs.map((d) => {
+      const data = d.data() as any;
+      const starts = data?.starts_at?.toDate ? data.starts_at.toDate() : new Date(data.starts_at);
+      return {
+        event_id: d.id,
+        ...data,
+        starts_at: starts,
+        _is_past: starts.getTime() <= now.getTime(),
+      };
+    }).filter((ev) => {
+      // View filter
+      if (view === "scheduled" && ev._is_past) return false;
+      if (view === "past" && !ev._is_past) return false;
+      
+      // Group filter using targetGroups array
+      if (group !== "all") {
+        const targetGroups = ev.targetGroups || [];
+        const groupLower = group.toLowerCase();
+        
+        // Special handling for "kids" filter
+        const isKidsFilter = groupLower === "kids";
+        const isKidsEvent = ev.kids_event === true;
+        
+        if (isKidsFilter && isKidsEvent) return true;
+        
+        // Check if event matches the selected group
+        const matchesTargetGroups = Array.isArray(targetGroups) && 
+          targetGroups.some((g: string) => String(g || "").toLowerCase() === groupLower);
+        
+        if (!matchesTargetGroups) return false;
+      }
+      
+      return true;
+    });
 
     return NextResponse.json({ events });
   } catch (e: any) {
@@ -101,23 +98,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const title = String(body?.title || "").trim();
     const event_type = String(body?.event_type || "").trim().toLowerCase();
-    let group = String(body?.group || "").trim().toLowerCase();
+    const targetGroups = Array.isArray(body?.targetGroups) ? body.targetGroups : [];
     const fee = Number(body?.fee || 0);
     const starts_at_raw = body?.starts_at;
-    const kids_event = body?.kids_event === true;
-
-    // Kids events must use 'all_kids' group
-    if (kids_event) {
-      group = "all_kids";
-    }
 
     if (!title) throw new Error("title required");
     if (!event_type) throw new Error("event_type required");
     
-    if (kids_event) {
-      if (group !== "all_kids") throw new Error("Kids events must have group='all_kids'");
-    } else {
-      if (!["men", "women", "mixed"].includes(group)) throw new Error("Invalid group");
+    // Validate targetGroups
+    if (!Array.isArray(targetGroups) || targetGroups.length === 0) {
+      throw new Error("At least one target group is required");
+    }
+
+    const validGroups = ["Men", "Women", "U-13", "U-15", "U-18", "Kids"];
+    const invalidGroups = targetGroups.filter((g: string) => !validGroups.includes(g));
+    if (invalidGroups.length > 0) {
+      throw new Error(`Invalid groups: ${invalidGroups.join(", ")}`);
     }
     
     if (!Number.isFinite(fee) || fee < 0) throw new Error("Invalid fee");
@@ -134,10 +130,13 @@ export async function POST(req: NextRequest) {
 
     const now = adminTs.now();
 
+    // Determine if this is a kids event
+    const kids_event = targetGroups.includes("Kids");
+
     const ref = await adminDb.collection("events").add({
       title,
       event_type,
-      group,
+      targetGroups,
       fee,
       starts_at,
       kids_event,

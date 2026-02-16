@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,8 +18,7 @@ export async function GET(req: NextRequest) {
     
     const playerData = playerSnap.data() || {};
     const me = { 
-      player_id: sessionUser.uid, 
-      group: playerData.group as string | undefined,
+      player_id: sessionUser.uid,
       ...playerData 
     };
     
@@ -40,6 +40,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Derive player's category and groups for filtering
+    const playerCategory = deriveCategory(
+      (me as any).gender, 
+      (me as any).hasPaymentManager, 
+      (me as any).group
+    );
+    const playerGroups = Array.isArray((me as any).groups) ? (me as any).groups : [];
+
     // Helper to convert Firestore timestamp to Date
     function toDate(val: any): Date {
       if (!val) return new Date(0);
@@ -58,12 +66,29 @@ export async function GET(req: NextRequest) {
       .where("starts_at", "<", endOfYear)
       .get();
     
-    // Filter events based on profile type
-    // For kids: only kids_event=true events
-    // For adults: only events NOT marked as kids events
-    const filteredDocs = isKidProfile
-      ? eventsSnapshot.docs.filter(doc => doc.data().kids_event === true)
-      : eventsSnapshot.docs.filter(doc => doc.data().kids_event !== true);
+    // Filter events based on profile type and targetGroups
+    const filteredDocs = eventsSnapshot.docs.filter(doc => {
+      const event = doc.data();
+      
+      // Kids: only kids events
+      if (isKidProfile) {
+        return event.kids_event === true;
+      }
+      
+      // Adults: exclude kids events
+      if (event.kids_event === true) {
+        return false;
+      }
+      
+      // Check if player's groups match event's targetGroups
+      const targetGroups = event.targetGroups || [];
+      
+      return playerGroups.some((pg: string) => 
+        targetGroups.some((tg: string) => 
+          String(pg || "").toLowerCase() === String(tg || "").toLowerCase()
+        )
+      );
+    });
 
     // Payment stats
     let totalPaid = 0;

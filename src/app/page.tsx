@@ -9,8 +9,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ClubLogo } from "@/components/ClubLogo";
 import { apiGet, apiPatch, apiPost } from "@/app/client/api";
 import { ProfileSelector } from "@/app/components/ProfileSelector";
+import { ResubmitForm } from "@/app/components/ResubmitForm";
 import { Loader2 } from "lucide-react";
 import type { PlayerWithKids } from "@/lib/types/kids";
+
+type RejectionData = {
+  rejection_reason?: string;
+  rejection_notes?: string;
+  previous_data?: {
+    group?: string;
+    member_type?: string;
+    phone?: string;
+  };
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +30,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [user, setUser] = useState<PlayerWithKids | null>(null);
   const [showProfileSelector, setShowProfileSelector] = useState(false);
+  const [rejectionData, setRejectionData] = useState<RejectionData | null>(null);
 
   useEffect(() => {
     async function checkAuth() {
@@ -55,7 +67,49 @@ export default function LoginPage() {
       });
 
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Login failed");
+
+      // Handle rejection with resubmission
+      if (data.status === "rejected" && data.can_resubmit) {
+        setRejectionData({
+          rejection_reason: data.rejection_reason,
+          rejection_notes: data.rejection_notes,
+          previous_data: data.previous_data,
+        });
+        setSigningIn(false);
+        return;
+      }
+
+      // Handle different response statuses
+      if (!r.ok) {
+        // Check for specific status responses
+        if (data?.status === "needs_profile") {
+          // New user - needs to complete profile first
+          router.replace("/complete-profile");
+          return;
+        }
+
+        if (data?.status === "pending_approval") {
+          // Registration request submitted - redirect to pending page
+          router.replace("/pending-approval");
+          return;
+        }
+
+        if (data?.status === "disabled") {
+          // Account disabled - redirect to disabled page
+          router.replace("/account-disabled");
+          return;
+        }
+
+        if (data?.status === "removed") {
+          // Account removed - show error message
+          setError(data?.message || "Your account has been removed. Please contact an admin.");
+          setSigningIn(false);
+          return;
+        }
+
+        // Other errors
+        throw new Error(data?.error || data?.message || "Login failed");
+      }
 
       // Ensure profile exists
       await apiPost("/api/me");
@@ -70,6 +124,7 @@ export default function LoginPage() {
         return;
       }
 
+      // Check if user has kids - show profile selector
       if (Array.isArray(playerWithKids.kids_profiles) && playerWithKids.kids_profiles.length > 0) {
         setUser(playerWithKids);
         setShowProfileSelector(true);
@@ -121,6 +176,22 @@ export default function LoginPage() {
     );
   }
 
+  if (rejectionData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3a5f]/5 via-background to-[#1e3a5f]/10 p-4">
+        <div className="w-full max-w-md">
+          <ResubmitForm
+            rejectionReason={rejectionData.rejection_reason}
+            rejectionNotes={rejectionData.rejection_notes}
+            previousData={rejectionData.previous_data}
+            onBack={() => setRejectionData(null)}
+            onSuccess={() => router.replace("/pending-approval")}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3a5f]/5 via-background to-[#1e3a5f]/10 p-4">
       <Card className="w-full max-w-sm shadow-lg">
@@ -145,7 +216,7 @@ export default function LoginPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="text-green-600">✓</span>
-                  <span>Family profiles for kids</span>
+                  <span>Family profiles for juniors</span>
                 </div>
               </div>
 

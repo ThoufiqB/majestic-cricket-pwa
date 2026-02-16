@@ -41,14 +41,13 @@ export default function AdminKidsEventsPage() {
     }
 
     try {
-      // Always create kids event with all_kids group
+      // Always create kids event with Kids target group
       await adminCreateEvent({
         title,
         event_type: s.eventType,
-        group: "all_kids",
+        targetGroups: ["Kids"],
         starts_at,
         fee: Number(s.fee || 0),
-        kids_event: true, // ALWAYS true for this page
       });
 
       s.setFee(0);
@@ -94,14 +93,14 @@ export default function AdminKidsEventsPage() {
       {/* Navigation Tabs */}
       <Tabs defaultValue="kids" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="adult" asChild>
+          <TabsTrigger value="club" asChild>
             <Link href="/admin/events" className="flex items-center gap-2">
-              Adult Events
+              Club Events
             </Link>
           </TabsTrigger>
           <TabsTrigger value="kids" className="flex items-center gap-2">
             <Baby className="h-4 w-4" />
-            Kids Events
+            Junior Events
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -126,8 +125,8 @@ export default function AdminKidsEventsPage() {
       <CreateEventCard
         eventType={s.eventType}
         setEventType={s.setEventType}
-        createGroup={s.createGroup}
-        setCreateGroup={s.setCreateGroup}
+        targetGroups={s.targetGroups}
+        setTargetGroups={s.setTargetGroups}
         createKidsEvent={true}
         setCreateKidsEvent={() => {}}
         isMembership={s.isMembership}

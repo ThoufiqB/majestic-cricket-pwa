@@ -148,7 +148,7 @@ export default function AdminKidsPage() {
           </TabsTrigger>
           <TabsTrigger value="kids" className="gap-2">
             <Baby className="h-4 w-4" />
-            Kids
+            Juniors
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -169,7 +169,7 @@ export default function AdminKidsPage() {
           }}
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Kid
+          Add Junior
         </Button>
       </div>
 
