@@ -200,7 +200,7 @@ export default function LoginPage() {
               <div className="flex flex-col items-center gap-3">
                 <ClubLogo size="lg" />
                 <div>
-                  <h1 className="text-2xl font-bold text-[#1e3a5f]">Majestic Cricket Club</h1>
+                  <h1 className="text-2xl font-bold text-[#1e3a5f]">Welcome to Majestic Foundation</h1>
                   <p className="text-sm text-muted-foreground mt-1">Manage your cricket activities</p>
                 </div>
               </div>

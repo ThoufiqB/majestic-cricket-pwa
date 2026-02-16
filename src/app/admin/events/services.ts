@@ -10,6 +10,7 @@ export type EventRow = {
   fee: number;
   status?: string;
   _is_past?: boolean;
+  kids_event?: boolean;
   stats?: { going: number; paid: number; unpaid: number; pending: number; rejected?: number };
 };
 
@@ -43,7 +44,7 @@ export async function adminDeleteEvent(eventId: string) {
 
 export async function adminUpdateEvent(
   eventId: string,
-  patch: { title?: string; starts_at?: string; fee?: number }
+  patch: { title?: string; starts_at?: string; fee?: number; targetGroups?: string[] }
 ) {
   return apiPatch(`/api/admin/events/${encodeURIComponent(eventId)}`, patch);
 }

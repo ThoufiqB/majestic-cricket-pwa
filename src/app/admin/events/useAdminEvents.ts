@@ -278,7 +278,7 @@ export function useAdminEvents() {
   const closeEdit = useCallback(() => setEditingEvent(null), []);
 
   const saveEdit = useCallback(
-    async (patch: { title: string; fee: number; starts_at: string }) => {
+    async (patch: { title: string; fee: number; starts_at: string; targetGroups: string[] }) => {
       if (!editingEvent) return;
 
       if (editingEvent._is_past) {
