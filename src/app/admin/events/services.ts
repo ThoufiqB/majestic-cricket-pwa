@@ -43,7 +43,7 @@ export async function adminDeleteEvent(eventId: string) {
 
 export async function adminUpdateEvent(
   eventId: string,
-  patch: { title?: string; starts_at?: string; fee?: number }
+  patch: { title?: string; starts_at?: string; fee?: number; targetGroups?: string[] }
 ) {
   return apiPatch(`/api/admin/events/${encodeURIComponent(eventId)}`, patch);
 }
