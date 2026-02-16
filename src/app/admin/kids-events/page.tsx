@@ -125,8 +125,8 @@ export default function AdminKidsEventsPage() {
       <CreateEventCard
         eventType={s.eventType}
         setEventType={s.setEventType}
-        createGroup={s.createGroup}
-        setCreateGroup={s.setCreateGroup}
+        targetGroups={s.targetGroups}
+        setTargetGroups={s.setTargetGroups}
         createKidsEvent={true}
         setCreateKidsEvent={() => {}}
         isMembership={s.isMembership}
