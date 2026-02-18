@@ -151,6 +151,7 @@ export default function PlayerHomePage() {
     refreshProfile,
     playerId,
     kids: kidsFromContext,
+    linkedYouth: linkedYouthFromContext,
     loading: contextLoading,
   } = useProfile();
 
@@ -448,9 +449,13 @@ export default function PlayerHomePage() {
   const hasKids = kids.length > 0;
   const isKidProfile = !!(activeProfileId && activeProfileId !== me?.player_id);
   const currentKid = isKidProfile ? kids.find((k) => k.kid_id === activeProfileId) : null;
+  const currentLinkedYouth = isKidProfile && !currentKid
+    ? (linkedYouthFromContext || []).find((y: any) => y.player_id === activeProfileId)
+    : null;
 
   const getActiveProfileName = () => {
     if (isKidProfile && currentKid) return currentKid.name;
+    if (isKidProfile && currentLinkedYouth) return currentLinkedYouth.name;
     return me?.name || "Welcome";
   };
 

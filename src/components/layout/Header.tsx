@@ -201,7 +201,7 @@ export function Header({
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-[10px] text-muted-foreground font-normal py-1">
-                      Linked Youth
+                      Linked Account
                     </DropdownMenuLabel>
                     {profiles.filter(p => p.type === "youth").map((profile) => (
                       <DropdownMenuItem

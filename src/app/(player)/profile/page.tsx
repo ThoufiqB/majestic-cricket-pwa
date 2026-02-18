@@ -22,6 +22,7 @@ import {
   XCircle,
   Clock,
   UserCheck,
+  UserCheck2,
 } from "lucide-react";
 import { apiGet } from "@/app/client/api";
 import { toast } from "sonner";
@@ -43,6 +44,15 @@ interface KidProfile {
   name: string;
   dob?: string;
   age?: number;
+  status?: string;
+}
+
+interface LinkedYouthProfile {
+  player_id: string;
+  name: string;
+  email: string;
+  groups?: string[];
+  yearOfBirth?: number | null;
   status?: string;
 }
 
@@ -383,43 +393,88 @@ export default function ProfilePage() {
 
         {/* ── My Kids Tab ──────────────────────────────────────────────────── */}
         <TabsContent value="kids">
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold flex items-center gap-2"><Baby className="h-6 w-6" />My Kids</h2>
-              <p className="text-sm text-muted-foreground mt-1">Manage your children's profiles</p>
-            </div>
-            {kids.length > 0 ? (
-              <div className="space-y-3">
-                {kids.map((kid) => (
-                  <Card key={kid.kid_id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Baby className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-lg">{kid.name}</h3>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {kid.age && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Age {kid.age}</span>}
-                            <Badge variant="secondary">{kid.status === "active" ? "Active" : "Inactive"}</Badge>
+          {(() => {
+            const linkedYouth: LinkedYouthProfile[] = (profile as any).linked_youth_profiles || [];
+            const hasKids = kids.length > 0;
+            const hasYouth = linkedYouth.length > 0;
+            return (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2"><Baby className="h-6 w-6" />My Kids</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Manage your children's profiles</p>
+                </div>
+
+                {/* Dependent kid profiles (admin-created) */}
+                {hasKids && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kid Profiles</p>
+                    {kids.map((kid) => (
+                      <Card key={kid.kid_id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Baby className="h-6 w-6 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg">{kid.name}</h3>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                {kid.age && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Age {kid.age}</span>}
+                                <Badge variant="secondary">{kid.status === "active" ? "Active" : "Inactive"}</Badge>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Linked youth — full player accounts linked to this parent */}
+                {hasYouth && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Linked Youth Accounts</p>
+                    {linkedYouth.map((youth) => (
+                      <Card key={youth.player_id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+                              <UserCheck2 className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-semibold text-lg">{youth.name}</h3>
+                                <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50 text-xs">Youth Account</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground truncate">{youth.email}</p>
+                              {youth.groups && youth.groups.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {youth.groups.map((g) => (
+                                    <Badge key={g} variant="secondary" className="text-xs capitalize">{g}</Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Empty state — only when both lists are empty */}
+                {!hasKids && !hasYouth && (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Baby className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No kids registered</h3>
+                      <p className="text-sm text-muted-foreground mb-4">Add your children to manage their cricket activities</p>
+                      <p className="text-xs text-muted-foreground">Contact an admin to add a kid profile</p>
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </div>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Baby className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No kids registered</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Add your children to manage their cricket activities</p>
-                  <p className="text-xs text-muted-foreground">Contact an admin to add a kid profile</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+            );
+          })()}
         </TabsContent>
 
         {/* ── Requests Tab ─────────────────────────────────────────────────── */}
