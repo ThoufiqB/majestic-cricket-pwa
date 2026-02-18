@@ -3,6 +3,7 @@ import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireAdminUser } from "@/lib/requireAdmin";
 import { handleApiError, ok } from "@/app/api/_util";
 import { calculateAgeFromMonthYear } from "@/lib/ageCalculator";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 // GET /api/admin/members/[memberId] - Get member details with kids
 export async function GET(
@@ -20,34 +21,59 @@ export async function GET(
 
     const data = snap.data() || {};
 
-    // Fetch linked kids if any
-    let kids: any[] = [];
-    if (Array.isArray(data.kids_profiles) && data.kids_profiles.length > 0) {
-      const kidSnaps = await Promise.all(
-        data.kids_profiles.map((kidId: string) =>
-          adminDb.collection("kids_profiles").doc(kidId).get()
-        )
-      );
-      kids = kidSnaps
-        .filter((s) => s.exists)
-        .map((s) => {
-          const kd = s.data();
-          return {
-            kid_id: s.id,
-            name: kd?.name || "Unknown",
-            dob: kd?.dob || null,
-            age: kd?.age || null,
-            status: kd?.status || "active",
-          };
-        });
-    }
+    // Fetch linked kids and linked youth in parallel
+    const [kids, linked_youth] = await Promise.all([
+      // Dependent kid profiles (kids_profiles collection)
+      (async () => {
+        if (!Array.isArray(data.kids_profiles) || data.kids_profiles.length === 0) return [];
+        const kidSnaps = await Promise.all(
+          data.kids_profiles.map((kidId: string) =>
+            adminDb.collection("kids_profiles").doc(kidId).get()
+          )
+        );
+        return kidSnaps
+          .filter((s) => s.exists)
+          .map((s) => {
+            const kd = s.data();
+            return {
+              kid_id: s.id,
+              name: kd?.name || "Unknown",
+              dob: kd?.dob || null,
+              age: kd?.age || null,
+              status: kd?.status || "active",
+            };
+          });
+      })(),
+      // Linked youth — full player accounts (players collection)
+      (async () => {
+        if (!Array.isArray(data.linked_youth) || data.linked_youth.length === 0) return [];
+        const youthSnaps = await Promise.all(
+          (data.linked_youth as string[]).map((uid) =>
+            adminDb.collection("players").doc(uid).get()
+          )
+        );
+        return youthSnaps
+          .filter((s) => s.exists)
+          .map((s) => {
+            const yd = s.data() || {};
+            return {
+              player_id: s.id,
+              name: yd.name || "Unknown",
+              email: yd.email || "",
+              group: deriveCategory(yd.gender, yd.hasPaymentManager, yd.group, yd.groups),
+              groups: yd.groups || [],
+              status: yd.status || "active",
+            };
+          });
+      })(),
+    ]);
 
     return ok({
       player_id: memberId,
       name: data.name || "Unknown",
       email: data.email || "",
       phone: data.phone || "",
-      group: data.group || "men",
+      group: deriveCategory(data.gender, data.hasPaymentManager, data.group, data.groups),
       groups: data.groups || [],
       gender: data.gender || null,
       yearOfBirth: data.yearOfBirth || null,
@@ -57,6 +83,7 @@ export async function GET(
       status: data.status || "active",
       created_at: data.created_at?.toDate?.()?.toISOString() || null,
       kids,
+      linked_youth,
     });
   } catch (e: any) {
     return handleApiError(e);

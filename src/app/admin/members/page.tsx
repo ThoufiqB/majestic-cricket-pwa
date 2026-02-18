@@ -73,6 +73,14 @@ interface MemberDetail extends Member {
     age?: number;
     status: string;
   }>;
+  linked_youth?: Array<{
+    player_id: string;
+    name: string;
+    email: string;
+    group: string;
+    groups: string[];
+    status: string;
+  }>;
 }
 
 const ALL_GROUPS = ["men", "women", "U-18", "U-15", "U-13"] as const;
@@ -731,12 +739,12 @@ export default function AdminMembersPage() {
                 </div>
               </div>
 
-              {/* Linked Kids */}
+              {/* Linked Kids (dependent profiles) */}
               {selectedMember.kids && selectedMember.kids.length > 0 && (
                 <div className="pt-2 border-t">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                     <Baby className="h-4 w-4" />
-                    Linked Juniors ({selectedMember.kids.length})
+                    Kid Profiles ({selectedMember.kids.length})
                   </h4>
                   <div className="space-y-2">
                     {selectedMember.kids.map((kid) => (
@@ -758,6 +766,40 @@ export default function AdminMembersPage() {
                             className="text-xs"
                           >
                             {kid.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Linked Youth (full player accounts) */}
+              {selectedMember.linked_youth && selectedMember.linked_youth.length > 0 && (
+                <div className="pt-2 border-t">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <UserCog className="h-4 w-4" />
+                    Linked Youth Accounts ({selectedMember.linked_youth.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedMember.linked_youth.map((youth) => (
+                      <div
+                        key={youth.player_id}
+                        className="flex items-center justify-between p-2 rounded bg-blue-50 border border-blue-100"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{youth.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{youth.email}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                            {youth.group}
+                          </Badge>
+                          <Badge
+                            variant={youth.status === "active" ? "secondary" : "outline"}
+                            className="text-xs"
+                          >
+                            {youth.status}
                           </Badge>
                         </div>
                       </div>
