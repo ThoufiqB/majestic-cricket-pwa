@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -14,6 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Pencil, User, Calendar, Save } from "lucide-react";
 import { VALIDATION_MESSAGES, VALIDATION_RULES } from "../constants";
 import type { EnhancedKidProfile, UpdateKidInput } from "../types";
@@ -27,17 +34,36 @@ type EditKidModalProps = {
   error?: string;
 };
 
+const MONTHS = [
+  { value: 1, label: "January" },
+  { value: 2, label: "February" },
+  { value: 3, label: "March" },
+  { value: 4, label: "April" },
+  { value: 5, label: "May" },
+  { value: 6, label: "June" },
+  { value: 7, label: "July" },
+  { value: 8, label: "August" },
+  { value: 9, label: "September" },
+  { value: 10, label: "October" },
+  { value: 11, label: "November" },
+  { value: 12, label: "December" },
+];
+
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: currentYear - 1990 + 1 }, (_, i) => currentYear - i);
+
 export function EditKidModal(p: EditKidModalProps) {
   const [name, setName] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [yearOfBirth, setYearOfBirth] = useState("");
+  const [monthOfBirth, setMonthOfBirth] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState(p.error);
 
-  // Reset form when modal opens with new kid
   useEffect(() => {
     if (p.open && p.kid) {
       setName(p.kid.name);
-      setDateOfBirth(p.kid.date_of_birth);
+      setYearOfBirth(String(p.kid.yearOfBirth ?? ""));
+      setMonthOfBirth(String(p.kid.monthOfBirth ?? ""));
       setErrors({});
       setSubmitError("");
     }
@@ -45,24 +71,30 @@ export function EditKidModal(p: EditKidModalProps) {
 
   if (!p.kid) return null;
 
-  const hasChanges = name !== p.kid.name || dateOfBirth !== p.kid.date_of_birth;
+  const hasChanges =
+    name !== p.kid.name ||
+    yearOfBirth !== String(p.kid.yearOfBirth ?? "") ||
+    monthOfBirth !== String(p.kid.monthOfBirth ?? "");
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
     if (name && name.length > VALIDATION_RULES.NAME_MAX) {
       newErrors.name = VALIDATION_MESSAGES.NAME_TOO_LONG;
     }
-
-    if (dateOfBirth && !VALIDATION_RULES.DOB_FORMAT.test(dateOfBirth)) {
-      newErrors.dateOfBirth = VALIDATION_MESSAGES.DOB_INVALID;
-    } else if (dateOfBirth) {
-      const dob = new Date(dateOfBirth);
-      if (dob > new Date()) {
-        newErrors.dateOfBirth = VALIDATION_MESSAGES.DOB_FUTURE;
+    if (yearOfBirth && monthOfBirth) {
+      const y = Number(yearOfBirth);
+      const m = Number(monthOfBirth);
+      if (!Number.isInteger(y) || y < 1990 || y > currentYear) {
+        newErrors.yearOfBirth = VALIDATION_MESSAGES.YEAR_INVALID;
+      } else if (!Number.isInteger(m) || m < 1 || m > 12) {
+        newErrors.monthOfBirth = VALIDATION_MESSAGES.MONTH_INVALID;
+      } else {
+        const now = new Date();
+        if (y > now.getFullYear() || (y === now.getFullYear() && m > now.getMonth() + 1)) {
+          newErrors.yearOfBirth = VALIDATION_MESSAGES.DOB_FUTURE;
+        }
       }
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -70,12 +102,12 @@ export function EditKidModal(p: EditKidModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(undefined);
-
     if (!validateForm() || !p.kid) return;
 
     const input: UpdateKidInput = {};
     if (name !== p.kid.name) input.name = name.trim();
-    if (dateOfBirth !== p.kid.date_of_birth) input.date_of_birth = dateOfBirth;
+    if (yearOfBirth !== String(p.kid.yearOfBirth ?? "")) input.yearOfBirth = Number(yearOfBirth);
+    if (monthOfBirth !== String(p.kid.monthOfBirth ?? "")) input.monthOfBirth = Number(monthOfBirth);
 
     try {
       await p.onSubmit(input);
@@ -83,6 +115,8 @@ export function EditKidModal(p: EditKidModalProps) {
       setSubmitError(String(e?.message || e));
     }
   };
+
+  const monthLabel = MONTHS.find((m) => m.value === Number(monthOfBirth))?.label ?? "—";
 
   return (
     <Dialog open={p.open} onOpenChange={(isOpen) => !isOpen && p.onClose()}>
@@ -109,26 +143,47 @@ export function EditKidModal(p: EditKidModalProps) {
               onChange={(e) => setName(e.target.value)}
               className={errors.name ? "border-destructive" : ""}
             />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name}</p>
-            )}
+            {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
           </div>
 
-          {/* Date of Birth */}
+          {/* Birth Month + Year */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              Date of Birth (YYYY-MM-DD)
+              Month &amp; Year of Birth
             </Label>
-            <Input
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              placeholder="YYYY-MM-DD"
-              className={errors.dateOfBirth ? "border-destructive" : ""}
-            />
-            {errors.dateOfBirth && (
-              <p className="text-sm text-destructive">{errors.dateOfBirth}</p>
-            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Select value={monthOfBirth} onValueChange={setMonthOfBirth}>
+                  <SelectTrigger className={errors.monthOfBirth ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m) => (
+                      <SelectItem key={m.value} value={String(m.value)}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.monthOfBirth && <p className="text-xs text-destructive mt-1">{errors.monthOfBirth}</p>}
+              </div>
+              <div>
+                <Select value={yearOfBirth} onValueChange={setYearOfBirth}>
+                  <SelectTrigger className={errors.yearOfBirth ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {YEARS.map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.yearOfBirth && <p className="text-xs text-destructive mt-1">{errors.yearOfBirth}</p>}
+              </div>
+            </div>
           </div>
 
           {/* Read-only Info */}
@@ -151,20 +206,12 @@ export function EditKidModal(p: EditKidModalProps) {
             </CardContent>
           </Card>
 
-          {/* Submit Error */}
           {submitError && (
-            <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {submitError}
-            </p>
+            <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{submitError}</p>
           )}
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={p.onClose}
-              disabled={p.isLoading}
-            >
+            <Button type="button" variant="outline" onClick={p.onClose} disabled={p.isLoading}>
               Cancel
             </Button>
             <Button type="submit" disabled={p.isLoading || !hasChanges}>

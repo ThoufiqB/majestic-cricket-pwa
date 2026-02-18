@@ -61,7 +61,7 @@ export function KidCard(p: KidCardProps) {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm truncate">{kid.name}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  DOB: {kid.date_of_birth}
+                  Born: {kid.monthOfBirth ? new Date(kid.yearOfBirth, kid.monthOfBirth - 1).toLocaleString("default", { month: "short", year: "numeric" }) : String(kid.yearOfBirth ?? "—")}
                 </p>
               </div>
 
@@ -118,9 +118,14 @@ export function KidCard(p: KidCardProps) {
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="h-4 w-4 shrink-0" />
                   <span>
-                    DOB:{" "}
+                    Born:{" "}
                     <span className="font-medium text-foreground">
-                      {kid.date_of_birth}
+                      {kid.monthOfBirth
+                        ? new Date(kid.yearOfBirth, kid.monthOfBirth - 1).toLocaleString("default", {
+                            month: "long",
+                            year: "numeric",
+                          })
+                        : String(kid.yearOfBirth ?? "—")}
                     </span>
                   </span>
                 </div>

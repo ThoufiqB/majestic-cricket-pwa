@@ -8,7 +8,8 @@ export interface KidsProfile {
   kid_id: string;
   player_id: string;
   name: string;
-  date_of_birth: string; // ISO 8601 (YYYY-MM-DD)
+  yearOfBirth: number;  // e.g. 2022
+  monthOfBirth: number; // 1–12
   age: number;
   parent_emails: string[];
   status: "active" | "inactive";
@@ -34,6 +35,16 @@ export interface KidsAttendee {
   status: "active" | "inactive";
 }
 
+export interface LinkedYouthProfile {
+  player_id: string;
+  name: string;
+  email: string;
+  yearOfBirth?: number;
+  monthOfBirth?: number;
+  group?: "men" | "women" | "";
+  member_type?: "standard" | "student" | "";
+}
+
 export interface PlayerWithKids {
   player_id: string;
   email: string;
@@ -43,6 +54,7 @@ export interface PlayerWithKids {
   member_type: "standard" | "student" | "";
   phone: string;
   kids_profiles?: KidsProfile[]; // array of full KidsProfile objects
+  linked_youth_profiles?: LinkedYouthProfile[];
   linked_parents?: Array<{
     parent_uid: string;
     linked_at: Date;
