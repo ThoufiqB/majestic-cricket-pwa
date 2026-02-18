@@ -54,7 +54,17 @@ export function AppShell({
     if (isKidProfile) {
       const kid = kids.find((k) => k.kid_id === activeProfileId);
       if (kid) {
+        // Active profile is a child (kids_profiles)
         currentProfile = { id: kid.kid_id, name: kid.name, type: "kid" as const };
+      } else {
+        // Active profile is a linked youth account (full player account)
+        const youth = linkedYouth.find((y) => y.player_id === activeProfileId);
+        if (youth) {
+          currentProfile = { id: youth.player_id, name: youth.name, type: "youth" as const };
+        } else {
+          // Fallback: stale activeProfileId — treat as own profile
+          currentProfile = { id: playerId, name: playerName || "", type: "player" as const };
+        }
       }
     } else {
       currentProfile = { id: playerId, name: playerName || "", type: "player" as const };
