@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
       userGroup = deriveCategory(
         profileData.gender as "Male" | "Female" | undefined, 
         profileData.hasPaymentManager, 
-        profileData.group
+        profileData.group,
+        (profileData as any).groups
       );
     } else {
       const profileSnap = await adminDb.collection("profiles").doc(user.uid).get();
@@ -63,7 +64,8 @@ export async function GET(req: NextRequest) {
       userGroup = deriveCategory(
         profileData.gender as "Male" | "Female" | undefined, 
         profileData.hasPaymentManager, 
-        profileData.group
+        profileData.group,
+        (profileData as any).groups
       );
     }
 
@@ -304,7 +306,8 @@ export async function GET(req: NextRequest) {
           const playerCategory = deriveCategory(
             playerData?.gender,
             playerData?.hasPaymentManager,
-            undefined
+            undefined,
+            playerData?.groups
           );
 
           // Categorize all attendees (no filtering)

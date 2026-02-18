@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
-import { adminDb } from "@/lib/firebaseAdmin";
+import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireAdminUser } from "@/lib/requireAdmin";
 import { handleApiError, ok } from "@/app/api/_util";
+import { calculateAgeFromMonthYear } from "@/lib/ageCalculator";
 
 // GET /api/admin/members/[memberId] - Get member details with kids
 export async function GET(
@@ -47,6 +48,10 @@ export async function GET(
       email: data.email || "",
       phone: data.phone || "",
       group: data.group || "men",
+      groups: data.groups || [],
+      gender: data.gender || null,
+      yearOfBirth: data.yearOfBirth || null,
+      monthOfBirth: data.monthOfBirth || null,
       member_type: data.member_type || "regular",
       role: data.role || "player",
       status: data.status || "active",
@@ -73,19 +78,58 @@ export async function PATCH(
       return ok({ error: "Member not found" }, 404);
     }
 
+    const data = snap.data() || {};
+
     // Only allow updating certain fields
-    const allowedFields = ["role", "phone", "group"];
+    const allowedFields = ["role", "phone", "group", "groups", "gender"];
     const updates: Record<string, any> = {};
-    
+
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
         updates[field] = body[field];
       }
     }
 
+    // Validate groups against age eligibility
+    if (updates.groups !== undefined) {
+      const groups: string[] = updates.groups;
+      const yearOfBirth: number | null = data.yearOfBirth ?? null;
+      const monthOfBirth: number | null = data.monthOfBirth ?? null;
+      const ADULT_GROUPS = ["men", "women"];
+      const YOUTH_GROUPS = ["U-18", "U-15", "U-13"];
+
+      if (yearOfBirth !== null) {
+        const age = calculateAgeFromMonthYear(
+          monthOfBirth ?? undefined,
+          yearOfBirth
+        );
+        const isAdult = age >= 18;
+
+        if (isAdult) {
+          const hasYouth = groups.some((g) => YOUTH_GROUPS.includes(g));
+          if (hasYouth) {
+            return ok(
+              { error: "Adult members (18+) cannot be assigned to youth groups." },
+              400
+            );
+          }
+        } else {
+          const hasAdult = groups.some((g) => ADULT_GROUPS.includes(g));
+          if (hasAdult) {
+            return ok(
+              { error: "Youth players (under 18) cannot be assigned to men's or women's groups." },
+              400
+            );
+          }
+        }
+      }
+    }
+
     if (Object.keys(updates).length === 0) {
       return ok({ error: "No valid fields to update" }, 400);
     }
+
+    updates.updated_at = adminTs.now();
 
     await adminDb.collection("players").doc(memberId).update(updates);
 

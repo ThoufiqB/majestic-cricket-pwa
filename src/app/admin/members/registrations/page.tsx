@@ -60,6 +60,12 @@ function RequestCard({ request, onApprove, onReject }: {
                   Pending
                 </Badge>
               )}
+              {request.status === "pending_admin_approval" && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
+                  <UserCheck className="w-3 h-3 mr-1" />
+                  Parent Approved
+                </Badge>
+              )}
               {request.status === "approved" && (
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
                   <CheckCircle className="w-3 h-3 mr-1" />
@@ -206,8 +212,8 @@ function RequestCard({ request, onApprove, onReject }: {
             )}
           </div>
 
-          {/* Actions (only for pending) */}
-          {request.status === "pending" && (
+          {/* Actions (only for pending / parent-approved) */}
+          {(request.status === "pending" || request.status === "pending_admin_approval") && (
             <div className="flex gap-2 sm:flex-col lg:flex-row">
               <Button
                 size="sm"
@@ -247,10 +253,16 @@ function RegistrationsPageContent() {
     fetchRequests("all");
   }, [fetchRequests]);
 
+  // "pending" tab includes both plain pending AND parent-approved (pending_admin_approval)
+  const PENDING_STATUSES = ["pending", "pending_admin_approval"];
+
   // Filter requests for display based on active tab
-  const displayedRequests = activeTab === "all" 
-    ? requests 
-    : requests.filter(r => r.status === activeTab);
+  const displayedRequests =
+    activeTab === "all"
+      ? requests
+      : activeTab === "pending"
+      ? requests.filter(r => PENDING_STATUSES.includes(r.status))
+      : requests.filter(r => r.status === activeTab);
 
   async function handleApproveClick(request: RegistrationRequest) {
     if (!confirm(`Approve registration for ${request.name}?`)) return;
@@ -281,7 +293,7 @@ function RegistrationsPageContent() {
     refreshBadges();
   }
 
-  const pendingCount = requests.filter(r => r.status === "pending").length;
+  const pendingCount = requests.filter(r => PENDING_STATUSES.includes(r.status)).length;
   const approvedCount = requests.filter(r => r.status === "approved").length;
   const rejectedCount = requests.filter(r => r.status === "rejected").length;
   const allCount = requests.length;

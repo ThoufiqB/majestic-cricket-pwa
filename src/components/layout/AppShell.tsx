@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 type Profile = {
   id: string;
   name: string;
-  type: "player" | "kid";
+  type: "player" | "kid" | "youth";
   avatar?: string;
 };
 
@@ -45,7 +45,7 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
 
   // Get profile context
-  const { playerId, playerName, activeProfileId, isKidProfile, kids, setActiveProfileId } = useProfile();
+  const { playerId, playerName, activeProfileId, isKidProfile, kids, linkedYouth, setActiveProfileId } = useProfile();
 
   // Compose currentProfile and profiles for Header
   let currentProfile = undefined;
@@ -62,6 +62,7 @@ export function AppShell({
     profiles = [
       { id: playerId, name: playerName || "", type: "player" },
       ...kids.map((kid) => ({ id: kid.kid_id, name: kid.name, type: "kid" as const })),
+      ...linkedYouth.map((y) => ({ id: y.player_id, name: y.name, type: "youth" as const })),
     ];
   }
 

@@ -153,7 +153,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ eventId: s
               ? null
               : Number(feeRaw);
 
-          const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group);
+          const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group, pd.groups);
           
           return {
             player_id: p.id,

@@ -44,7 +44,8 @@ export async function GET(req: NextRequest) {
     const playerCategory = deriveCategory(
       (me as any).gender, 
       (me as any).hasPaymentManager, 
-      (me as any).group
+      (me as any).group,
+      (me as any).groups
     );
     const playerGroups = Array.isArray((me as any).groups) ? (me as any).groups : [];
 

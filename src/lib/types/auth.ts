@@ -10,11 +10,44 @@ export type PlayerStatus = "active" | "disabled" | "removed";
 
 /**
  * Registration request status
- * - pending: Waiting for admin approval
- * - approved: Admin approved (player document should exist)
- * - rejected: Admin rejected the request
+ * - pending:                  Adult waiting for admin approval
+ * - pending_parent_approval:  Youth player — awaiting designated parent/guardian approval first
+ * - pending_admin_approval:   Parent approved — now waiting for admin
+ * - approved:                 Admin approved (player document created)
+ * - rejected:                 Admin rejected
+ * - rejected_by_parent:       Parent declined the profile-manager request
  */
-export type RegistrationStatus = "pending" | "approved" | "rejected";
+export type RegistrationStatus =
+  | "pending"
+  | "pending_parent_approval"
+  | "pending_admin_approval"
+  | "approved"
+  | "rejected"
+  | "rejected_by_parent";
+
+/**
+ * Parent request status — tracks the youth→parent approval step.
+ * Stored in the `parent_requests` Firestore collection.
+ */
+export type ParentRequestStatus = "pending" | "approved" | "rejected";
+
+/**
+ * A request from a self-registered youth player asking an adult to
+ * become their Profile Manager / Payment Manager.
+ */
+export interface ParentRequest {
+  id: string;                   // Firestore doc ID (auto-generated)
+  youth_uid: string;            // UID of the self-registered youth player
+  youth_name: string;
+  youth_email: string;
+  youth_groups: string[];       // e.g. ["U-15"]
+  parent_uid: string;           // UID of the designated payment manager
+  status: ParentRequestStatus;
+  created_at: Date | FirebaseFirestore.Timestamp;
+  resolved_at?: Date | FirebaseFirestore.Timestamp;
+  resolved_by?: string;         // parent UID who acted on it
+  rejection_reason?: string;
+}
 
 /**
  * Rejection reason types for structured rejection handling
@@ -44,6 +77,7 @@ export interface RegistrationRequest {
   // NEW: Multi-group registration
   groups?: string[];
   yearOfBirth?: number;
+  monthOfBirth?: number; // 1–12 (no full date for privacy)
   gender?: "Male" | "Female";
   hasPaymentManager?: boolean;
   paymentManagerId?: string;
@@ -90,6 +124,7 @@ export interface PlayerWithStatus {
   
   // NEW: Year of birth (for age validation)
   yearOfBirth?: number;
+  monthOfBirth?: number; // 1–12 (no full date for privacy)
   
   // NEW: Payment Manager (for youth players)
   hasPaymentManager?: boolean;

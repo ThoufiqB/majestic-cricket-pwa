@@ -53,7 +53,8 @@ export async function GET(req: NextRequest) {
       category = deriveCategory(
         (me as any).gender, 
         (me as any).hasPaymentManager, 
-        (me as any).group
+        (me as any).group,
+        (me as any).groups
       );
       userGroups = Array.isArray((me as any).groups) ? (me as any).groups : [];
     }

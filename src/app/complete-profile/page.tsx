@@ -35,11 +35,13 @@ export default function CompleteProfilePage() {
   const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
   const [formData, setFormData] = useState({
     groups: [] as string[],
     member_type: "",
     phone: "",
     yearOfBirth: "",
+    monthOfBirth: "", // 1–12 as string
     gender: "",
     hasPaymentManager: false,
     paymentManagerId: "",
@@ -58,11 +60,81 @@ export default function CompleteProfilePage() {
     setMounted(true);
   }, []);
 
-  // Calculate age and determine if payment manager is needed
-  const currentYear = new Date().getFullYear();
-  const userAge = formData.yearOfBirth ? currentYear - parseInt(formData.yearOfBirth) : null;
+  // Calculate age (month-accurate) and determine if payment manager is needed
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-based
+  const userAge = formData.yearOfBirth
+    ? formData.monthOfBirth
+      ? currentYear - parseInt(formData.yearOfBirth) - (currentMonth < parseInt(formData.monthOfBirth) ? 1 : 0)
+      : currentYear - parseInt(formData.yearOfBirth)
+    : null;
   const isUnder18 = userAge !== null && userAge < 18;
-  const showPaymentManager = isUnder18; // Only show for youth under 18
+  const showPaymentManager = isUnder18;
+
+  // ── Group eligibility rules ────────────────────────────────────────────────
+  // Returns which groups are selectable for the current age, and the default
+  // suggested group(s) that should be auto-checked.
+  function getGroupEligibility(age: number | null, gender: string): {
+    eligible: string[];
+    suggested: string[];
+    reason: Record<string, string>; // group → why disabled
+  } {
+    const reason: Record<string, string> = {};
+
+    if (age === null) {
+      // Age not yet known — allow all, suggest nothing
+      return { eligible: ["Men", "Women", "U-13", "U-15", "U-18"], suggested: [], reason };
+    }
+
+    if (age >= 18) {
+      // Adults: Men / Women based on gender; U-groups available but not suggested
+      const adultGroup = gender === "Female" ? "Women" : "Men";
+      const otherAdult = gender === "Female" ? "Men" : "Women";
+      reason[otherAdult] = `Your gender suggests ${adultGroup}`;
+      return {
+        eligible: ["Men", "Women", "U-13", "U-15", "U-18"],
+        suggested: [adultGroup],
+        reason,
+      };
+    }
+
+    // Under 18 — block adult groups
+    reason["Men"] = "Must be 18+ to join Men";
+    reason["Women"] = "Must be 18+ to join Women";
+
+    if (age <= 13) {
+      reason["U-15"] = `Age ${age} is not yet eligible for U-15 (requires 14+)`;
+      reason["U-18"] = `Age ${age} is not yet eligible for U-18 (requires 16+)`;
+      return { eligible: ["U-13"], suggested: ["U-13"], reason };
+    }
+    if (age <= 15) {
+      reason["U-18"] = `Age ${age} is not yet eligible for U-18 (requires 16+)`;
+      return { eligible: ["U-13", "U-15"], suggested: ["U-15"], reason };
+    }
+    // age 16, 17
+    return { eligible: ["U-13", "U-15", "U-18"], suggested: ["U-18"], reason };
+  }
+
+  const { eligible: eligibleGroups, suggested: suggestedGroups, reason: ineligibleReason } =
+    getGroupEligibility(userAge, formData.gender);
+
+  // Auto-suggest: when age or gender changes, apply suggested groups (remove
+  // any now-ineligible ones and add missing suggestions).
+  useEffect(() => {
+    if (userAge === null) return;
+    setFormData(prev => {
+      const kept = prev.groups.filter(g => eligibleGroups.includes(g));
+      const toAdd = suggestedGroups.filter(g => !kept.includes(g));
+      const next = [...kept, ...toAdd];
+      // Only update if something changed to avoid infinite loops
+      if (next.length === prev.groups.length && next.every(g => prev.groups.includes(g))) {
+        return prev;
+      }
+      return { ...prev, groups: next };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userAge, formData.gender]);
 
   // Auto-set membership type for youth with payment manager
   useEffect(() => {
@@ -146,7 +218,11 @@ export default function CompleteProfilePage() {
       return;
     }
     if (!formData.yearOfBirth) {
-      setError("Please select your year of birth");
+      setError("Please select your birth year");
+      return;
+    }
+    if (!formData.monthOfBirth) {
+      setError("Please select your birth month");
       return;
     }
     if (!formData.gender) {
@@ -185,6 +261,7 @@ export default function CompleteProfilePage() {
 
     setSubmitting(true);
     setError("");
+    setIsDuplicateEmail(false);
 
     try {
       // Get ID token from Firebase to authenticate API call (user may not have session yet)
@@ -203,6 +280,7 @@ export default function CompleteProfilePage() {
         body: JSON.stringify({
           groups: formData.groups,
           yearOfBirth: parseInt(formData.yearOfBirth),
+          monthOfBirth: formData.monthOfBirth ? parseInt(formData.monthOfBirth) : null,
           gender: formData.gender,
           member_type: formData.member_type,
           phone: formData.phone,
@@ -214,13 +292,21 @@ export default function CompleteProfilePage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+        if (response.status === 409 && data?.code === "duplicate_email") {
+          setIsDuplicateEmail(true);
+          setError(data.error || "An account with this email already exists.");
+          setSubmitting(false);
+          return;
+        }
         throw new Error(data?.error || "Failed to submit profile");
       }
 
       const result = await response.json();
-      
-      // Success - redirect to pending approval page
-      if (result.status === "pending_approval") {
+
+      // Success - redirect based on status
+      if (result.status === "pending_parent_approval") {
+        router.replace("/pending-approval?stage=parent");
+      } else if (result.status === "pending_approval") {
         router.replace("/pending-approval");
       } else {
         router.replace("/home");
@@ -266,15 +352,38 @@ export default function CompleteProfilePage() {
           </CardHeader>
           <CardContent className="p-4 md:p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Year of Birth, Gender, and Groups - 3 Column Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Year of Birth */}
+              {/* Birth Month, Birth Year, Gender, and Groups - 4 Column Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Birth Month */}
+                <div className="space-y-2">
+                  <Label htmlFor="monthOfBirth">
+                    Birth Month <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.monthOfBirth}
+                    onValueChange={(value) => setFormData({ ...formData, monthOfBirth: value })}
+                    required
+                  >
+                    <SelectTrigger id="monthOfBirth" className="w-full">
+                      <SelectValue placeholder="Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m, i) => (
+                        <SelectItem key={i + 1} value={String(i + 1)}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Birth Year */}
                 <div className="space-y-2">
                   <Label htmlFor="yearOfBirth" className="flex items-center gap-2">
-                    <span>Year of Birth <span className="text-red-500">*</span></span>
+                    <span>Birth Year <span className="text-red-500">*</span></span>
                     {userAge !== null && (
                       <span className="text-xs text-muted-foreground font-normal">
-                        (Age: {userAge})
+                        (Age: {userAge})
                       </span>
                     )}
                   </Label>
@@ -284,7 +393,7 @@ export default function CompleteProfilePage() {
                     required
                   >
                     <SelectTrigger id="yearOfBirth" className="w-full">
-                      <SelectValue placeholder="Select year" />
+                      <SelectValue placeholder="Year" />
                     </SelectTrigger>
                     <SelectContent>
                       {Array.from({ length: currentYear - 1970 + 1 }, (_, i) => currentYear - i).map((year) => (
@@ -338,23 +447,46 @@ export default function CompleteProfilePage() {
                         <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 p-3" align="start">
+                    <DropdownMenuContent className="w-64 p-3" align="start">
                       <div className="space-y-2">
-                        {["Men", "Women", "U-13", "U-15", "U-18"].map((group) => (
-                          <div key={group} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`group-${group}`}
-                              checked={formData.groups.includes(group)}
-                              onCheckedChange={() => toggleGroup(group)}
-                            />
-                            <label
-                              htmlFor={`group-${group}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                        {["Men", "Women", "U-13", "U-15", "U-18"].map((group) => {
+                          const isEligible = eligibleGroups.includes(group);
+                          const isSuggested = suggestedGroups.includes(group);
+                          const disabledReason = ineligibleReason[group];
+                          return (
+                            <div
+                              key={group}
+                              className="flex items-center space-x-2"
+                              title={!isEligible ? disabledReason : isSuggested ? "Suggested for your age & gender" : undefined}
                             >
-                              {group}
-                            </label>
-                          </div>
-                        ))}
+                              <Checkbox
+                                id={`group-${group}`}
+                                checked={formData.groups.includes(group)}
+                                disabled={!isEligible}
+                                onCheckedChange={() => isEligible && toggleGroup(group)}
+                              />
+                              <label
+                                htmlFor={`group-${group}`}
+                                className={[
+                                  "text-sm font-medium leading-none flex-1 select-none",
+                                  isEligible ? "cursor-pointer" : "cursor-not-allowed opacity-40",
+                                ].join(" ")}
+                              >
+                                {group}
+                                {isSuggested && isEligible && (
+                                  <span className="ml-1.5 text-[10px] text-emerald-600 font-semibold uppercase tracking-wide">
+                                    suggested
+                                  </span>
+                                )}
+                                {!isEligible && (
+                                  <span className="ml-1.5 text-[10px] text-muted-foreground">
+                                    — {disabledReason}
+                                  </span>
+                                )}
+                              </label>
+                            </div>
+                          );
+                        })}
                       </div>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -365,9 +497,14 @@ export default function CompleteProfilePage() {
                       ))}
                     </div>
                   )}
-                  {userAge !== null && !isUnder18 && (
-                    <p className="text-xs text-amber-600 font-medium">
-                      ⚠️ Select at least one adult category (Men or Women)
+                  {userAge !== null && !isUnder18 && formData.gender && (
+                    <p className="text-xs text-emerald-700 font-medium">
+                      ✓ {formData.gender === "Female" ? "Women" : "Men"} has been suggested based on your age & gender
+                    </p>
+                  )}
+                  {userAge !== null && isUnder18 && (
+                    <p className="text-xs text-blue-600 font-medium">
+                      ℹ️ Groups shown are based on your age ({userAge})
                     </p>
                   )}
                 </div>
@@ -514,11 +651,19 @@ export default function CompleteProfilePage() {
               </div>
 
               {/* Error Message */}
-              {error && (
+              {isDuplicateEmail ? (
+                <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 space-y-1">
+                  <p className="text-sm font-semibold text-orange-800">Account already exists</p>
+                  <p className="text-sm text-orange-700">{error}</p>
+                  <p className="text-xs text-orange-600 mt-1">
+                    Try signing in with your original account, or contact an admin if you need help.
+                  </p>
+                </div>
+              ) : error ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
                   {error}
                 </div>
-              )}
+              ) : null}
 
               {/* Submit Button */}
               <Button type="submit" className="w-full" disabled={submitting}>

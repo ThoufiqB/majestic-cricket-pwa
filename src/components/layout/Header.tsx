@@ -22,7 +22,8 @@ import {
   Settings,
   UserCircle,
   Shield,
-  Users
+  Users,
+  UserCheck,
 } from "lucide-react";
 import { useProfile } from "@/components/context/ProfileContext";
 import { useState } from "react";
@@ -32,7 +33,7 @@ import { useScrollDirection } from "@/lib/hooks/useScrollDirection";
 type Profile = {
   id: string;
   name: string;
-  type: "player" | "kid";
+  type: "player" | "kid" | "youth";
   avatar?: string;
 };
 
@@ -56,7 +57,7 @@ export function Header({
   onSignOut
 }: Props) {
   const pathname = usePathname();
-  const { isAdmin, isKidProfile, kids, playerId, activeProfileId, setActiveProfileId, refreshProfile } = useProfile();
+  const { isAdmin, isKidProfile, kids, playerId, activeProfileId, setActiveProfileId, refreshProfile, requestCount } = useProfile();
 
   // Local state for loading indicator on switch
   const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(null);
@@ -157,6 +158,8 @@ export function Header({
                 <Button variant="outline" size="sm" className="gap-2 bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200">
                   {currentProfile.type === "kid" ? (
                     <Baby className="h-4 w-4" />
+                  ) : currentProfile.type === "youth" ? (
+                    <UserCheck className="h-4 w-4" />
                   ) : (
                     <User className="h-4 w-4" />
                   )}
@@ -167,7 +170,7 @@ export function Header({
               <DropdownMenuContent align="end" className="w-[200px]">
                 <DropdownMenuLabel>Switch Profile</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {profiles.map((profile) => (
+                {profiles.filter(p => p.type !== "youth").map((profile) => (
                   <DropdownMenuItem
                     key={profile.id}
                     onClick={() => {
@@ -194,17 +197,53 @@ export function Header({
                     )}
                   </DropdownMenuItem>
                 ))}
+                {profiles.some(p => p.type === "youth") && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[10px] text-muted-foreground font-normal py-1">
+                      Linked Youth
+                    </DropdownMenuLabel>
+                    {profiles.filter(p => p.type === "youth").map((profile) => (
+                      <DropdownMenuItem
+                        key={profile.id}
+                        onClick={() => {
+                          if (profile.id !== currentProfile.id && !switchingProfileId) {
+                            handleHeaderSwitchProfile(profile.id);
+                          }
+                        }}
+                        disabled={!!switchingProfileId}
+                        className="gap-2"
+                      >
+                        <UserCheck className="h-4 w-4 text-muted-foreground" />
+                        <span>{profile.name}</span>
+                        {profile.id === currentProfile.id && (
+                          <Badge variant="secondary" className="ml-auto text-[10px]">Active</Badge>
+                        )}
+                        {switchingProfileId === profile.id && (
+                          <span className="ml-2 animate-spin"><svg className="h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /></svg></span>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
 
           {/* Profile Link (Player only) */}
           {variant === "player" && (
-            <Button variant="outline" size="icon" asChild className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
-              <Link href="/profile">
-                <UserCircle className="h-5 w-5" />
-              </Link>
-            </Button>
+            <div className="relative">
+              <Button variant="outline" size="icon" asChild className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200">
+                <Link href="/profile">
+                  <UserCircle className="h-5 w-5" />
+                </Link>
+              </Button>
+              {requestCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 border-2 border-background text-[10px] text-white font-bold flex items-center justify-center leading-none pointer-events-none">
+                  {requestCount > 9 ? "9+" : requestCount}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Sign Out (if callback provided) */}

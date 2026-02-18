@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const me: any = meSnap.data() || {};
     
     // Derive category from gender + hasPaymentManager
-    const category = deriveCategory(me.gender, me.hasPaymentManager, me.group);
+    const category = deriveCategory(me.gender, me.hasPaymentManager, me.group, me.groups);
     const groups = Array.isArray(me.groups) ? me.groups : [];
 
     // Calculate fee_due based on member_type (student gets 25% discount)

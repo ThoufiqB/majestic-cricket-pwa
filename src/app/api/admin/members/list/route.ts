@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
       const displayGroup = deriveCategory(
         data.gender,
         data.hasPaymentManager,
-        data.group  // Fallback for legacy users
+        data.group,  // Fallback for legacy users
+        data.groups
       );
       
       return {

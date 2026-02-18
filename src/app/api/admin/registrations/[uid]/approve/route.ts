@@ -77,9 +77,18 @@ export async function POST(
       );
     }
 
+    // Block approval if parent hasn't approved yet for youth players
+    if (currentStatus === "pending_parent_approval") {
+      return NextResponse.json(
+        { error: "Cannot approve yet — waiting for the parent/guardian to approve this request first" },
+        { status: 400 }
+      );
+    }
+
     // Use groups from request data or body
     const playerGroups = requestData?.groups || groups || (group ? [group] : []);
     const playerYearOfBirth = requestData?.yearOfBirth || yearOfBirth;
+    const playerMonthOfBirth = requestData?.monthOfBirth ?? null; // preserve from registration
     const playerGender = requestData?.gender || gender;
     const playerHasPaymentManager = requestData?.hasPaymentManager || hasPaymentManager || false;
     const playerPaymentManagerId = requestData?.paymentManagerId || paymentManagerId;
@@ -107,6 +116,7 @@ export async function POST(
       status: "active" as PlayerStatus,
       groups: playerGroups,
       yearOfBirth: playerYearOfBirth,
+      monthOfBirth: playerMonthOfBirth,
       gender: playerGender,
       member_type: playerMemberType,
       phone: playerPhone,
@@ -152,8 +162,20 @@ export async function POST(
     
     // Add registration request deletion to batch
     batch.delete(requestRef);
+
+    // If this youth has a payment manager (parent/guardian), link the youth
+    // to the parent's players doc NOW — the youth players doc is being created
+    // in this same batch, so /api/me will find it on the next fetch.
+    if (playerHasPaymentManager && playerPaymentManagerId) {
+      const { FieldValue } = await import("firebase-admin/firestore");
+      const parentRef = adminDb.collection("players").doc(playerPaymentManagerId);
+      batch.update(parentRef, {
+        linked_youth: FieldValue.arrayUnion(uid),
+        updated_at: now,
+      });
+    }
     
-    // Commit both operations atomically
+    // Commit all operations atomically
     await batch.commit();
     
     // If we reach here, both operations succeeded

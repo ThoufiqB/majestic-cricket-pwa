@@ -1,6 +1,24 @@
 {
   "indexes": [
     {
+      "collectionGroup": "parent_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "parent_uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "registration_requests",
       "queryScope": "COLLECTION",
       "fields": [
