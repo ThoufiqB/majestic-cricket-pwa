@@ -61,6 +61,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [requestCount, setRequestCount] = useState(0);
 
+  // isKidProfile is true whenever the active profile is not the parent's own account
+  // (covers both dependent kids AND linked youth). Consumers that need to distinguish
+  // kids vs linked-youth should check the kids/linkedYouth arrays directly.
   const isKidProfile = !!(activeProfileId && playerId && activeProfileId !== playerId);
 
   async function loadProfile() {

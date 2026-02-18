@@ -48,24 +48,18 @@ export function AppShell({
   const { playerId, playerName, activeProfileId, isKidProfile, kids, linkedYouth, setActiveProfileId } = useProfile();
 
   // Compose currentProfile and profiles for Header
+  // Detect type by checking each list independently — never rely on isKidProfile
+  // because it is true for BOTH kids and linked youth accounts.
   let currentProfile = undefined;
   let profiles: Profile[] = [];
   if (playerId) {
-    if (isKidProfile) {
-      const kid = kids.find((k) => k.kid_id === activeProfileId);
-      if (kid) {
-        // Active profile is a child (kids_profiles)
-        currentProfile = { id: kid.kid_id, name: kid.name, type: "kid" as const };
-      } else {
-        // Active profile is a linked youth account (full player account)
-        const youth = linkedYouth.find((y) => y.player_id === activeProfileId);
-        if (youth) {
-          currentProfile = { id: youth.player_id, name: youth.name, type: "youth" as const };
-        } else {
-          // Fallback: stale activeProfileId — treat as own profile
-          currentProfile = { id: playerId, name: playerName || "", type: "player" as const };
-        }
-      }
+    const activeKid = kids.find((k) => k.kid_id === activeProfileId);
+    const activeYouth = linkedYouth.find((y) => y.player_id === activeProfileId);
+
+    if (activeKid) {
+      currentProfile = { id: activeKid.kid_id, name: activeKid.name, type: "kid" as const };
+    } else if (activeYouth) {
+      currentProfile = { id: activeYouth.player_id, name: activeYouth.name, type: "youth" as const };
     } else {
       currentProfile = { id: playerId, name: playerName || "", type: "player" as const };
     }
