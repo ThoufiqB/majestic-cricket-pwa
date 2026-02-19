@@ -25,7 +25,7 @@ import type { HomeEvent as HomeEventType, FriendsGoing } from "@/app/home/types"
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
 import { apiGet, apiPost } from "@/app/client/api";
 import { toast } from "sonner";
-import { calculateFee } from "@/lib/calculateFee";
+import { calculateEventFee } from "@/lib/calculateFee";
 
 type HomeEvent = HomeEventType & {
   location?: string;
@@ -137,6 +137,11 @@ export default function BrowsePage() {
 
   // True only for dependent kids (kids_profiles), NOT for linked youth players
   const isActualKid = !!(me && activeProfileId && (me.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId));
+  const activeLinkedYouth = !isActualKid && activeProfileId
+    ? (me?.linked_youth_profiles || []).find((y: any) => y.player_id === activeProfileId) ?? null
+    : null;
+  const effectiveGroups: string[] = (activeLinkedYouth?.groups || me?.groups || []) as string[];
+  const effectiveMemberType: string | null = activeLinkedYouth?.member_type || me?.member_type || null;
   const [selectedMonth, setSelectedMonth] = useState(
     monthKeyFromDate(new Date())
   );
@@ -476,7 +481,7 @@ export default function BrowsePage() {
                         {getAttendingBadge(myAttending, isPast)}
                         {event.fee > 0 && (
                           <Badge className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200">
-                            £{calculateFee(event.fee, me?.member_type)}
+                            £{calculateEventFee(event.fee, effectiveMemberType, effectiveGroups, event.targetGroups || [])}
                           </Badge>
                         )}
                       </div>

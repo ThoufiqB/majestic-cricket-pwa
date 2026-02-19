@@ -36,7 +36,7 @@ import { apiGet, apiPost, apiPatch } from "@/app/client/api";
 import { signOutSession } from "@/app/auth";
 import { toast } from "sonner";
 import { useProfile } from "@/components/context/ProfileContext";
-import { calculateFee } from "@/lib/calculateFee";
+import { calculateEventFee, isDiscountApplied } from "@/lib/calculateFee";
 
 import { AuthGateCard } from "@/app/home/components/AuthGateCard";
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
@@ -471,8 +471,10 @@ export default function PlayerHomePage() {
   const isKidProfile = !!(activeProfileId && activeProfileId !== me?.player_id);
   const currentKid = isKidProfile ? kids.find((k) => k.kid_id === activeProfileId) : null;
   const currentLinkedYouth = isKidProfile && !currentKid
-    ? (linkedYouthFromContext || []).find((y: any) => y.player_id === activeProfileId)
+    ? (me?.linked_youth_profiles || []).find((y: any) => y.player_id === activeProfileId)
     : null;
+  const effectiveGroups: string[] = (currentLinkedYouth?.groups || me?.groups || []) as string[];
+  const effectiveMemberType: string | null = currentLinkedYouth?.member_type || me?.member_type || null;
 
   const getActiveProfileName = () => {
     if (isKidProfile && currentKid) return currentKid.name;
@@ -638,11 +640,11 @@ export default function PlayerHomePage() {
                 {displayedEvent.fee > 0 && (
                   <div className="mt-2 flex items-baseline gap-2">
                     <span className="text-lg font-bold text-primary">
-                      £{calculateFee(displayedEvent.fee, me?.member_type)}
+                      £{calculateEventFee(displayedEvent.fee, effectiveMemberType, effectiveGroups, displayedEvent.targetGroups || [])}
                     </span>
-                    {me?.member_type === "student" && (
+                    {isDiscountApplied(effectiveMemberType, effectiveGroups, displayedEvent.targetGroups || []) && (
                       <span className="text-xs text-green-600 font-medium">
-                        Student rate (25% off)
+                        Youth / student rate (25% off)
                       </span>
                     )}
                   </div>
@@ -899,9 +901,9 @@ export default function PlayerHomePage() {
                 </div>
                 {lastEvent.fee > 0 && (
                   <div className="text-right">
-                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? calculateFee(lastEvent.fee, me?.member_type)}</div>
+                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? calculateEventFee(lastEvent.fee, effectiveMemberType, effectiveGroups, lastEvent.targetGroups || [])}</div>
                     <div className="text-xs text-muted-foreground">
-                      {me?.member_type === "student" && !lastEvent.my.fee_due ? "Student rate" : "Fee"}
+                      {!lastEvent.my.fee_due && isDiscountApplied(effectiveMemberType, effectiveGroups, lastEvent.targetGroups || []) ? "Youth / student rate" : "Fee"}
                     </div>
                   </div>
                 )}

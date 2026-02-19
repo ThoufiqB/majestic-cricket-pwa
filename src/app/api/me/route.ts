@@ -73,6 +73,7 @@ export async function GET() {
               name: d.name || "",
               email: d.email || "",
               groups: d.groups || [],
+              member_type: d.member_type || "standard",
               yearOfBirth: d.yearOfBirth ?? null,
               status: d.status,
             };

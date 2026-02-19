@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
 import { deriveCategory } from "@/lib/deriveCategory";
+import { calculateEventFee } from "@/lib/calculateFee";
 
 type Ctx = { params: Promise<{ eventId: string }> };
 
@@ -88,10 +89,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const category = deriveCategory(me.gender, me.hasPaymentManager, me.group, me.groups);
     const groups = Array.isArray(me.groups) ? me.groups : [];
 
-    // Calculate fee_due based on member_type (student gets 25% discount)
-    const memberType = String(me.member_type || "standard").toLowerCase();
+    // Calculate fee_due using event-aware pricing rules
     const baseFee = Number(ev.fee || 0);
-    const fee_due = memberType === "student" ? baseFee * 0.75 : baseFee;
+    const eventTargetGroups: string[] = Array.isArray(ev.targetGroups) ? ev.targetGroups : [];
+    const fee_due = calculateEventFee(baseFee, me.member_type, groups, eventTargetGroups);
 
     const ref = adminDb.collection("events").doc(id).collection("attendees").doc(effectiveUid);
 

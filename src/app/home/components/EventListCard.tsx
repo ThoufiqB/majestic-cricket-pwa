@@ -25,6 +25,10 @@ type Props = {
   activeProfileId?: string;
   me?: any;
   isKidProfile?: boolean;
+  /** Effective player's groups for fee calculation (e.g. ["U-13"] when switched to linked youth) */
+  playerGroups?: string[];
+  /** Effective player's member_type for fee calculation */
+  userMemberType?: string | null;
 };
 
 export function EventListCard(p: Props) {
@@ -76,6 +80,8 @@ export function EventListCard(p: Props) {
                       ? p.me.kids_profiles.find((k: any) => k.kid_id === p.activeProfileId)?.date_of_birth
                       : null
                   }
+                  playerGroups={p.playerGroups}
+                  userMemberType={p.userMemberType}
                 />
               );
             })}
