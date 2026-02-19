@@ -214,8 +214,16 @@ export default function PlayerHomePage() {
 
       const effectiveProfileId = backendEffectiveProfileId;
 
-      const kidId = effectiveProfileId && effectiveProfileId !== meData.player_id ? effectiveProfileId : null;
-      const q = kidId ? `?kidId=${encodeURIComponent(kidId)}` : "";
+      // Determine profile type: dependent kid, linked youth, or own profile
+      const kidProfileList: any[] = meData.kids_profiles || [];
+      const linkedYouthList: any[] = meData.linked_youth_profiles || [];
+      const kidId = kidProfileList.some((k: any) => k.kid_id === effectiveProfileId) ? effectiveProfileId : null;
+      const youthId = !kidId && linkedYouthList.some((y: any) => y.player_id === effectiveProfileId) ? effectiveProfileId : null;
+      const q = kidId
+        ? `?kidId=${encodeURIComponent(kidId)}`
+        : youthId
+        ? `?linked_youth_id=${encodeURIComponent(youthId)}`
+        : "";
       const dashData = await apiGet(`/api/events/dashboard${q}`);
 
       const ne: DashboardEvent | null = dashData.nextEvent || null;
@@ -245,9 +253,13 @@ export default function PlayerHomePage() {
         if (canShowRequestButton) {
           setRequestStatusLoading(true);
           try {
-            const kidQuery = kidId ? `?kid_id=${encodeURIComponent(kidId)}` : "";
+            const requestQuery = kidId
+              ? `?kid_id=${encodeURIComponent(kidId)}`
+              : youthId
+              ? `?linked_youth_id=${encodeURIComponent(youthId)}`
+              : "";
             const status = await apiGet<{ exists: boolean; status?: string | null }>(
-              `/api/events/${encodeURIComponent(ne.event_id)}/request${kidQuery}`
+              `/api/events/${encodeURIComponent(ne.event_id)}/request${requestQuery}`
             );
             if (status?.exists) setRequestSentForEventId(ne.event_id);
           } catch (e) {
@@ -358,13 +370,16 @@ export default function PlayerHomePage() {
   async function markAttending(eventId: string, attending: "YES" | "NO") {
     setMarkingAttendance(true);
     try {
-      const isKid = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = (me?.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !isKid && (me?.linked_youth_profiles || []).some((y: any) => y.player_id === activeProfileId);
 
       if (isKid && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/attendance`, {
           event_id: eventId,
           attending,
         });
+      } else if (isLinkedYouth && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/attending`, { attending, linked_youth_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/attending`, { attending });
       }
@@ -384,10 +399,13 @@ export default function PlayerHomePage() {
 
     setRequestingParticipation(true);
     try {
-      const isKid = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = (me?.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !isKid && (me?.linked_youth_profiles || []).some((y: any) => y.player_id === activeProfileId);
 
       if (isKid && activeProfileId) {
         await apiPost(`/api/events/${eventId}/request`, { kid_id: activeProfileId });
+      } else if (isLinkedYouth && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/request`, { linked_youth_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/request`, {});
       }
@@ -412,10 +430,13 @@ export default function PlayerHomePage() {
   async function markPaid(eventId: string) {
     setMarkingPayment(true);
     try {
-      const isKid = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = (me?.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !isKid && (me?.linked_youth_profiles || []).some((y: any) => y.player_id === activeProfileId);
 
       if (isKid && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/paid`, { event_id: eventId, paid_status: "PENDING" });
+      } else if (isLinkedYouth && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/paid`, { paid_status: "PENDING", linked_youth_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/paid`, { paid_status: "PENDING" });
       }

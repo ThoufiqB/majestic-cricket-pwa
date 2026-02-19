@@ -60,8 +60,28 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }
     }
 
+    // Resolve effective player — support parent acting as linked youth
+    const linkedYouthId: string | null = body?.linked_youth_id ? String(body.linked_youth_id) : null;
+    const parentSnap = await adminDb.collection("players").doc(u.uid).get();
+    const parentData: any = parentSnap.data() || {};
+    let effectiveUid = u.uid;
+
+    if (linkedYouthId) {
+      const parentLinkedYouth: string[] = parentData.linked_youth || [];
+      if (!parentLinkedYouth.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      const youthCheck = await adminDb.collection("players").doc(linkedYouthId).get();
+      if (!youthCheck.exists || youthCheck.data()?.status !== "active") {
+        return NextResponse.json({ error: "Youth not found" }, { status: 404 });
+      }
+      effectiveUid = linkedYouthId;
+    }
+
     // pull player profile for consistent group/name
-    const meSnap = await adminDb.collection("players").doc(u.uid).get();
+    const meSnap = effectiveUid !== u.uid
+      ? await adminDb.collection("players").doc(effectiveUid).get()
+      : parentSnap;
     const me: any = meSnap.data() || {};
     
     // Derive category from gender + hasPaymentManager
@@ -73,11 +93,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const baseFee = Number(ev.fee || 0);
     const fee_due = memberType === "student" ? baseFee * 0.75 : baseFee;
 
-    const ref = adminDb.collection("events").doc(id).collection("attendees").doc(u.uid);
+    const ref = adminDb.collection("events").doc(id).collection("attendees").doc(effectiveUid);
 
     await ref.set(
       {
-        player_id: u.uid,
+        player_id: effectiveUid,
         name: String(me.name || u.name || ""),
         email: String(me.email || u.email || ""),
         category, // Derived category (men/women/juniors)
