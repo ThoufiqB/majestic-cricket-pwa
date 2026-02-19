@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -14,15 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClubLogo } from "@/components/ClubLogo";
-import { Loader2, Search, X, ChevronDown } from "lucide-react";
+import { Loader2, Search, X, Info } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { firebaseAuth } from "@/lib/firebaseClient";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface ParentOption {
   player_id: string;
@@ -53,7 +48,6 @@ export default function CompleteProfilePage() {
   const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
   const [searchingParents, setSearchingParents] = useState(false);
   const [showParentDropdown, setShowParentDropdown] = useState(false);
-  const [groupsDropdownOpen, setGroupsDropdownOpen] = useState(false);
 
   // Prevent hydration mismatch by only rendering after client mount
   useEffect(() => {
@@ -73,47 +67,53 @@ export default function CompleteProfilePage() {
   const showPaymentManager = isUnder18;
 
   // ── Group eligibility rules ────────────────────────────────────────────────
-  // Returns which groups are selectable for the current age, and the default
-  // suggested group(s) that should be auto-checked.
+  // Exactly one group is assigned per player based on age + gender.
+  // All other groups are ineligible — admins can add extras later.
   function getGroupEligibility(age: number | null, gender: string): {
     eligible: string[];
     suggested: string[];
-    reason: Record<string, string>; // group → why disabled
+    reason: Record<string, string>;
   } {
+    const allGroups = ["Men", "Women", "U-13", "U-15", "U-18"];
     const reason: Record<string, string> = {};
 
     if (age === null) {
-      // Age not yet known — allow all, suggest nothing
-      return { eligible: ["Men", "Women", "U-13", "U-15", "U-18"], suggested: [], reason };
+      // Age not yet known — nothing selectable
+      allGroups.forEach(g => { reason[g] = "Select your date of birth first"; });
+      return { eligible: [], suggested: [], reason };
     }
 
     if (age >= 18) {
-      // Adults: Men / Women based on gender; U-groups available but not suggested
-      const adultGroup = gender === "Female" ? "Women" : "Men";
-      const otherAdult = gender === "Female" ? "Men" : "Women";
-      reason[otherAdult] = `Your gender suggests ${adultGroup}`;
-      return {
-        eligible: ["Men", "Women", "U-13", "U-15", "U-18"],
-        suggested: [adultGroup],
-        reason,
-      };
+      if (!gender) {
+        // Gender required to determine adult group
+        allGroups.forEach(g => { reason[g] = "Select your gender to determine your group"; });
+        return { eligible: [], suggested: [], reason };
+      }
+      const assignedGroup = gender === "Female" ? "Women" : "Men";
+      allGroups
+        .filter(g => g !== assignedGroup)
+        .forEach(g => { reason[g] = "Admin can add additional groups if needed"; });
+      return { eligible: [assignedGroup], suggested: [assignedGroup], reason };
     }
 
-    // Under 18 — block adult groups
+    // Under 18 — single age-bracket group assigned automatically
     reason["Men"] = "Must be 18+ to join Men";
     reason["Women"] = "Must be 18+ to join Women";
 
+    let assignedGroup: string;
     if (age <= 13) {
-      reason["U-15"] = `Age ${age} is not yet eligible for U-15 (requires 14+)`;
-      reason["U-18"] = `Age ${age} is not yet eligible for U-18 (requires 16+)`;
-      return { eligible: ["U-13"], suggested: ["U-13"], reason };
+      assignedGroup = "U-13";
+    } else if (age <= 15) {
+      assignedGroup = "U-15";
+    } else {
+      assignedGroup = "U-18"; // age 16–17
     }
-    if (age <= 15) {
-      reason["U-18"] = `Age ${age} is not yet eligible for U-18 (requires 16+)`;
-      return { eligible: ["U-13", "U-15"], suggested: ["U-15"], reason };
-    }
-    // age 16, 17
-    return { eligible: ["U-13", "U-15", "U-18"], suggested: ["U-18"], reason };
+
+    ["U-13", "U-15", "U-18"]
+      .filter(g => g !== assignedGroup)
+      .forEach(g => { reason[g] = "Admin can add additional groups if needed"; });
+
+    return { eligible: [assignedGroup], suggested: [assignedGroup], reason };
   }
 
   const { eligible: eligibleGroups, suggested: suggestedGroups, reason: ineligibleReason } =
@@ -323,9 +323,6 @@ export default function CompleteProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <ClubLogo />
-          </div>
           <Card className="shadow-lg border">
             <CardContent className="p-4 md:p-6 flex items-center justify-center min-h-[400px]">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -339,187 +336,163 @@ export default function CompleteProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <ClubLogo />
-        </div>
-
         <Card className="shadow-lg border">
-          <CardHeader>
-            <CardTitle className="text-center">Complete Your Profile</CardTitle>
-            <p className="text-sm text-gray-600 text-center mt-2">
+          <CardHeader className="items-center pb-4 pt-8">
+            <div className="mb-4 flex justify-center">
+              <ClubLogo size="xl" />
+            </div>
+            <CardTitle className="text-center text-xl">Complete Your Profile</CardTitle>
+            <p className="text-sm text-muted-foreground text-center mt-1">
               Please provide the following details to continue
             </p>
           </CardHeader>
-          <CardContent className="p-4 md:p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Birth Month, Birth Year, Gender, and Groups - 4 Column Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {/* Birth Month */}
-                <div className="space-y-2">
-                  <Label htmlFor="monthOfBirth">
-                    Birth Month <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.monthOfBirth}
-                    onValueChange={(value) => setFormData({ ...formData, monthOfBirth: value })}
-                    required
-                  >
-                    <SelectTrigger id="monthOfBirth" className="w-full">
-                      <SelectValue placeholder="Month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m, i) => (
-                        <SelectItem key={i + 1} value={String(i + 1)}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          <CardContent className="px-6 pb-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
 
-                {/* Birth Year */}
-                <div className="space-y-2">
-                  <Label htmlFor="yearOfBirth" className="flex items-center gap-2">
-                    <span>Birth Year <span className="text-red-500">*</span></span>
-                    {userAge !== null && (
-                      <span className="text-xs text-muted-foreground font-normal">
-                        (Age: {userAge})
-                      </span>
-                    )}
-                  </Label>
-                  <Select
-                    value={formData.yearOfBirth}
-                    onValueChange={(value) => setFormData({ ...formData, yearOfBirth: value })}
-                    required
-                  >
-                    <SelectTrigger id="yearOfBirth" className="w-full">
-                      <SelectValue placeholder="Year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: currentYear - 1970 + 1 }, (_, i) => currentYear - i).map((year) => (
-                        <SelectItem key={year} value={String(year)}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/*  Date of Birth  */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date of Birth</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="monthOfBirth">
+                      Month <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.monthOfBirth}
+                      onValueChange={(value) => setFormData({ ...formData, monthOfBirth: value })}
+                      required
+                    >
+                      <SelectTrigger id="monthOfBirth" className="w-full">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Gender */}
-                <div className="space-y-2">
-                  <Label htmlFor="gender">
-                    Gender <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.gender}
-                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                    required
-                  >
-                    <SelectTrigger id="gender" className="w-full">
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Groups (Dropdown with Checkboxes) */}
-                <div className="space-y-2">
-                  <Label>
-                    Groups <span className="text-red-500">*</span>
-                  </Label>
-                  <DropdownMenu open={groupsDropdownOpen} onOpenChange={setGroupsDropdownOpen}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full justify-between"
-                      >
-                        <span className="truncate">
-                          {formData.groups.length === 0
-                            ? "Select groups"
-                            : formData.groups.length === 1
-                            ? formData.groups[0]
-                            : `${formData.groups.length} selected`}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="yearOfBirth">
+                        Year <span className="text-red-500">*</span>
+                      </Label>
+                      {userAge !== null && (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          Age {userAge}
                         </span>
-                        <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64 p-3" align="start">
-                      <div className="space-y-2">
-                        {["Men", "Women", "U-13", "U-15", "U-18"].map((group) => {
-                          const isEligible = eligibleGroups.includes(group);
-                          const isSuggested = suggestedGroups.includes(group);
-                          const disabledReason = ineligibleReason[group];
-                          return (
-                            <div
-                              key={group}
-                              className="flex items-center space-x-2"
-                              title={!isEligible ? disabledReason : isSuggested ? "Suggested for your age & gender" : undefined}
-                            >
-                              <Checkbox
-                                id={`group-${group}`}
-                                checked={formData.groups.includes(group)}
-                                disabled={!isEligible}
-                                onCheckedChange={() => isEligible && toggleGroup(group)}
-                              />
-                              <label
-                                htmlFor={`group-${group}`}
-                                className={[
-                                  "text-sm font-medium leading-none flex-1 select-none",
-                                  isEligible ? "cursor-pointer" : "cursor-not-allowed opacity-40",
-                                ].join(" ")}
-                              >
-                                {group}
-                                {isSuggested && isEligible && (
-                                  <span className="ml-1.5 text-[10px] text-emerald-600 font-semibold uppercase tracking-wide">
-                                    suggested
-                                  </span>
-                                )}
-                                {!isEligible && (
-                                  <span className="ml-1.5 text-[10px] text-muted-foreground">
-                                    — {disabledReason}
-                                  </span>
-                                )}
-                              </label>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  {formData.groups.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {formData.groups.map(group => (
-                        <Badge key={group} variant="secondary" className="text-xs">{group}</Badge>
-                      ))}
+                      )}
                     </div>
-                  )}
-                  {userAge !== null && !isUnder18 && formData.gender && (
-                    <p className="text-xs text-emerald-700 font-medium">
-                      ✓ {formData.gender === "Female" ? "Women" : "Men"} has been suggested based on your age & gender
-                    </p>
-                  )}
-                  {userAge !== null && isUnder18 && (
-                    <p className="text-xs text-blue-600 font-medium">
-                      ℹ️ Groups shown are based on your age ({userAge})
-                    </p>
-                  )}
+                    <Select
+                      value={formData.yearOfBirth}
+                      onValueChange={(value) => setFormData({ ...formData, yearOfBirth: value })}
+                      required
+                    >
+                      <SelectTrigger id="yearOfBirth" className="w-full">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: currentYear - 1970 + 1 }, (_, i) => currentYear - i).map((year) => (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
-              {/* Payment Manager Section (Conditional) */}
+              {/*  Identity  */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identity</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="gender">
+                      Gender <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.gender}
+                      onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                      required
+                    >
+                      <SelectTrigger id="gender" className="w-full">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>
+                      Groups <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["Men", "Women", "U-13", "U-15", "U-18"].map((group) => {
+                        const isEligible = eligibleGroups.includes(group);
+                        const isSelected = formData.groups.includes(group);
+                        const disabledReason = ineligibleReason[group];
+                        return (
+                          <span
+                            key={group}
+                            title={!isSelected ? (disabledReason ?? "Admin can add additional groups if needed") : "Your assigned group"}
+                            className={[
+                              "rounded-full border px-3 py-1 text-xs font-medium select-none",
+                              isSelected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : isEligible
+                                ? "border-border bg-background text-foreground opacity-50"
+                                : "border-border bg-muted text-muted-foreground opacity-30",
+                            ].join(" ")}
+                          >
+                            {group}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {userAge === null && (
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Select your date of birth first
+                      </p>
+                    )}
+                    {userAge !== null && !isUnder18 && !formData.gender && (
+                      <p className="flex items-center gap-1 text-xs text-amber-600">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Select your gender to determine your group
+                      </p>
+                    )}
+                    {userAge !== null && isUnder18 && (
+                      <p className="flex items-center gap-1 text-xs text-blue-600">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Group assigned based on your age ({userAge})
+                      </p>
+                    )}
+                    {userAge !== null && !isUnder18 && formData.gender && (
+                      <p className="flex items-center gap-1 text-xs text-emerald-600">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Group assigned based on your gender
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/*  Payment Manager (Conditional)  */}
               {showPaymentManager && (
-                <div className="space-y-3 border-t pt-4">
+                <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="hasPaymentManager"
                       checked={formData.hasPaymentManager}
                       onCheckedChange={(checked) => {
                         if (!checked) {
-                          // Validate age before allowing "No"
                           if (isUnder18) {
                             setError("Players under 18 must have a payment manager");
                             return;
@@ -530,13 +503,13 @@ export default function CompleteProfilePage() {
                         setError("");
                       }}
                     />
-                    <Label htmlFor="hasPaymentManager" className="cursor-pointer">
+                    <Label htmlFor="hasPaymentManager" className="cursor-pointer text-sm">
                       Do you have a Payment Manager (Parent/Guardian)?
                     </Label>
                   </div>
 
                   {formData.hasPaymentManager && (
-                    <div className="space-y-2 pl-6">
+                    <div className="space-y-2">
                       <Label htmlFor="parentSearch">
                         Search for your Parent/Guardian <span className="text-red-500">*</span>
                       </Label>
@@ -562,18 +535,12 @@ export default function CompleteProfilePage() {
                             )}
                           </div>
                           {formData.paymentManagerId && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={clearParent}
-                            >
+                            <Button type="button" variant="ghost" size="sm" onClick={clearParent}>
                               <X className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
 
-                        {/* Parent Dropdown */}
                         {showParentDropdown && !formData.paymentManagerId && parentOptions.length > 0 && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
                             {parentOptions.map((parent) => (
@@ -583,7 +550,7 @@ export default function CompleteProfilePage() {
                                 className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                                 onClick={() => selectParent(parent)}
                               >
-                                <div className="font-medium">{parent.name}</div>
+                                <div className="font-medium text-sm">{parent.name}</div>
                                 <div className="text-xs text-muted-foreground">{parent.email}</div>
                               </button>
                             ))}
@@ -598,10 +565,10 @@ export default function CompleteProfilePage() {
                       </div>
 
                       {formData.paymentManagerId && (
-                        <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
-                          <Badge variant="default" className="bg-green-600">Selected</Badge>
-                          <div className="flex-1">
-                            <div className="font-medium text-sm">{formData.paymentManagerName}</div>
+                        <div className="flex items-center gap-2 p-2.5 bg-green-50 border border-green-200 rounded-md">
+                          <Badge variant="default" className="bg-green-600 shrink-0">Selected</Badge>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{formData.paymentManagerName}</div>
                             <div className="text-xs text-muted-foreground">Payment Manager</div>
                           </div>
                         </div>
@@ -611,46 +578,47 @@ export default function CompleteProfilePage() {
                 </div>
               )}
 
-              {/* Member Type and Phone Number - 2 Column Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Member Type */}
-                <div className="space-y-2">
-                  <Label htmlFor="member_type">
-                    Member Type <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.member_type}
-                    onValueChange={(value) => setFormData({ ...formData, member_type: value })}
-                    required
-                    disabled={formData.hasPaymentManager}
-                  >
-                    <SelectTrigger id="member_type" className="w-full">
-                      <SelectValue placeholder="Select member type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="student">Student (25% discount)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/*  Membership  */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Membership</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="member_type">
+                      Member Type <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.member_type}
+                      onValueChange={(value) => setFormData({ ...formData, member_type: value })}
+                      required
+                      disabled={formData.hasPaymentManager}
+                    >
+                      <SelectTrigger id="member_type" className="w-full">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="student">Student (25% off)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Phone */}
-                <div className="space-y-2">
-                  <Label htmlFor="phone">
-                    Phone Number <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="07700 909000"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    required
-                  />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone">
+                      Phone Number <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="07700 909000"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Error Message */}
+              {/*  Error  */}
               {isDuplicateEmail ? (
                 <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 space-y-1">
                   <p className="text-sm font-semibold text-orange-800">Account already exists</p>
@@ -665,7 +633,7 @@ export default function CompleteProfilePage() {
                 </div>
               ) : null}
 
-              {/* Submit Button */}
+              {/*  Submit  */}
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? (
                   <>
@@ -677,11 +645,10 @@ export default function CompleteProfilePage() {
                 )}
               </Button>
 
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 All fields are required to access the app
               </p>
-            </form>
-          </CardContent>
+            </form>          </CardContent>
         </Card>
       </div>
     </div>
