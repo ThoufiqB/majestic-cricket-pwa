@@ -105,7 +105,7 @@ export function EventCard(p: Props) {
   const baseFee = Number((ev as any)?.fee || 0);
 
   // Extract target groups for multi-group display
-  const targetGroups = (ev as any)?.targetGroups || [];
+  const targetGroups = ev.targetGroups || [];
   const legacyGroup = (ev as any)?.group;
 
   const dueRaw = (ev as any)?.my_fee_due ?? (ev as any)?.my?.fee_due;

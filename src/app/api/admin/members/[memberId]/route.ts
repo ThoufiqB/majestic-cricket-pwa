@@ -127,7 +127,7 @@ export async function PATCH(
 
       if (yearOfBirth !== null) {
         const age = calculateAgeFromMonthYear(
-          monthOfBirth ?? undefined,
+          monthOfBirth ?? 1,
           yearOfBirth
         );
         const isAdult = age >= 18;

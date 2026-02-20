@@ -8,6 +8,7 @@ export type HomeEvent = {
   status: string;
   year?: number;
   kids_event?: boolean;
+  targetGroups?: string[];
   my?: {
     attending: "YES" | "NO" | "UNKNOWN";
     attended: boolean;
