@@ -39,7 +39,9 @@ export default function CompleteProfilePage() {
   const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
   const [gdprAccepted, setGdprAccepted] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [nameError, setNameError] = useState("");
   const [formData, setFormData] = useState({
+    name: "",
     groups: [] as string[],
     member_type: "",
     phone: "",
@@ -51,6 +53,9 @@ export default function CompleteProfilePage() {
     paymentManagerName: "",
   });
 
+  // Unicode-safe name regex: letters (any language), spaces, hyphens, apostrophes
+  const NAME_REGEX = /^[\p{L}\s\-']+$/u;
+
   // Parent search state
   const [parentSearch, setParentSearch] = useState("");
   const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
@@ -60,6 +65,11 @@ export default function CompleteProfilePage() {
   // Prevent hydration mismatch by only rendering after client mount
   useEffect(() => {
     setMounted(true);
+    // Pre-populate name from Firebase display name so user can review/correct it
+    const displayName = firebaseAuth.currentUser?.displayName || "";
+    if (displayName) {
+      setFormData(prev => ({ ...prev, name: displayName }));
+    }
   }, []);
 
   // Calculate age (month-accurate) and determine if payment manager is needed
@@ -219,6 +229,21 @@ export default function CompleteProfilePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validation: Name
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
+      setError("Please enter your full name");
+      return;
+    }
+    if (trimmedName.length < 2) {
+      setError("Name must be at least 2 characters");
+      return;
+    }
+    if (!NAME_REGEX.test(trimmedName)) {
+      setError("Name must not contain numbers or special characters");
+      return;
+    }
     
     // Validation
     if (formData.groups.length === 0) {
@@ -286,6 +311,7 @@ export default function CompleteProfilePage() {
           "Authorization": `Bearer ${idToken}`,
         },
         body: JSON.stringify({
+          name: formData.name.trim(),
           groups: formData.groups,
           yearOfBirth: parseInt(formData.yearOfBirth),
           monthOfBirth: formData.monthOfBirth ? parseInt(formData.monthOfBirth) : null,
@@ -358,6 +384,46 @@ export default function CompleteProfilePage() {
           </CardHeader>
           <CardContent className="px-6 pb-8">
             <form onSubmit={handleSubmit} className="space-y-6">
+
+              {/*  Personal Details  */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Personal Details</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">
+                    Full Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="e.g. John Smith"
+                    maxLength={60}
+                    value={formData.name}
+                    onChange={(e) => {
+                      // Strip digits on input — invisible to user
+                      const cleaned = e.target.value.replace(/[0-9]/g, "");
+                      setFormData(prev => ({ ...prev, name: cleaned }));
+                      // Inline error: flag other invalid chars (symbols, underscores etc.)
+                      if (cleaned && !NAME_REGEX.test(cleaned)) {
+                        setNameError("Name must only contain letters, spaces, hyphens or apostrophes");
+                      } else {
+                        setNameError("");
+                      }
+                    }}
+                    className={nameError ? "border-red-400 focus-visible:ring-red-400" : ""}
+                    required
+                    autoComplete="name"
+                  />
+                  {nameError && (
+                    <p className="flex items-center gap-1 text-xs text-red-600">
+                      <Info className="h-3 w-3 shrink-0" />
+                      {nameError}
+                    </p>
+                  )}
+
+                </div>
+              </div>
 
               {/*  Date of Birth  */}
               <div className="space-y-3">

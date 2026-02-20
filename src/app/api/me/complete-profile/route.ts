@@ -27,7 +27,7 @@ export async function PUT(req: NextRequest) {
       const decodedToken = await adminAuth.verifyIdToken(idToken);
       uid = decodedToken.uid;
       email = String(decodedToken.email || "").toLowerCase();
-      name = String(decodedToken.name || "");
+      name = String(decodedToken.name || ""); // will be overridden by body.name below
     } else {
       return NextResponse.json(
         { error: "Missing authorization token" },
@@ -37,6 +37,7 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const { 
+      name: submittedName,
       groups, 
       yearOfBirth,
       monthOfBirth, // 1–12, optional (null for existing users)
@@ -50,8 +51,22 @@ export async function PUT(req: NextRequest) {
       gdprConsentAt,
     } = body;
 
-    // GDPR consent is mandatory
-    if (gdprConsent !== true) {
+    // Use submitted name if valid, fall back to token display name
+    const NAME_REGEX = /^[\p{L}\s\-']+$/u;
+    const trimmedName = String(submittedName || "").trim();
+    if (trimmedName.length < 2) {
+      return NextResponse.json(
+        { error: "Full name is required (minimum 2 characters)" },
+        { status: 400 }
+      );
+    }
+    if (!NAME_REGEX.test(trimmedName)) {
+      return NextResponse.json(
+        { error: "Name must only contain letters, spaces, hyphens or apostrophes" },
+        { status: 400 }
+      );
+    }
+    name = trimmedName;
       return NextResponse.json(
         { error: "GDPR consent is required to complete registration" },
         { status: 400 }
@@ -261,6 +276,7 @@ export async function PUT(req: NextRequest) {
     if (playerSnap.exists) {
       // Existing approved player - update their profile
       const updateData: any = {
+        name,
         groups,
         yearOfBirth,
         monthOfBirth: monthOfBirth ?? null,
