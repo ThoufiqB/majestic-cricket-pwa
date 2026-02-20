@@ -373,20 +373,20 @@ export default function CompleteProfilePage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <Card className="shadow-lg border">
-          <CardHeader className="items-center pb-4 pt-8">
-            <div className="mb-4 flex justify-center">
-              <ClubLogo size="xl" />
+          <CardHeader className="items-center pb-3 pt-5">
+            <div className="mb-2 flex justify-center">
+              <ClubLogo size="lg" />
             </div>
-            <CardTitle className="text-center text-xl">Complete Your Profile</CardTitle>
-            <p className="text-sm text-muted-foreground text-center mt-1">
+            <CardTitle className="text-center text-lg">Complete Your Profile</CardTitle>
+            <p className="text-xs text-muted-foreground text-center mt-0.5">
               Please provide the following details to continue
             </p>
           </CardHeader>
-          <CardContent className="px-6 pb-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <CardContent className="px-5 pb-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
 
               {/*  Personal Details  */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Personal Details</p>
                 </div>
@@ -426,7 +426,7 @@ export default function CompleteProfilePage() {
               </div>
 
               {/*  Date of Birth  */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Date of Birth</p>
                 </div>
@@ -485,7 +485,7 @@ export default function CompleteProfilePage() {
               </div>
 
               {/*  Identity  */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Identity</p>
                 </div>
@@ -659,7 +659,7 @@ export default function CompleteProfilePage() {
               )}
 
               {/*  Membership  */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Membership</p>
                 </div>
@@ -773,9 +773,7 @@ export default function CompleteProfilePage() {
                 )}
               </Button>
 
-              <p className="text-xs text-muted-foreground text-center">
-                All fields are required to access the app
-              </p>
+
             </form>          </CardContent>
         </Card>
       </div>
