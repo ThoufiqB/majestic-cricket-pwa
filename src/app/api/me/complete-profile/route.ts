@@ -67,6 +67,8 @@ export async function PUT(req: NextRequest) {
       );
     }
     name = trimmedName;
+
+    if (!gdprConsent) {
       return NextResponse.json(
         { error: "GDPR consent is required to complete registration" },
         { status: 400 }
