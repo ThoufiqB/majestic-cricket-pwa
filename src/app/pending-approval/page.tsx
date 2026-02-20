@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ClubLogo } from "@/components/ClubLogo";
 import { Clock, Mail, UserCheck } from "lucide-react";
 
-export default function PendingApprovalPage() {
+function PendingApprovalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isParentPending = searchParams.get("stage") === "parent";
@@ -114,6 +114,14 @@ export default function PendingApprovalPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function PendingApprovalPage() {
+  return (
+    <Suspense>
+      <PendingApprovalContent />
+    </Suspense>
   );
 }
 
