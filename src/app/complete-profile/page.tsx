@@ -357,11 +357,13 @@ export default function CompleteProfilePage() {
             </p>
           </CardHeader>
           <CardContent className="px-6 pb-8">
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-6">
 
               {/*  Date of Birth  */}
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date of Birth</p>
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Date of Birth</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="monthOfBirth">
@@ -418,7 +420,9 @@ export default function CompleteProfilePage() {
 
               {/*  Identity  */}
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identity</p>
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Identity</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="gender">
@@ -590,7 +594,9 @@ export default function CompleteProfilePage() {
 
               {/*  Membership  */}
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Membership</p>
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Membership</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="member_type">
@@ -644,35 +650,47 @@ export default function CompleteProfilePage() {
               ) : null}
 
               {/*  GDPR Consent  */}
-              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-                <div className="flex items-start gap-2">
-                  <ShieldCheck className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Data Consent (UK GDPR)
+              <div className={[
+                "rounded-xl border-2 px-3 py-2.5 space-y-2 transition-colors",
+                gdprAccepted
+                  ? "border-green-300 bg-green-50"
+                  : "border-border bg-muted/20",
+              ].join(" ")}>
+                {/* Header */}
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className={["h-3.5 w-3.5 shrink-0", gdprAccepted ? "text-green-600" : "text-muted-foreground"].join(" ")} />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
+                    Data &amp; Privacy Consent
                   </p>
                 </div>
-                <div className="flex items-start space-x-3">
+
+                {/* Checkbox row */}
+                <div className="flex items-center gap-2.5">
                   <Checkbox
                     id="gdprConsent"
                     checked={gdprAccepted}
                     onCheckedChange={(checked) => setGdprAccepted(!!checked)}
-                    className="mt-0.5"
+                    className="shrink-0"
                   />
-                  <Label htmlFor="gdprConsent" className="text-sm leading-relaxed cursor-pointer">
-                    I agree to Majestic Cricket Club using my personal data for membership
-                    administration and club events.{" "}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Label htmlFor="gdprConsent" className="text-xs text-foreground/80 cursor-pointer">
+                      I agree to the terms and conditions.
+                    </Label>
                     <button
                       type="button"
-                      className="text-primary underline underline-offset-2 font-medium hover:text-primary/80 transition-colors"
+                      className="text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition-colors whitespace-nowrap"
                       onClick={() => setShowPrivacyModal(true)}
                     >
-                      Read our Privacy Policy
+                      View Privacy Policy →
                     </button>
-                  </Label>
+                  </div>
                 </div>
-                {!gdprAccepted && (
-                  <p className="text-xs text-muted-foreground pl-6">
-                    You must accept the privacy policy to complete your profile.
+
+                {/* Status hint */}
+                {gdprAccepted && (
+                  <p className="flex items-center gap-1.5 text-xs text-green-700 font-medium pl-6">
+                    <ShieldCheck className="h-3 w-3 shrink-0" />
+                    Consent recorded — thank you.
                   </p>
                 )}
               </div>
@@ -708,6 +726,26 @@ export default function CompleteProfilePage() {
           <div className="space-y-4 text-sm text-foreground">
             <div className="rounded-md bg-muted px-4 py-3 text-xs text-muted-foreground">
               Last updated: February 2026 &nbsp;·&nbsp; Majestic Cricket Club
+            </div>
+
+            {/* Intro summary */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <p className="text-sm text-foreground leading-relaxed">
+                Majestic Cricket Club will use the information you provide (name, email,
+                date of birth, phone number, gender, and group) to manage your club
+                membership, organise team events and fixtures, process membership fees,
+                and communicate club-related information.
+              </p>
+              <p className="text-sm text-foreground leading-relaxed">
+                By ticking the consent checkbox you confirm you agree to these terms
+                and conditions.
+              </p>
+              <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2.5">
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  <strong>Under-18 players:</strong> The parent/guardian linked during
+                  registration confirms consent on behalf of the player.
+                </p>
+              </div>
             </div>
 
             <section className="space-y-1.5">
