@@ -131,15 +131,32 @@ export async function GET(req: NextRequest) {
     const yearStr = searchParams.get("year");
     const year = yearStr ? Number(yearStr) : undefined;
 
+    // Resolve effective player — support parent switching to linked youth account
+    const linkedYouthId = searchParams.get("linked_youth_id");
+    let effectiveUid = uid;
+    let effectiveGroups: string[] = me.groups || [];
+
+    if (linkedYouthId) {
+      const parentLinkedYouth: string[] = me.linked_youth || [];
+      if (!parentLinkedYouth.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      const youthSnap = await adminDb.collection("players").doc(linkedYouthId).get();
+      if (!youthSnap.exists || youthSnap.data()?.status !== "active") {
+        return NextResponse.json({ error: "Youth account not found" }, { status: 404 });
+      }
+      effectiveUid = linkedYouthId;
+      effectiveGroups = youthSnap.data()?.groups || [];
+    }
+
     // group rules
     const meGroup = String(me.group || "").toLowerCase();
     const qGroup = String(searchParams.get("group") || "").toLowerCase();
-    
+
     // Check if requesting kids events
     const isKidsEventRequest = qGroup === "all_kids";
-    
-    // ✅ Determine if we should load kid attendance based on the GROUP being requested
-    // NOT based on active_profile_id (which persists in DB and causes issues when switching back)
+
+    // Determine if we should load kid attendance based on the GROUP being requested
     const isViewingAsKid = isKidsEventRequest;
     const activeProfileId = me.active_profile_id || uid;
     
@@ -172,8 +189,8 @@ export async function GET(req: NextRequest) {
             return false;
           }
 
-          // NEW: Check if user's groups intersect with event's targetGroups
-          const userGroups = me.groups || [];
+          // Check if user's groups intersect with event's targetGroups
+          const userGroups = effectiveGroups;
           const eventTargetGroups = ev.targetGroups || [];
 
           // If event has targetGroups, check for intersection
@@ -193,7 +210,7 @@ export async function GET(req: NextRequest) {
         });
 
       // attach "my" (paid status matters for membership)
-      events = isViewingAsKid ? await attachMyForKid(activeProfileId, events) : await attachMyForUser(uid, events);
+      events = isViewingAsKid ? await attachMyForKid(activeProfileId, events) : await attachMyForUser(effectiveUid, events);
 
       return NextResponse.json({ events, group });
     }
@@ -226,8 +243,8 @@ export async function GET(req: NextRequest) {
           return false;
         }
 
-        // NEW: Check if user's groups intersect with event's targetGroups
-        const userGroups = me.groups || [];
+        // Check if user's groups intersect with event's targetGroups
+        const userGroups = effectiveGroups;
         const eventTargetGroups = ev.targetGroups || [];
 
         // If event has targetGroups, check for intersection with user's groups
@@ -242,7 +259,7 @@ export async function GET(req: NextRequest) {
       });
 
     // Attach "my" attendance/payment info
-    events = isViewingAsKid ? await attachMyForKid(activeProfileId, events) : await attachMyForUser(uid, events);
+    events = isViewingAsKid ? await attachMyForKid(activeProfileId, events) : await attachMyForUser(effectiveUid, events);
 
     // Phase 2: Attach friendsSummary to each event (non-blocking, sequential for now)
     for (let i = 0; i < events.length; i++) {

@@ -26,13 +26,15 @@ export async function PATCH(
     if (!playerSnap.exists) throw badRequest("Player profile not found");
 
     const playerData = playerSnap.data() as any;
-    const kidIds = playerData.kids_profiles || [];
+    const kidIds: string[] = playerData.kids_profiles || [];
+    const linkedYouthIds: string[] = playerData.linked_youth || [];
 
-    // Check that activeProfileId is either the player's uid or one of their kids
+    // Check that activeProfileId is either the player's uid, one of their kids, or a linked youth
     const isOwnProfile = activeProfileId === uid;
     const isKidProfile = kidIds.includes(activeProfileId);
+    const isLinkedYouth = linkedYouthIds.includes(activeProfileId);
 
-    if (!isOwnProfile && !isKidProfile) {
+    if (!isOwnProfile && !isKidProfile && !isLinkedYouth) {
       throw badRequest(
         `Profile ${activeProfileId} is not accessible to this user`
       );
@@ -43,6 +45,14 @@ export async function PATCH(
       const kidSnap = await adminDb.collection("kids_profiles").doc(activeProfileId).get();
       if (!kidSnap.exists || kidSnap.data()?.status === "inactive") {
         throw badRequest(`Kid profile ${activeProfileId} is not active`);
+      }
+    }
+
+    // Check linked youth player is active if switching to linked youth
+    if (isLinkedYouth) {
+      const youthSnap = await adminDb.collection("players").doc(activeProfileId).get();
+      if (!youthSnap.exists || youthSnap.data()?.status !== "active") {
+        throw badRequest(`Linked youth account ${activeProfileId} is not active`);
       }
     }
 
@@ -61,6 +71,8 @@ export async function PATCH(
       new_profile: {
         profile_id: activeProfileId,
         is_own: isOwnProfile,
+        is_kid: isKidProfile,
+        is_linked_youth: isLinkedYouth,
       },
     });
   } catch (e: any) {

@@ -11,14 +11,23 @@ export async function adminListKids(
 }
 
 export async function adminCreateKid(input: CreateKidInput): Promise<{ kid_id: string; success: boolean }> {
-  return apiPost("/api/admin/kids/create", input);
+  return apiPost("/api/admin/kids/create", {
+    parent_email: input.parent_email,
+    name: input.name,
+    year_of_birth: input.yearOfBirth,
+    month_of_birth: input.monthOfBirth,
+  });
 }
 
 export async function adminUpdateKid(
   kidId: string,
   input: UpdateKidInput
 ): Promise<{ success: boolean; kid: KidProfile }> {
-  return apiPatch(`/api/admin/kids/${encodeURIComponent(kidId)}`, input);
+  const body: Record<string, any> = {};
+  if (input.name !== undefined) body.name = input.name;
+  if (input.yearOfBirth !== undefined) body.year_of_birth = input.yearOfBirth;
+  if (input.monthOfBirth !== undefined) body.month_of_birth = input.monthOfBirth;
+  return apiPatch(`/api/admin/kids/${encodeURIComponent(kidId)}`, body);
 }
 
 export async function adminLinkParent(

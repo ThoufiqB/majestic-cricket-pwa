@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import type { KidsProfile } from "@/lib/types/kids";
+import type { KidsProfile, LinkedYouthProfile } from "@/lib/types/kids";
 
 export interface ProfileSelectorProps {
   playerId: string;
   playerName: string;
   playerEmail: string;
   kids: KidsProfile[];
+  linkedYouth?: LinkedYouthProfile[];
   onSelect: (profileId: string) => Promise<void>;
 }
 
@@ -72,32 +73,73 @@ export function ProfileSelector(props: ProfileSelectorProps) {
           </button>
 
           {/* Kid Profiles */}
-          {props.kids.map((kid) => (
+          {props.kids.map((kid) => {
+            const dobDisplay = kid.monthOfBirth
+              ? new Date(kid.yearOfBirth, kid.monthOfBirth - 1).toLocaleString("default", {
+                  month: "short",
+                  year: "numeric",
+                })
+              : String(kid.yearOfBirth ?? "");
+            return (
+              <button
+                key={kid.kid_id}
+                onClick={() => setSelectedProfileId(kid.kid_id)}
+                disabled={isSubmitting}
+                className={`w-full p-4 rounded-lg border-2 transition text-left flex items-center gap-3 ${
+                  selectedProfileId === kid.kid_id
+                    ? "border-[#1e3a5f] bg-[#1e3a5f]/5"
+                    : "border-gray-200 hover:border-gray-300"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <div className="text-3xl">👦</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-gray-900">
+                    {kid.name} <span className="text-sm text-gray-600">(Age {kid.age})</span>
+                  </div>
+                  {dobDisplay && (
+                    <div className="text-sm text-gray-500">Born: {dobDisplay}</div>
+                  )}
+                </div>
+                <div
+                  className={`w-5 h-5 border-2 rounded-full flex-shrink-0 flex items-center justify-center transition ${
+                    selectedProfileId === kid.kid_id
+                      ? "border-[#1e3a5f] bg-[#1e3a5f]"
+                      : "border-gray-300"
+                  }`}
+                >
+                  {selectedProfileId === kid.kid_id && (
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+
+          {/* Linked Youth Profiles */}
+          {(props.linkedYouth ?? []).map((youth) => (
             <button
-              key={kid.kid_id}
-              onClick={() => setSelectedProfileId(kid.kid_id)}
+              key={youth.player_id}
+              onClick={() => setSelectedProfileId(youth.player_id)}
               disabled={isSubmitting}
               className={`w-full p-4 rounded-lg border-2 transition text-left flex items-center gap-3 ${
-                selectedProfileId === kid.kid_id
+                selectedProfileId === youth.player_id
                   ? "border-[#1e3a5f] bg-[#1e3a5f]/5"
                   : "border-gray-200 hover:border-gray-300"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <div className="text-3xl">👦</div>
+              <div className="text-3xl">🧑‍💼</div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-900">
-                  {kid.name} <span className="text-sm text-gray-600">(Age {kid.age})</span>
-                </div>
-                <div className="text-sm text-gray-500">DOB: {kid.date_of_birth}</div>
+                <div className="font-semibold text-gray-900">{youth.name}</div>
+                <div className="text-sm text-gray-500">Linked Account</div>
               </div>
               <div
                 className={`w-5 h-5 border-2 rounded-full flex-shrink-0 flex items-center justify-center transition ${
-                  selectedProfileId === kid.kid_id
+                  selectedProfileId === youth.player_id
                     ? "border-[#1e3a5f] bg-[#1e3a5f]"
                     : "border-gray-300"
                 }`}
               >
-                {selectedProfileId === kid.kid_id && (
+                {selectedProfileId === youth.player_id && (
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 )}
               </div>

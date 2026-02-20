@@ -9,7 +9,7 @@ export interface MemberData {
   name: string;
   email: string;
   phone?: string;
-  group: "men" | "women" | "juniors";
+  group: "men" | "women" | "juniors" | "U-13" | "U-15" | "U-18";
   gender?: "Male" | "Female";
   member_type?: string;
   role?: string;
@@ -40,7 +40,8 @@ export async function GET(req: NextRequest) {
       const displayGroup = deriveCategory(
         data.gender,
         data.hasPaymentManager,
-        data.group  // Fallback for legacy users
+        data.group,  // Fallback for legacy users
+        data.groups
       );
       
       return {
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
         name: data.name || "Unknown",
         email: data.email || "",
         phone: data.phone || "",
-        group: displayGroup,
+        group: displayGroup as MemberData["group"],
         gender: data.gender,
         member_type: data.member_type || "regular",
         role: data.role || "player",

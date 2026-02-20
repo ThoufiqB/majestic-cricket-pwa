@@ -54,13 +54,44 @@ export async function GET() {
       }
     }
 
+    // Hydrate linked youth players (full player accounts managed by this parent/guardian)
+    let linked_youth_profiles: any[] = [];
+    if (Array.isArray(data.linked_youth) && data.linked_youth.length > 0) {
+      try {
+        const youthSnaps = await Promise.all(
+          (data.linked_youth as string[]).map((youthUid) =>
+            adminDb.collection("players").doc(youthUid).get()
+          )
+        );
+
+        linked_youth_profiles = youthSnaps
+          .filter((s) => s.exists && (s.data() as any)?.status === "active")
+          .map((s) => {
+            const d: any = s.data() || {};
+            return {
+              player_id: s.id,
+              name: d.name || "",
+              email: d.email || "",
+              groups: d.groups || [],
+              member_type: d.member_type || "standard",
+              yearOfBirth: d.yearOfBirth ?? null,
+              status: d.status,
+            };
+          });
+      } catch (e) {
+        console.error("Error fetching linked youth profiles:", e);
+      }
+    }
+
     return NextResponse.json({
       player_id: uid,
       ...data,
       // Derive category from gender + hasPaymentManager (backward compatible)
-      group: deriveCategory(data.gender, data.hasPaymentManager, data.group),
+      group: deriveCategory(data.gender, data.hasPaymentManager, data.group, data.groups),
       // IMPORTANT: overwrite any existing kids_profiles (IDs) with hydrated objects
       kids_profiles,
+      // Linked youth player accounts (appear in parent's profile switcher)
+      linked_youth_profiles,
     });
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 401 });
@@ -95,7 +126,7 @@ export async function POST() {
     return NextResponse.json({
       player_id: uid,
       ...data,
-      group: deriveCategory(data?.gender, data?.hasPaymentManager, data?.group),
+      group: deriveCategory(data?.gender, data?.hasPaymentManager, data?.group, data?.groups),
     });
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 401 });

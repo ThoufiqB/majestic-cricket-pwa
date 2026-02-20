@@ -36,7 +36,7 @@ import { apiGet, apiPost, apiPatch } from "@/app/client/api";
 import { signOutSession } from "@/app/auth";
 import { toast } from "sonner";
 import { useProfile } from "@/components/context/ProfileContext";
-import { calculateFee } from "@/lib/calculateFee";
+import { calculateEventFee, isDiscountApplied } from "@/lib/calculateFee";
 
 import { AuthGateCard } from "@/app/home/components/AuthGateCard";
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
@@ -151,6 +151,7 @@ export default function PlayerHomePage() {
     refreshProfile,
     playerId,
     kids: kidsFromContext,
+    linkedYouth: linkedYouthFromContext,
     loading: contextLoading,
   } = useProfile();
 
@@ -213,8 +214,16 @@ export default function PlayerHomePage() {
 
       const effectiveProfileId = backendEffectiveProfileId;
 
-      const kidId = effectiveProfileId && effectiveProfileId !== meData.player_id ? effectiveProfileId : null;
-      const q = kidId ? `?kidId=${encodeURIComponent(kidId)}` : "";
+      // Determine profile type: dependent kid, linked youth, or own profile
+      const kidProfileList: any[] = meData.kids_profiles || [];
+      const linkedYouthList: any[] = meData.linked_youth_profiles || [];
+      const kidId = kidProfileList.some((k: any) => k.kid_id === effectiveProfileId) ? effectiveProfileId : null;
+      const youthId = !kidId && linkedYouthList.some((y: any) => y.player_id === effectiveProfileId) ? effectiveProfileId : null;
+      const q = kidId
+        ? `?kidId=${encodeURIComponent(kidId)}`
+        : youthId
+        ? `?linked_youth_id=${encodeURIComponent(youthId)}`
+        : "";
       const dashData = await apiGet(`/api/events/dashboard${q}`);
 
       const ne: DashboardEvent | null = dashData.nextEvent || null;
@@ -244,9 +253,13 @@ export default function PlayerHomePage() {
         if (canShowRequestButton) {
           setRequestStatusLoading(true);
           try {
-            const kidQuery = kidId ? `?kid_id=${encodeURIComponent(kidId)}` : "";
+            const requestQuery = kidId
+              ? `?kid_id=${encodeURIComponent(kidId)}`
+              : youthId
+              ? `?linked_youth_id=${encodeURIComponent(youthId)}`
+              : "";
             const status = await apiGet<{ exists: boolean; status?: string | null }>(
-              `/api/events/${encodeURIComponent(ne.event_id)}/request${kidQuery}`
+              `/api/events/${encodeURIComponent(ne.event_id)}/request${requestQuery}`
             );
             if (status?.exists) setRequestSentForEventId(ne.event_id);
           } catch (e) {
@@ -357,13 +370,16 @@ export default function PlayerHomePage() {
   async function markAttending(eventId: string, attending: "YES" | "NO") {
     setMarkingAttendance(true);
     try {
-      const isKid = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = (me?.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !isKid && (me?.linked_youth_profiles || []).some((y: any) => y.player_id === activeProfileId);
 
       if (isKid && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/attendance`, {
           event_id: eventId,
           attending,
         });
+      } else if (isLinkedYouth && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/attending`, { attending, linked_youth_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/attending`, { attending });
       }
@@ -383,10 +399,13 @@ export default function PlayerHomePage() {
 
     setRequestingParticipation(true);
     try {
-      const isKid = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = (me?.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !isKid && (me?.linked_youth_profiles || []).some((y: any) => y.player_id === activeProfileId);
 
       if (isKid && activeProfileId) {
         await apiPost(`/api/events/${eventId}/request`, { kid_id: activeProfileId });
+      } else if (isLinkedYouth && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/request`, { linked_youth_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/request`, {});
       }
@@ -411,10 +430,13 @@ export default function PlayerHomePage() {
   async function markPaid(eventId: string) {
     setMarkingPayment(true);
     try {
-      const isKid = activeProfileId && activeProfileId !== me?.player_id;
+      const isKid = (me?.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !isKid && (me?.linked_youth_profiles || []).some((y: any) => y.player_id === activeProfileId);
 
       if (isKid && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/paid`, { event_id: eventId, paid_status: "PENDING" });
+      } else if (isLinkedYouth && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/paid`, { paid_status: "PENDING", linked_youth_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/paid`, { paid_status: "PENDING" });
       }
@@ -448,9 +470,15 @@ export default function PlayerHomePage() {
   const hasKids = kids.length > 0;
   const isKidProfile = !!(activeProfileId && activeProfileId !== me?.player_id);
   const currentKid = isKidProfile ? kids.find((k) => k.kid_id === activeProfileId) : null;
+  const currentLinkedYouth = isKidProfile && !currentKid
+    ? (me?.linked_youth_profiles || []).find((y: any) => y.player_id === activeProfileId)
+    : null;
+  const effectiveGroups: string[] = (currentLinkedYouth?.groups || me?.groups || []) as string[];
+  const effectiveMemberType: string | null = currentLinkedYouth?.member_type || me?.member_type || null;
 
   const getActiveProfileName = () => {
     if (isKidProfile && currentKid) return currentKid.name;
+    if (isKidProfile && currentLinkedYouth) return currentLinkedYouth.name;
     return me?.name || "Welcome";
   };
 
@@ -612,11 +640,11 @@ export default function PlayerHomePage() {
                 {displayedEvent.fee > 0 && (
                   <div className="mt-2 flex items-baseline gap-2">
                     <span className="text-lg font-bold text-primary">
-                      £{calculateFee(displayedEvent.fee, me?.member_type)}
+                      £{calculateEventFee(displayedEvent.fee, effectiveMemberType, effectiveGroups, displayedEvent.targetGroups || [])}
                     </span>
-                    {me?.member_type === "student" && (
+                    {isDiscountApplied(effectiveMemberType, effectiveGroups, displayedEvent.targetGroups || []) && (
                       <span className="text-xs text-green-600 font-medium">
-                        Student rate (25% off)
+                        Youth / student rate (25% off)
                       </span>
                     )}
                   </div>
@@ -873,9 +901,9 @@ export default function PlayerHomePage() {
                 </div>
                 {lastEvent.fee > 0 && (
                   <div className="text-right">
-                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? calculateFee(lastEvent.fee, me?.member_type)}</div>
+                    <div className="text-lg font-bold">£{lastEvent.my.fee_due ?? calculateEventFee(lastEvent.fee, effectiveMemberType, effectiveGroups, lastEvent.targetGroups || [])}</div>
                     <div className="text-xs text-muted-foreground">
-                      {me?.member_type === "student" && !lastEvent.my.fee_due ? "Student rate" : "Fee"}
+                      {!lastEvent.my.fee_due && isDiscountApplied(effectiveMemberType, effectiveGroups, lastEvent.targetGroups || []) ? "Youth / student rate" : "Fee"}
                     </div>
                   </div>
                 )}

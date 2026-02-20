@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -14,15 +14,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClubLogo } from "@/components/ClubLogo";
-import { Loader2, Search, X, ChevronDown } from "lucide-react";
+import { Loader2, Search, X, Info, ShieldCheck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { firebaseAuth } from "@/lib/firebaseClient";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface ParentOption {
   player_id: string;
@@ -35,34 +36,123 @@ export default function CompleteProfilePage() {
   const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
+  const [gdprAccepted, setGdprAccepted] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [nameError, setNameError] = useState("");
   const [formData, setFormData] = useState({
+    name: "",
     groups: [] as string[],
     member_type: "",
     phone: "",
     yearOfBirth: "",
+    monthOfBirth: "", // 1–12 as string
     gender: "",
     hasPaymentManager: false,
     paymentManagerId: "",
     paymentManagerName: "",
   });
 
+  // Unicode-safe name regex: letters (any language), spaces, hyphens, apostrophes
+  const NAME_REGEX = /^[\p{L}\s\-']+$/u;
+
   // Parent search state
   const [parentSearch, setParentSearch] = useState("");
   const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
   const [searchingParents, setSearchingParents] = useState(false);
   const [showParentDropdown, setShowParentDropdown] = useState(false);
-  const [groupsDropdownOpen, setGroupsDropdownOpen] = useState(false);
 
   // Prevent hydration mismatch by only rendering after client mount
   useEffect(() => {
     setMounted(true);
+    // Pre-populate name from Firebase display name so user can review/correct it
+    const displayName = firebaseAuth.currentUser?.displayName || "";
+    if (displayName) {
+      setFormData(prev => ({ ...prev, name: displayName }));
+    }
   }, []);
 
-  // Calculate age and determine if payment manager is needed
-  const currentYear = new Date().getFullYear();
-  const userAge = formData.yearOfBirth ? currentYear - parseInt(formData.yearOfBirth) : null;
+  // Calculate age (month-accurate) and determine if payment manager is needed
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-based
+  const userAge = formData.yearOfBirth
+    ? formData.monthOfBirth
+      ? currentYear - parseInt(formData.yearOfBirth) - (currentMonth < parseInt(formData.monthOfBirth) ? 1 : 0)
+      : currentYear - parseInt(formData.yearOfBirth)
+    : null;
   const isUnder18 = userAge !== null && userAge < 18;
-  const showPaymentManager = isUnder18; // Only show for youth under 18
+  const showPaymentManager = isUnder18;
+
+  // ── Group eligibility rules ────────────────────────────────────────────────
+  // Exactly one group is assigned per player based on age + gender.
+  // All other groups are ineligible — admins can add extras later.
+  function getGroupEligibility(age: number | null, gender: string): {
+    eligible: string[];
+    suggested: string[];
+    reason: Record<string, string>;
+  } {
+    const allGroups = ["Men", "Women", "U-13", "U-15", "U-18"];
+    const reason: Record<string, string> = {};
+
+    if (age === null) {
+      // Age not yet known — nothing selectable
+      allGroups.forEach(g => { reason[g] = "Select your date of birth first"; });
+      return { eligible: [], suggested: [], reason };
+    }
+
+    if (age >= 18) {
+      if (!gender) {
+        // Gender required to determine adult group
+        allGroups.forEach(g => { reason[g] = "Select your gender to determine your group"; });
+        return { eligible: [], suggested: [], reason };
+      }
+      const assignedGroup = gender === "Female" ? "Women" : "Men";
+      allGroups
+        .filter(g => g !== assignedGroup)
+        .forEach(g => { reason[g] = "Admin can add additional groups if needed"; });
+      return { eligible: [assignedGroup], suggested: [assignedGroup], reason };
+    }
+
+    // Under 18 — single age-bracket group assigned automatically
+    reason["Men"] = "Must be 18+ to join Men";
+    reason["Women"] = "Must be 18+ to join Women";
+
+    let assignedGroup: string;
+    if (age <= 13) {
+      assignedGroup = "U-13";
+    } else if (age <= 15) {
+      assignedGroup = "U-15";
+    } else {
+      assignedGroup = "U-18"; // age 16–17
+    }
+
+    ["U-13", "U-15", "U-18"]
+      .filter(g => g !== assignedGroup)
+      .forEach(g => { reason[g] = "Admin can add additional groups if needed"; });
+
+    return { eligible: [assignedGroup], suggested: [assignedGroup], reason };
+  }
+
+  const { eligible: eligibleGroups, suggested: suggestedGroups, reason: ineligibleReason } =
+    getGroupEligibility(userAge, formData.gender);
+
+  // Auto-suggest: when age or gender changes, apply suggested groups (remove
+  // any now-ineligible ones and add missing suggestions).
+  useEffect(() => {
+    if (userAge === null) return;
+    setFormData(prev => {
+      const kept = prev.groups.filter(g => eligibleGroups.includes(g));
+      const toAdd = suggestedGroups.filter(g => !kept.includes(g));
+      const next = [...kept, ...toAdd];
+      // Only update if something changed to avoid infinite loops
+      if (next.length === prev.groups.length && next.every(g => prev.groups.includes(g))) {
+        return prev;
+      }
+      return { ...prev, groups: next };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userAge, formData.gender]);
 
   // Auto-set membership type for youth with payment manager
   useEffect(() => {
@@ -139,6 +229,21 @@ export default function CompleteProfilePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validation: Name
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
+      setError("Please enter your full name");
+      return;
+    }
+    if (trimmedName.length < 2) {
+      setError("Name must be at least 2 characters");
+      return;
+    }
+    if (!NAME_REGEX.test(trimmedName)) {
+      setError("Name must not contain numbers or special characters");
+      return;
+    }
     
     // Validation
     if (formData.groups.length === 0) {
@@ -146,7 +251,11 @@ export default function CompleteProfilePage() {
       return;
     }
     if (!formData.yearOfBirth) {
-      setError("Please select your year of birth");
+      setError("Please select your birth year");
+      return;
+    }
+    if (!formData.monthOfBirth) {
+      setError("Please select your birth month");
       return;
     }
     if (!formData.gender) {
@@ -185,6 +294,7 @@ export default function CompleteProfilePage() {
 
     setSubmitting(true);
     setError("");
+    setIsDuplicateEmail(false);
 
     try {
       // Get ID token from Firebase to authenticate API call (user may not have session yet)
@@ -201,26 +311,38 @@ export default function CompleteProfilePage() {
           "Authorization": `Bearer ${idToken}`,
         },
         body: JSON.stringify({
+          name: formData.name.trim(),
           groups: formData.groups,
           yearOfBirth: parseInt(formData.yearOfBirth),
+          monthOfBirth: formData.monthOfBirth ? parseInt(formData.monthOfBirth) : null,
           gender: formData.gender,
           member_type: formData.member_type,
           phone: formData.phone,
           hasPaymentManager: formData.hasPaymentManager,
           paymentManagerId: formData.hasPaymentManager ? formData.paymentManagerId : null,
           paymentManagerName: formData.hasPaymentManager ? formData.paymentManagerName : null,
+          gdprConsent: true,
+          gdprConsentAt: new Date().toISOString(),
         }),
       });
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+        if (response.status === 409 && data?.code === "duplicate_email") {
+          setIsDuplicateEmail(true);
+          setError(data.error || "An account with this email already exists.");
+          setSubmitting(false);
+          return;
+        }
         throw new Error(data?.error || "Failed to submit profile");
       }
 
       const result = await response.json();
-      
-      // Success - redirect to pending approval page
-      if (result.status === "pending_approval") {
+
+      // Success - redirect based on status
+      if (result.status === "pending_parent_approval") {
+        router.replace("/pending-approval?stage=parent");
+      } else if (result.status === "pending_approval") {
         router.replace("/pending-approval");
       } else {
         router.replace("/home");
@@ -237,9 +359,6 @@ export default function CompleteProfilePage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <ClubLogo />
-          </div>
           <Card className="shadow-lg border">
             <CardContent className="p-4 md:p-6 flex items-center justify-center min-h-[400px]">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -253,136 +372,207 @@ export default function CompleteProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <ClubLogo />
-        </div>
-
         <Card className="shadow-lg border">
-          <CardHeader>
-            <CardTitle className="text-center">Complete Your Profile</CardTitle>
-            <p className="text-sm text-gray-600 text-center mt-2">
+          <CardHeader className="items-center pb-3 pt-5">
+            <div className="mb-2 flex justify-center">
+              <ClubLogo size="lg" />
+            </div>
+            <CardTitle className="text-center text-lg">Complete Your Profile</CardTitle>
+            <p className="text-xs text-muted-foreground text-center mt-0.5">
               Please provide the following details to continue
             </p>
           </CardHeader>
-          <CardContent className="p-4 md:p-6">
+          <CardContent className="px-5 pb-5">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Year of Birth, Gender, and Groups - 3 Column Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Year of Birth */}
-                <div className="space-y-2">
-                  <Label htmlFor="yearOfBirth" className="flex items-center gap-2">
-                    <span>Year of Birth <span className="text-red-500">*</span></span>
-                    {userAge !== null && (
-                      <span className="text-xs text-muted-foreground font-normal">
-                        (Age: {userAge})
-                      </span>
-                    )}
-                  </Label>
-                  <Select
-                    value={formData.yearOfBirth}
-                    onValueChange={(value) => setFormData({ ...formData, yearOfBirth: value })}
-                    required
-                  >
-                    <SelectTrigger id="yearOfBirth" className="w-full">
-                      <SelectValue placeholder="Select year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: currentYear - 1970 + 1 }, (_, i) => currentYear - i).map((year) => (
-                        <SelectItem key={year} value={String(year)}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                {/* Gender */}
-                <div className="space-y-2">
-                  <Label htmlFor="gender">
-                    Gender <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.gender}
-                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                    required
-                  >
-                    <SelectTrigger id="gender" className="w-full">
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/*  Personal Details  */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Personal Details</p>
                 </div>
-
-                {/* Groups (Dropdown with Checkboxes) */}
-                <div className="space-y-2">
-                  <Label>
-                    Groups <span className="text-red-500">*</span>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">
+                    Full Name <span className="text-red-500">*</span>
                   </Label>
-                  <DropdownMenu open={groupsDropdownOpen} onOpenChange={setGroupsDropdownOpen}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full justify-between"
-                      >
-                        <span className="truncate">
-                          {formData.groups.length === 0
-                            ? "Select groups"
-                            : formData.groups.length === 1
-                            ? formData.groups[0]
-                            : `${formData.groups.length} selected`}
-                        </span>
-                        <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 p-3" align="start">
-                      <div className="space-y-2">
-                        {["Men", "Women", "U-13", "U-15", "U-18"].map((group) => (
-                          <div key={group} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`group-${group}`}
-                              checked={formData.groups.includes(group)}
-                              onCheckedChange={() => toggleGroup(group)}
-                            />
-                            <label
-                              htmlFor={`group-${group}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
-                            >
-                              {group}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  {formData.groups.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {formData.groups.map(group => (
-                        <Badge key={group} variant="secondary" className="text-xs">{group}</Badge>
-                      ))}
-                    </div>
-                  )}
-                  {userAge !== null && !isUnder18 && (
-                    <p className="text-xs text-amber-600 font-medium">
-                      ⚠️ Select at least one adult category (Men or Women)
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="e.g. John Smith"
+                    maxLength={60}
+                    value={formData.name}
+                    onChange={(e) => {
+                      // Strip digits on input — invisible to user
+                      const cleaned = e.target.value.replace(/[0-9]/g, "");
+                      setFormData(prev => ({ ...prev, name: cleaned }));
+                      // Inline error: flag other invalid chars (symbols, underscores etc.)
+                      if (cleaned && !NAME_REGEX.test(cleaned)) {
+                        setNameError("Name must only contain letters, spaces, hyphens or apostrophes");
+                      } else {
+                        setNameError("");
+                      }
+                    }}
+                    className={nameError ? "border-red-400 focus-visible:ring-red-400" : ""}
+                    required
+                    autoComplete="name"
+                  />
+                  {nameError && (
+                    <p className="flex items-center gap-1 text-xs text-red-600">
+                      <Info className="h-3 w-3 shrink-0" />
+                      {nameError}
                     </p>
                   )}
+
                 </div>
               </div>
 
-              {/* Payment Manager Section (Conditional) */}
+              {/*  Date of Birth  */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Date of Birth</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="monthOfBirth">
+                      Month <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.monthOfBirth}
+                      onValueChange={(value) => setFormData({ ...formData, monthOfBirth: value })}
+                      required
+                    >
+                      <SelectTrigger id="monthOfBirth" className="w-full">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                          <SelectItem key={i + 1} value={String(i + 1)}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="yearOfBirth">
+                        Year <span className="text-red-500">*</span>
+                      </Label>
+                      {userAge !== null && (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                          Age {userAge}
+                        </span>
+                      )}
+                    </div>
+                    <Select
+                      value={formData.yearOfBirth}
+                      onValueChange={(value) => setFormData({ ...formData, yearOfBirth: value })}
+                      required
+                    >
+                      <SelectTrigger id="yearOfBirth" className="w-full">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: currentYear - 1970 + 1 }, (_, i) => currentYear - i).map((year) => (
+                          <SelectItem key={year} value={String(year)}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/*  Identity  */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Identity</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="gender">
+                      Gender <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.gender}
+                      onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                      required
+                    >
+                      <SelectTrigger id="gender" className="w-full">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>
+                      Groups <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["Men", "Women", "U-13", "U-15", "U-18"].map((group) => {
+                        const isEligible = eligibleGroups.includes(group);
+                        const isSelected = formData.groups.includes(group);
+                        const disabledReason = ineligibleReason[group];
+                        return (
+                          <span
+                            key={group}
+                            title={!isSelected ? (disabledReason ?? "Admin can add additional groups if needed") : "Your assigned group"}
+                            className={[
+                              "rounded-full border px-3 py-1 text-xs font-medium select-none",
+                              isSelected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : isEligible
+                                ? "border-border bg-background text-foreground opacity-50"
+                                : "border-border bg-muted text-muted-foreground opacity-30",
+                            ].join(" ")}
+                          >
+                            {group}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {userAge === null && (
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Select your date of birth first
+                      </p>
+                    )}
+                    {userAge !== null && !isUnder18 && !formData.gender && (
+                      <p className="flex items-center gap-1 text-xs text-amber-600">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Select your gender to determine your group
+                      </p>
+                    )}
+                    {userAge !== null && isUnder18 && (
+                      <p className="flex items-center gap-1 text-xs text-blue-600">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Group assigned based on your age ({userAge})
+                      </p>
+                    )}
+                    {userAge !== null && !isUnder18 && formData.gender && (
+                      <p className="flex items-center gap-1 text-xs text-emerald-600">
+                        <Info className="h-3 w-3 shrink-0" />
+                        Group assigned based on your gender
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/*  Payment Manager (Conditional)  */}
               {showPaymentManager && (
-                <div className="space-y-3 border-t pt-4">
+                <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="hasPaymentManager"
                       checked={formData.hasPaymentManager}
                       onCheckedChange={(checked) => {
                         if (!checked) {
-                          // Validate age before allowing "No"
                           if (isUnder18) {
                             setError("Players under 18 must have a payment manager");
                             return;
@@ -393,13 +583,13 @@ export default function CompleteProfilePage() {
                         setError("");
                       }}
                     />
-                    <Label htmlFor="hasPaymentManager" className="cursor-pointer">
+                    <Label htmlFor="hasPaymentManager" className="cursor-pointer text-sm">
                       Do you have a Payment Manager (Parent/Guardian)?
                     </Label>
                   </div>
 
                   {formData.hasPaymentManager && (
-                    <div className="space-y-2 pl-6">
+                    <div className="space-y-2">
                       <Label htmlFor="parentSearch">
                         Search for your Parent/Guardian <span className="text-red-500">*</span>
                       </Label>
@@ -425,18 +615,12 @@ export default function CompleteProfilePage() {
                             )}
                           </div>
                           {formData.paymentManagerId && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={clearParent}
-                            >
+                            <Button type="button" variant="ghost" size="sm" onClick={clearParent}>
                               <X className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
 
-                        {/* Parent Dropdown */}
                         {showParentDropdown && !formData.paymentManagerId && parentOptions.length > 0 && (
                           <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
                             {parentOptions.map((parent) => (
@@ -446,7 +630,7 @@ export default function CompleteProfilePage() {
                                 className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
                                 onClick={() => selectParent(parent)}
                               >
-                                <div className="font-medium">{parent.name}</div>
+                                <div className="font-medium text-sm">{parent.name}</div>
                                 <div className="text-xs text-muted-foreground">{parent.email}</div>
                               </button>
                             ))}
@@ -461,10 +645,10 @@ export default function CompleteProfilePage() {
                       </div>
 
                       {formData.paymentManagerId && (
-                        <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
-                          <Badge variant="default" className="bg-green-600">Selected</Badge>
-                          <div className="flex-1">
-                            <div className="font-medium text-sm">{formData.paymentManagerName}</div>
+                        <div className="flex items-center gap-2 p-2.5 bg-green-50 border border-green-200 rounded-md">
+                          <Badge variant="default" className="bg-green-600 shrink-0">Selected</Badge>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">{formData.paymentManagerName}</div>
                             <div className="text-xs text-muted-foreground">Payment Manager</div>
                           </div>
                         </div>
@@ -474,54 +658,111 @@ export default function CompleteProfilePage() {
                 </div>
               )}
 
-              {/* Member Type and Phone Number - 2 Column Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Member Type */}
-                <div className="space-y-2">
-                  <Label htmlFor="member_type">
-                    Member Type <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.member_type}
-                    onValueChange={(value) => setFormData({ ...formData, member_type: value })}
-                    required
-                    disabled={formData.hasPaymentManager}
-                  >
-                    <SelectTrigger id="member_type" className="w-full">
-                      <SelectValue placeholder="Select member type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="student">Student (25% discount)</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/*  Membership  */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 border-l-2 border-primary pl-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">Membership</p>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="member_type">
+                      Member Type <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.member_type}
+                      onValueChange={(value) => setFormData({ ...formData, member_type: value })}
+                      required
+                      disabled={formData.hasPaymentManager}
+                    >
+                      <SelectTrigger id="member_type" className="w-full">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">Standard</SelectItem>
+                        <SelectItem value="student">Student (25% off)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Phone */}
-                <div className="space-y-2">
-                  <Label htmlFor="phone">
-                    Phone Number <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="07700 909000"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    required
-                  />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone">
+                      Phone Number <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="07700 909000"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Error Message */}
-              {error && (
+              {/*  Error  */}
+              {isDuplicateEmail ? (
+                <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 space-y-1">
+                  <p className="text-sm font-semibold text-orange-800">Account already exists</p>
+                  <p className="text-sm text-orange-700">{error}</p>
+                  <p className="text-xs text-orange-600 mt-1">
+                    Try signing in with your original account, or contact an admin if you need help.
+                  </p>
+                </div>
+              ) : error ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
                   {error}
                 </div>
-              )}
+              ) : null}
 
-              {/* Submit Button */}
-              <Button type="submit" className="w-full" disabled={submitting}>
+              {/*  GDPR Consent  */}
+              <div className={[
+                "rounded-xl border-2 px-3 py-2.5 space-y-2 transition-colors",
+                gdprAccepted
+                  ? "border-green-300 bg-green-50"
+                  : "border-border bg-muted/20",
+              ].join(" ")}>
+                {/* Header */}
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className={["h-3.5 w-3.5 shrink-0", gdprAccepted ? "text-green-600" : "text-muted-foreground"].join(" ")} />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-foreground/70">
+                    Data &amp; Privacy Consent
+                  </p>
+                </div>
+
+                {/* Checkbox row */}
+                <div className="flex items-center gap-2.5">
+                  <Checkbox
+                    id="gdprConsent"
+                    checked={gdprAccepted}
+                    onCheckedChange={(checked) => setGdprAccepted(!!checked)}
+                    className="shrink-0"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Label htmlFor="gdprConsent" className="text-xs text-foreground/80 cursor-pointer">
+                      I agree to the terms and conditions.
+                    </Label>
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition-colors whitespace-nowrap"
+                      onClick={() => setShowPrivacyModal(true)}
+                    >
+                      View Privacy Policy →
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status hint */}
+                {gdprAccepted && (
+                  <p className="flex items-center gap-1.5 text-xs text-green-700 font-medium pl-6">
+                    <ShieldCheck className="h-3 w-3 shrink-0" />
+                    Consent recorded — thank you.
+                  </p>
+                )}
+              </div>
+
+              {/*  Submit  */}
+              <Button type="submit" className="w-full" disabled={submitting || !gdprAccepted}>
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -532,13 +773,121 @@ export default function CompleteProfilePage() {
                 )}
               </Button>
 
-              <p className="text-xs text-gray-500 text-center">
-                All fields are required to access the app
-              </p>
-            </form>
-          </CardContent>
+
+            </form>          </CardContent>
         </Card>
       </div>
+
+      {/*  Privacy Policy Modal  */}
+      <Dialog open={showPrivacyModal} onOpenChange={setShowPrivacyModal}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Privacy Policy
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-foreground">
+            <div className="rounded-md bg-muted px-4 py-3 text-xs text-muted-foreground">
+              Last updated: February 2026 &nbsp;·&nbsp; Majestic Cricket Club
+            </div>
+
+            {/* Intro summary */}
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <p className="text-sm text-foreground leading-relaxed">
+                Majestic Cricket Club will use the information you provide (name, email,
+                date of birth, phone number, gender, and group) to manage your club
+                membership, organise team events and fixtures, process membership fees,
+                and communicate club-related information.
+              </p>
+              <p className="text-sm text-foreground leading-relaxed">
+                By ticking the consent checkbox you confirm you agree to these terms
+                and conditions.
+              </p>
+              <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2.5">
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  <strong>Under-18 players:</strong> The parent/guardian linked during
+                  registration confirms consent on behalf of the player.
+                </p>
+              </div>
+            </div>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">1. Who We Are</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Majestic Cricket Club (&quot;the Club&quot;) is the data controller for the personal
+                information you provide through this application. We are committed to protecting
+                your personal data in accordance with the UK General Data Protection Regulation
+                (UK GDPR) and the Data Protection Act 2018.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">2. What We Collect</h3>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1 leading-relaxed">
+                <li>Full name and email address</li>
+                <li>Date of birth and age group</li>
+                <li>Phone number</li>
+                <li>Gender</li>
+                <li>Membership type and group assignment</li>
+                <li>Payment manager details (for players under 18)</li>
+              </ul>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">3. Why We Collect It</h3>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1 leading-relaxed">
+                <li>Managing your club membership and registration</li>
+                <li>Organising fixtures, events, and training sessions</li>
+                <li>Processing membership fees and payments</li>
+                <li>Communicating club news, match schedules, and updates</li>
+                <li>Complying with league and governing body requirements (e.g. ECB)</li>
+              </ul>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">4. Third-Party Sharing</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Your data will not be sold or shared with third parties for marketing purposes.
+                It may be shared with league administrators or governing bodies (such as the ECB
+                or county boards) solely for team and competition registration.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">5. Retention</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                We will retain your data for the duration of your active membership and for up
+                to 12 months following the end of your membership, after which it will be
+                securely deleted or anonymised.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">6. Your Rights</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Under UK GDPR you have the right to:
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1 leading-relaxed">
+                <li><strong>Access</strong> — request a copy of your data</li>
+                <li><strong>Rectification</strong> — correct inaccurate data</li>
+                <li><strong>Erasure</strong> — request deletion of your data</li>
+                <li><strong>Portability</strong> — receive your data in a portable format</li>
+                <li><strong>Objection</strong> — object to certain uses of your data</li>
+                <li><strong>Withdraw consent</strong> — at any time, without affecting prior processing</li>
+              </ul>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">7. Contact</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                To exercise any of your rights or raise a data concern, please contact the
+                Club Secretary.
+              </p>
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

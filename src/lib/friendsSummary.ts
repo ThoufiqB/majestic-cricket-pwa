@@ -66,7 +66,8 @@ export async function getFriendsSummaryForEvent(event: any) {
       const playerCategory = deriveCategory(
         playerData?.gender,
         playerData?.hasPaymentManager,
-        undefined
+        undefined,
+        playerData?.groups
       );
 
       // Categorize and count (NO filtering - attendees are pre-filtered!)

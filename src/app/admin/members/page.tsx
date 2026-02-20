@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Users,
   Baby,
@@ -34,6 +35,7 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  Pencil,
 } from "lucide-react";
 
 interface Member {
@@ -41,8 +43,8 @@ interface Member {
   name: string;
   email: string;
   phone?: string;
-  group: "men" | "women" | "juniors";
-  gender?: "Male" | "Female";
+  group: string;
+  gender?: string;
   member_type?: string;
   role?: string;
   status?: "active" | "disabled" | "removed";
@@ -62,13 +64,33 @@ interface MemberStats {
 
 interface MemberDetail extends Member {
   status?: "active" | "disabled" | "removed";
+  groups?: string[];
+  yearOfBirth?: number | null;
+  monthOfBirth?: number | null;
   kids: Array<{
     kid_id: string;
     name: string;
     age?: number;
     status: string;
   }>;
+  linked_youth?: Array<{
+    player_id: string;
+    name: string;
+    email: string;
+    group: string;
+    groups: string[];
+    status: string;
+  }>;
 }
+
+const ALL_GROUPS = ["men", "women", "U-18", "U-15", "U-13"] as const;
+const GROUP_LABELS: Record<string, string> = {
+  men: "Men",
+  women: "Women",
+  "U-18": "U-18",
+  "U-15": "U-15",
+  "U-13": "U-13",
+};
 
 export default function AdminMembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -83,6 +105,12 @@ export default function AdminMembersPage() {
   const [selectedMember, setSelectedMember] = useState<MemberDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
+
+  // Groups editing
+  const [editingGroups, setEditingGroups] = useState(false);
+  const [editGroups, setEditGroups] = useState<string[]>([]);
+  const [savingGroups, setSavingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMembers();
@@ -109,14 +137,43 @@ export default function AdminMembersPage() {
 
   async function openMemberDetail(memberId: string) {
     setDetailLoading(true);
+    setEditingGroups(false);
+    setGroupsError(null);
     try {
       const res = await fetch(`/api/admin/members/${memberId}`);
       const data = await res.json();
       setSelectedMember(data);
+      setEditGroups(data.groups || []);
     } catch (e) {
       console.error("Failed to fetch member detail:", e);
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  async function saveGroups(memberId: string) {
+    setSavingGroups(true);
+    setGroupsError(null);
+    try {
+      const res = await fetch(`/api/admin/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groups: editGroups }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGroupsError(data.error || "Failed to update groups");
+        return;
+      }
+      if (selectedMember) {
+        setSelectedMember({ ...selectedMember, groups: editGroups });
+      }
+      setEditingGroups(false);
+      fetchMembers();
+    } catch (e: any) {
+      setGroupsError(e?.message || "Failed to update groups");
+    } finally {
+      setSavingGroups(false);
     }
   }
 
@@ -456,6 +513,89 @@ export default function AdminMembersPage() {
                   )}
                 </div>
 
+                {/* Groups Editor */}
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Groups</span>
+                    {!editingGroups ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setEditGroups(selectedMember?.groups || []);
+                          setGroupsError(null);
+                          setEditingGroups(true);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            setEditingGroups(false);
+                            setGroupsError(null);
+                          }}
+                          disabled={savingGroups}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => saveGroups(selectedMember!.player_id)}
+                          disabled={savingGroups}
+                        >
+                          {savingGroups ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {editingGroups ? (
+                    <div className="space-y-1">
+                      {ALL_GROUPS.map((g) => (
+                        <label
+                          key={g}
+                          className="flex items-center gap-2 cursor-pointer select-none py-1"
+                        >
+                          <Checkbox
+                            checked={editGroups.includes(g)}
+                            onCheckedChange={(checked) => {
+                              setEditGroups(
+                                checked
+                                  ? [...editGroups, g]
+                                  : editGroups.filter((x) => x !== g)
+                              );
+                            }}
+                          />
+                          <span className="text-sm">{GROUP_LABELS[g]}</span>
+                        </label>
+                      ))}
+                      {groupsError && (
+                        <p className="text-xs text-destructive mt-1">{groupsError}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {(selectedMember?.groups || []).length === 0 ? (
+                        <span className="text-xs text-muted-foreground italic">No groups assigned</span>
+                      ) : (
+                        (selectedMember?.groups || []).map((g) => (
+                          <Badge key={g} variant="outline" className="capitalize">
+                            {GROUP_LABELS[g] || g}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Role Badge & Toggle */}
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-2">
@@ -599,12 +739,12 @@ export default function AdminMembersPage() {
                 </div>
               </div>
 
-              {/* Linked Kids */}
+              {/* Linked Kids (dependent profiles) */}
               {selectedMember.kids && selectedMember.kids.length > 0 && (
                 <div className="pt-2 border-t">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                     <Baby className="h-4 w-4" />
-                    Linked Juniors ({selectedMember.kids.length})
+                    Kid Profiles ({selectedMember.kids.length})
                   </h4>
                   <div className="space-y-2">
                     {selectedMember.kids.map((kid) => (
@@ -626,6 +766,40 @@ export default function AdminMembersPage() {
                             className="text-xs"
                           >
                             {kid.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Linked Youth (full player accounts) */}
+              {selectedMember.linked_youth && selectedMember.linked_youth.length > 0 && (
+                <div className="pt-2 border-t">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <UserCog className="h-4 w-4" />
+                    Linked Youth Accounts ({selectedMember.linked_youth.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedMember.linked_youth.map((youth) => (
+                      <div
+                        key={youth.player_id}
+                        className="flex items-center justify-between p-2 rounded bg-blue-50 border border-blue-100"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{youth.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{youth.email}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                            {youth.group}
+                          </Badge>
+                          <Badge
+                            variant={youth.status === "active" ? "secondary" : "outline"}
+                            className="text-xs"
+                          >
+                            {youth.status}
                           </Badge>
                         </div>
                       </div>

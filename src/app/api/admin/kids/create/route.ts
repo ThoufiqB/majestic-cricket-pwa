@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
 import { handleApiError, badRequest, ok } from "@/app/api/_util";
 import { KidsProfile } from "@/lib/types/kids";
 import { FieldValue } from "firebase-admin/firestore";
+import { calculateAgeFromMonthYear } from "@/lib/ageCalculator";
 
 function normEmail(s: string) {
   return String(s || "").trim().toLowerCase();
@@ -17,17 +18,6 @@ async function requireAdmin(uid: string) {
   return me;
 }
 
-function calculateAge(dateOfBirth: string): number {
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-}
-
 // POST /api/admin/kids/create
 export async function POST(req: NextRequest) {
   try {
@@ -37,14 +27,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const parentEmail = normEmail(body.parent_email);
     const name = String(body.name || "").trim();
-    const dateOfBirth = String(body.date_of_birth || "").trim(); // YYYY-MM-DD
+    const yearOfBirth = Number(body.year_of_birth);
+    const monthOfBirth = Number(body.month_of_birth);
 
     // Validation
     if (!parentEmail) throw badRequest("parent_email is required");
     if (!name) throw badRequest("name is required");
-    if (!dateOfBirth) throw badRequest("date_of_birth is required (YYYY-MM-DD)");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
-      throw badRequest("date_of_birth must be in YYYY-MM-DD format");
+    if (!yearOfBirth || !Number.isInteger(yearOfBirth) || yearOfBirth < 1990 || yearOfBirth > new Date().getFullYear()) {
+      throw badRequest("year_of_birth must be a valid year (1990â€“present)");
+    }
+    if (!monthOfBirth || !Number.isInteger(monthOfBirth) || monthOfBirth < 1 || monthOfBirth > 12) {
+      throw badRequest("month_of_birth must be between 1 and 12");
+    }
+    // Ensure not in the future
+    const now = new Date();
+    if (yearOfBirth > now.getFullYear() || (yearOfBirth === now.getFullYear() && monthOfBirth > now.getMonth() + 1)) {
+      throw badRequest("Birth year/month cannot be in the future");
     }
 
     // Verify parent exists in system
@@ -59,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
 
     const parentUid = parentSnap.docs[0].id;
-    const age = calculateAge(dateOfBirth);
+    const age = calculateAgeFromMonthYear(monthOfBirth, yearOfBirth);
 
     // Create kid profile
     const kidId = adminDb.collection("kids_profiles").doc().id;
@@ -68,7 +66,8 @@ export async function POST(req: NextRequest) {
       kid_id: kidId,
       player_id: parentUid,
       name,
-      date_of_birth: dateOfBirth,
+      yearOfBirth,
+      monthOfBirth,
       age,
       parent_emails: [parentEmail],
       status: "active",
@@ -98,3 +97,4 @@ export async function POST(req: NextRequest) {
     return handleApiError(e);
   }
 }
+

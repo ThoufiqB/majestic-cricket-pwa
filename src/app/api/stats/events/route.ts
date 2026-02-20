@@ -22,38 +22,63 @@ export async function GET(req: NextRequest) {
       ...playerData 
     };
     
-    // Get profile_id (for kid stats) or use player's own ID
-    const profileId = searchParams.get("profile_id") || me.player_id;
+    const rawProfileId = searchParams.get("profile_id");
+    const linkedYouthId = searchParams.get("linked_youth_id");
     const year = searchParams.get("year") || new Date().getFullYear().toString();
-    
-    // Determine if we're fetching for a kid or the player
-    const isKidProfile = profileId !== me.player_id;
-    
-    // Validate kid belongs to player
-    if (isKidProfile) {
-      const kidDoc = await adminDb.collection("kids_profiles").doc(profileId).get();
+
+    // Resolve the effective profileId and profile type
+    let profileId = me.player_id;
+    let isKidProfile = false;
+    let isLinkedYouthProfile = false;
+    let youthPlayerData: any = null;
+
+    if (rawProfileId) {
+      // Dependent kid — validate ownership
+      const kidDoc = await adminDb.collection("kids_profiles").doc(rawProfileId).get();
       const kidData = kidDoc.data();
-      // Check both parent_id and player_id for backward compatibility
       const isParent = kidData?.parent_id === me.player_id || kidData?.player_id === me.player_id;
       if (!kidDoc.exists || !isParent) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
+      profileId = rawProfileId;
+      isKidProfile = true;
+    } else if (linkedYouthId) {
+      // Linked youth full player account — validate it belongs to this parent
+      const linkedYouthIds: string[] = (playerData.linked_youth as string[]) || [];
+      if (!linkedYouthIds.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      const youthSnap = await adminDb.collection("players").doc(linkedYouthId).get();
+      if (!youthSnap.exists || youthSnap.data()?.status !== "active") {
+        return NextResponse.json({ error: "Youth account not found or inactive" }, { status: 404 });
+      }
+      profileId = linkedYouthId;
+      isLinkedYouthProfile = true;
+      youthPlayerData = youthSnap.data();
     }
 
-    // Get player/kid data to determine category and groups
+    // Determine category and groups for event filtering
     let category: string;
     let userGroups: string[];
-    
+
     if (isKidProfile) {
-      // Kids always have category "juniors"
       category = "juniors";
-      userGroups = ["U-13", "U-15", "U-18", "Kids"]; // All youth groups
-    } else {
-      // Derive category from player's gender + hasPaymentManager
+      userGroups = ["U-13", "U-15", "U-18", "Kids"];
+    } else if (isLinkedYouthProfile && youthPlayerData) {
+      // Use the youth's own groups, not the parent's
       category = deriveCategory(
-        (me as any).gender, 
-        (me as any).hasPaymentManager, 
-        (me as any).group
+        youthPlayerData.gender,
+        youthPlayerData.hasPaymentManager,
+        youthPlayerData.group,
+        youthPlayerData.groups
+      );
+      userGroups = Array.isArray(youthPlayerData.groups) ? youthPlayerData.groups : [];
+    } else {
+      category = deriveCategory(
+        (me as any).gender,
+        (me as any).hasPaymentManager,
+        (me as any).group,
+        (me as any).groups
       );
       userGroups = Array.isArray((me as any).groups) ? (me as any).groups : [];
     }
