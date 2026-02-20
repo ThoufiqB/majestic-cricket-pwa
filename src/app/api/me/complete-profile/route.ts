@@ -46,7 +46,17 @@ export async function PUT(req: NextRequest) {
       hasPaymentManager,
       paymentManagerId,
       paymentManagerName,
+      gdprConsent,
+      gdprConsentAt,
     } = body;
+
+    // GDPR consent is mandatory
+    if (gdprConsent !== true) {
+      return NextResponse.json(
+        { error: "GDPR consent is required to complete registration" },
+        { status: 400 }
+      );
+    }
 
     // Validation
     if (!Array.isArray(groups) || groups.length === 0) {
@@ -261,6 +271,8 @@ export async function PUT(req: NextRequest) {
         profile_completed: true,
         profile_completed_at: adminTs.now(),
         updated_at: adminTs.now(),
+        gdprConsent: true,
+        gdprConsentAt: gdprConsentAt ?? new Date().toISOString(),
       };
 
       if (hasPaymentManager) {
@@ -301,6 +313,8 @@ export async function PUT(req: NextRequest) {
       hasPaymentManager: hasPaymentManager || false,
       status: initialStatus,
       requested_at: adminTs.now(),
+      gdprConsent: true,
+      gdprConsentAt: gdprConsentAt ?? new Date().toISOString(),
     };
 
     if (hasPaymentManager) {

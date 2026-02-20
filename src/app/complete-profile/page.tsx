@@ -14,8 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ClubLogo } from "@/components/ClubLogo";
-import { Loader2, Search, X, Info } from "lucide-react";
+import { Loader2, Search, X, Info, ShieldCheck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { firebaseAuth } from "@/lib/firebaseClient";
 
@@ -31,6 +37,8 @@ export default function CompleteProfilePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
+  const [gdprAccepted, setGdprAccepted] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [formData, setFormData] = useState({
     groups: [] as string[],
     member_type: "",
@@ -287,6 +295,8 @@ export default function CompleteProfilePage() {
           hasPaymentManager: formData.hasPaymentManager,
           paymentManagerId: formData.hasPaymentManager ? formData.paymentManagerId : null,
           paymentManagerName: formData.hasPaymentManager ? formData.paymentManagerName : null,
+          gdprConsent: true,
+          gdprConsentAt: new Date().toISOString(),
         }),
       });
 
@@ -633,8 +643,42 @@ export default function CompleteProfilePage() {
                 </div>
               ) : null}
 
+              {/*  GDPR Consent  */}
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <ShieldCheck className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Data Consent (UK GDPR)
+                  </p>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="gdprConsent"
+                    checked={gdprAccepted}
+                    onCheckedChange={(checked) => setGdprAccepted(!!checked)}
+                    className="mt-0.5"
+                  />
+                  <Label htmlFor="gdprConsent" className="text-sm leading-relaxed cursor-pointer">
+                    I agree to Majestic Cricket Club using my personal data for membership
+                    administration and club events.{" "}
+                    <button
+                      type="button"
+                      className="text-primary underline underline-offset-2 font-medium hover:text-primary/80 transition-colors"
+                      onClick={() => setShowPrivacyModal(true)}
+                    >
+                      Read our Privacy Policy
+                    </button>
+                  </Label>
+                </div>
+                {!gdprAccepted && (
+                  <p className="text-xs text-muted-foreground pl-6">
+                    You must accept the privacy policy to complete your profile.
+                  </p>
+                )}
+              </div>
+
               {/*  Submit  */}
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button type="submit" className="w-full" disabled={submitting || !gdprAccepted}>
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -651,6 +695,97 @@ export default function CompleteProfilePage() {
             </form>          </CardContent>
         </Card>
       </div>
+
+      {/*  Privacy Policy Modal  */}
+      <Dialog open={showPrivacyModal} onOpenChange={setShowPrivacyModal}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Privacy Policy
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-foreground">
+            <div className="rounded-md bg-muted px-4 py-3 text-xs text-muted-foreground">
+              Last updated: February 2026 &nbsp;·&nbsp; Majestic Cricket Club
+            </div>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">1. Who We Are</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Majestic Cricket Club (&quot;the Club&quot;) is the data controller for the personal
+                information you provide through this application. We are committed to protecting
+                your personal data in accordance with the UK General Data Protection Regulation
+                (UK GDPR) and the Data Protection Act 2018.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">2. What We Collect</h3>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1 leading-relaxed">
+                <li>Full name and email address</li>
+                <li>Date of birth and age group</li>
+                <li>Phone number</li>
+                <li>Gender</li>
+                <li>Membership type and group assignment</li>
+                <li>Payment manager details (for players under 18)</li>
+              </ul>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">3. Why We Collect It</h3>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1 leading-relaxed">
+                <li>Managing your club membership and registration</li>
+                <li>Organising fixtures, events, and training sessions</li>
+                <li>Processing membership fees and payments</li>
+                <li>Communicating club news, match schedules, and updates</li>
+                <li>Complying with league and governing body requirements (e.g. ECB)</li>
+              </ul>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">4. Third-Party Sharing</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Your data will not be sold or shared with third parties for marketing purposes.
+                It may be shared with league administrators or governing bodies (such as the ECB
+                or county boards) solely for team and competition registration.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">5. Retention</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                We will retain your data for the duration of your active membership and for up
+                to 12 months following the end of your membership, after which it will be
+                securely deleted or anonymised.
+              </p>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">6. Your Rights</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Under UK GDPR you have the right to:
+              </p>
+              <ul className="list-disc pl-5 text-muted-foreground space-y-1 leading-relaxed">
+                <li><strong>Access</strong> — request a copy of your data</li>
+                <li><strong>Rectification</strong> — correct inaccurate data</li>
+                <li><strong>Erasure</strong> — request deletion of your data</li>
+                <li><strong>Portability</strong> — receive your data in a portable format</li>
+                <li><strong>Objection</strong> — object to certain uses of your data</li>
+                <li><strong>Withdraw consent</strong> — at any time, without affecting prior processing</li>
+              </ul>
+            </section>
+
+            <section className="space-y-1.5">
+              <h3 className="font-semibold">7. Contact</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                To exercise any of your rights or raise a data concern, please contact the
+                Club Secretary.
+              </p>
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
