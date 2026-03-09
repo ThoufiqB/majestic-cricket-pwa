@@ -43,13 +43,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const eventRef = adminDb.collection("events").doc(id);
     const eventSnap = await eventRef.get();
     const eventData: any = eventSnap.data() || {};
-    const isKidsEvent = eventData?.kids_event === true;
-    const isAllKidsGroup = String(eventData?.group || "").toLowerCase() === "all_kids";
+    
+    // Check both old format (kids_event + group="all_kids") and new format (targetGroups includes "Kids")
+    const isKidsEvent = eventData?.kids_event === true || 
+                        (Array.isArray(eventData?.targetGroups) && eventData.targetGroups.includes("Kids"));
+    
     // Validate that provided IDs match event type
-    if (isKidsEvent && !isAllKidsGroup && kidIds.length > 0) {
-      // Kids events should have group all_kids; if not, reject
-      return NextResponse.json({ error: "Cannot add kids to this event" }, { status: 400 });
-    }
     if (!isKidsEvent && kidIds.length > 0) {
       return NextResponse.json({ error: "This event is not a kids event" }, { status: 400 });
     }
