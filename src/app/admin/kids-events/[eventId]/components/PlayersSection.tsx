@@ -19,7 +19,7 @@ export function PlayersSection(p: Props) {
   const baseFee = Number(p.event?.fee || 0);
 
   // Only show kids with attending status
-  const attendingRows = p.rows.filter(r => r.attending === true || String(r.attending || "").toUpperCase() === "YES");
+  const attendingRows = p.rows.filter(r => String(r.attending || "").toUpperCase() === "YES");
 
   return (
     <Card>
@@ -46,7 +46,7 @@ export function PlayersSection(p: Props) {
             {attendingRows.map((r) => {
               const due = r.fee_due === "" || r.fee_due === null || typeof r.fee_due === "undefined" ? null : Number(r.fee_due);
               const hasDiscount = Number.isFinite(due) && baseFee && due !== baseFee;
-              const attendingYes = r.attending === true || String(r.attending || "").toUpperCase() === "YES";
+              const attendingYes = String(r.attending || "").toUpperCase() === "YES";
               const savingThis = p.saving === r.player_id;
               
               let statusBadge = null;
