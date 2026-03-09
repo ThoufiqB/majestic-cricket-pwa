@@ -66,11 +66,13 @@ export async function GET(req: NextRequest) {
 
     // Apply filters
     if (groupFilter) {
-      if (groupFilter === "youth" || groupFilter === "juniors") {
+      const filterLower = groupFilter.toLowerCase();
+      if (filterLower === "youth" || filterLower === "juniors") {
         // Both youth and juniors filter to hasPaymentManager players
         members = members.filter((m) => m.group === "juniors");
       } else {
-        members = members.filter((m) => m.group === groupFilter);
+        // Case-insensitive comparison to handle u-15 matching U-15
+        members = members.filter((m) => m.group.toLowerCase() === filterLower);
       }
     }
 

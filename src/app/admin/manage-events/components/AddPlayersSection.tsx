@@ -328,11 +328,16 @@ export function AddPlayersSection() {
               onChange={(e) => setSelectedEventId(e.target.value)}
             >
               <option value="">Select Event</option>
-              {filteredEvents.map((ev: any) => (
-                <option key={ev.event_id} value={ev.event_id}>
-                  {ev.title}
-                </option>
-              ))}
+              {filteredEvents.map((ev: any) => {
+                const groups = Array.isArray(ev.targetGroups) && ev.targetGroups.length > 0
+                  ? ` — (${ev.targetGroups.join(", ")})`
+                  : "";
+                return (
+                  <option key={ev.event_id} value={ev.event_id}>
+                    {ev.title}{groups}
+                  </option>
+                );
+              })}
             </select>
           )}
           {!loadingEvents && filteredEvents.length === 0 && (

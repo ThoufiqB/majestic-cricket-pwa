@@ -151,7 +151,10 @@ export async function GET(req: NextRequest) {
 
       if (attendeeDoc.exists) {
         const attendeeData = attendeeDoc.data();
-        const eventCost = event.fee || event.cost || 0;
+        
+        // ✅ FIX: Use fee_due (discounted fee) if available, otherwise fall back to base event fee
+        const eventCost = Number(attendeeData?.fee_due ?? event.fee ?? event.cost ?? 0);
+        
         // Kids use payment_status, adults use paid_status
         // Normalize to uppercase for comparison
         const rawStatus = attendeeData?.paid_status || attendeeData?.payment_status || "NOT_PAID";

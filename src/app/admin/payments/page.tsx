@@ -560,9 +560,8 @@ export default function AdminPaymentsPage() {
                       {getStatusBadge(payment.status)}
                     </div>
 
-                    {/* Quick Actions */}
-                    {(payment.status === "pending" ||
-                      payment.status === "unpaid") && (
+                    {/* Quick Actions - Only for pending payments */}
+                    {payment.status === "pending" && (
                       <div
                         className="flex gap-1"
                         onClick={(e) => e.stopPropagation()}

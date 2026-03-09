@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Clock, Users, CheckCircle, XCircle, AlertCircle, Loader2, PlusCircle } from "lucide-react";
+import { formatEventDateTime } from "@/lib/dateTimeFormat";
 import type { HomeEvent } from "../types";
 import { EVENT_TYPE_LABEL } from "../constants";
 import { isMembershipEvent, paidLabel } from "../helpers";
@@ -141,7 +142,7 @@ export function EventCard(p: Props) {
               ) : (
                 <>
                   <Clock className="h-3.5 w-3.5" />
-                  <span>{new Date((ev as any).starts_at).toLocaleString()}</span>
+                  <span>{formatEventDateTime((ev as any).starts_at)}</span>
                   <span>•</span>
                   <Badge variant="secondary">
                     {EVENT_TYPE_LABEL[(ev as any).event_type] || (ev as any).event_type}
