@@ -954,10 +954,15 @@ export default function PlayerHomePage() {
                     <AlertCircle className="h-5 w-5" />
                     <span className="text-sm">Payment managed by {me.paymentManagerName}</span>
                   </div>
-                ) : lastEvent.fee > 0 && !lastEvent.my.attended ? (
+                ) : lastEvent.fee > 0 && !lastEvent.my.attended && lastEvent.my.attending === "YES" ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <AlertCircle className="h-5 w-5" />
                     <span>Awaiting attendance confirmation</span>
+                  </div>
+                ) : lastEvent.fee > 0 && !lastEvent.my.attended && lastEvent.my.attending !== "YES" ? (
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>Oops! You missed this Event</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-green-600">
