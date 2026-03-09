@@ -99,15 +99,30 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         );
       });
     } else {
-      // Add kids
-      kidIds.forEach((kid) => {
+      // ✅ FIX: Fetch kid profiles and add complete attendance records
+      const baseFee = Number(eventData.fee || 0);
+      
+      // Fetch kid profiles to get names
+      const kidRefs = kidIds.map((kid) => adminDb.collection("kids_profiles").doc(kid));
+      const kidSnaps = kidRefs.length > 0 ? await adminDb.getAll(...kidRefs) : [];
+      
+      // Add kids with all required fields
+      kidSnaps.forEach((snap, idx) => {
+        const kid = kidIds[idx];
+        const kidData: any = snap.data() || {};
+        
         const kidRef = eventRef.collection("kids_attendance").doc(kid);
         batch.set(
           kidRef,
           {
             kid_id: kid,
+            name: String(kidData.name || "Unknown Kid"),  // ✅ Add name
             attending: true,
+            attended: true,                                 // ✅ Admin confirms attendance by adding
+            fee_due: baseFee,                              // ✅ Add base fee
+            payment_status: "unpaid",                      // ✅ Initialize payment status
             marked_at: new Date(),
+            updated_at: adminTs.now(),
           },
           { merge: true }
         );
