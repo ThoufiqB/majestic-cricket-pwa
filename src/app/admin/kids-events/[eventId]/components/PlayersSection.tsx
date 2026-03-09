@@ -67,7 +67,7 @@ export function PlayersSection(p: Props) {
               return (
                 <tr key={r.player_id} className={r.attended ? "bg-accent/5" : ""}>
                   <td className="px-3 py-2 whitespace-normal sm:whitespace-nowrap">
-                    <span className="font-medium">{r.name}</span>
+                    <span className="font-medium">{r.name || r.full_name || "Unknown"}</span>
                     {hasDiscount && (
                       <Badge className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200" title="Discounted">
                         %
@@ -120,7 +120,7 @@ export function PlayersSection(p: Props) {
                           className="inline-flex items-center px-2 py-1 rounded border text-xs font-medium transition-colors bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
                           disabled={savingThis}
                           title="Remove from event"
-                          onClick={() => p.onDeleteAttendee!(r.player_id, r.name)}
+                          onClick={() => p.onDeleteAttendee!(r.player_id, r.name || r.full_name || "Unknown")}
                         >
                           🗑️ Remove
                         </button>
