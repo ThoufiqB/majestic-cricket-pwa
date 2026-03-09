@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { calculateEventFee } from "@/lib/calculateFee";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 /**
  * POST /api/admin/events/{eventId}/add-players
@@ -58,15 +60,39 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // Begin batch update
     const batch = adminDb.batch();
     if (!isKidsEvent) {
-      // Add adult players
-      playerIds.forEach((pid) => {
+      // ✅ FIX: Fetch player data and calculate discounted fees
+      const baseFee = Number(eventData.fee || 0);
+      const eventTargetGroups: string[] = Array.isArray(eventData.targetGroups) ? eventData.targetGroups : [];
+      
+      // Fetch all player documents in parallel
+      const playerRefs = playerIds.map((pid) => adminDb.collection("players").doc(pid));
+      const playerSnaps = playerRefs.length > 0 ? await adminDb.getAll(...playerRefs) : [];
+      
+      // Add adult players with calculated fees
+      playerSnaps.forEach((snap, idx) => {
+        const pid = playerIds[idx];
+        const playerData: any = snap.data() || {};
+        
+        // Get player's groups and member type for discount calculation
+        const playerGroups = Array.isArray(playerData.groups) ? playerData.groups : [];
+        const memberType = playerData.member_type;
+        const category = deriveCategory(playerData.gender, playerData.hasPaymentManager, playerData.group, playerData.groups);
+        
+        // Calculate discounted fee (youth/student discount)
+        const fee_due = calculateEventFee(baseFee, memberType, playerGroups, eventTargetGroups);
+        
         const attendeeRef = eventRef.collection("attendees").doc(pid);
         batch.set(
           attendeeRef,
           {
             player_id: pid,
+            name: String(playerData.name || ""),
+            email: String(playerData.email || ""),
+            category,
+            groups: playerGroups,
             attending: "YES",
             attended: true,
+            fee_due, // ✅ Store calculated discounted fee
             updated_at: adminTs.now(),
           },
           { merge: true }
