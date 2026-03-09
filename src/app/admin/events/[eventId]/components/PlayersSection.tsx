@@ -74,7 +74,7 @@ export function PlayersSection(p: Props) {
                     )}
                   </td>
                   <td className="px-2 py-1 text-center">
-                    <label className="inline-flex items-center cursor-pointer">
+                    <label className="inline-flex items-center justify-center cursor-pointer">
                       <input
                         type="checkbox"
                         className="form-checkbox h-4 w-4 text-green-600"
@@ -83,7 +83,6 @@ export function PlayersSection(p: Props) {
                         onChange={() => p.onToggleAttended(r.player_id, !r.attended)}
                         title={!attendingYes ? "Only enabled when attending=YES" : "Toggle attendance"}
                       />
-                      <span className={`ml-2 text-xs font-medium ${r.attended ? "text-green-700" : "text-muted-foreground"}`}>{r.attended ? "Yes" : "No"}</span>
                     </label>
                   </td>
                   <td className="px-3 py-2 text-center">

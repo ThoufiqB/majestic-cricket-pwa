@@ -14,6 +14,7 @@ import {
   Clock,
   AlertCircle
 } from "lucide-react";
+import { formatEventDateTime } from "@/lib/dateTimeFormat";
 import { EVENT_TYPE_LABEL } from "../constants";
 import type { EventRow } from "../services";
 import { WhatsAppPopup } from "./WhatsAppPopup";
@@ -119,7 +120,7 @@ export function EventCard(p: Props) {
               <Clock className="h-4 w-4" />
               {ev.event_type === "membership_fee"
                 ? p.formatMembershipSubtitle(ev)
-                : new Date(ev.starts_at).toLocaleString()}
+                : formatEventDateTime(ev.starts_at)}
             </p>
 
             {/* Stats Row */}

@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { EventInfo, Totals } from "../types";
+import { formatEventDateTime } from "@/lib/dateTimeFormat";
 
 type Props = {
   eventId: string;
@@ -78,21 +79,14 @@ export function EventSummaryCard({
   saving,
   onBulkMarkAttendedYes,
 }: Props) {
-  const startsAt = event.starts_at ? new Date(event.starts_at) : null;
-  const dateLabel = startsAt
-    ? startsAt.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+  const dateLabel = event.starts_at
+    ? formatEventDateTime(event.starts_at)
     : "No start time";
   const fee = Number(event.fee ?? 0);
 
   return (
     <Card className="mb-2">
-      <CardContent className="pt-2 pb-2 px-3 overflow-x-auto">
+      <CardContent className="space-y-4">
         <div className="flex flex-col gap-2">
           {/* Group badge top left, then event header: title and price */}
           <div className="flex flex-col w-full min-w-0">

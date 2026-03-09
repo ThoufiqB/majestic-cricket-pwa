@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Baby, Calendar, Clock, Loader2, CheckCircle2, Lightbulb } from "lucide-react";
 import type { EventInfo, Totals } from "../types";
 import { money } from "../helpers";
+import { formatEventDateTime } from "@/lib/dateTimeFormat";
 
 type Props = {
   event: EventInfo | null;
@@ -37,7 +38,7 @@ export function EventSummaryCard(p: Props) {
             </h2>
             <span className="text-xs text-muted-foreground font-normal mt-0.5 inline-flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              {new Date(p.event.starts_at).toLocaleString()}
+              {formatEventDateTime(p.event.starts_at)}
             </span>
           </div>
           <span className="font-bold text-base text-blue-600 whitespace-nowrap">

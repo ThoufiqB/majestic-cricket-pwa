@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { formatEventDateTime } from "@/lib/dateTimeFormat";
 import { useManageEvents } from "../useManageEvents";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -30,7 +31,7 @@ export function RequestsSection() {
       return {
         ...req,
         evTitle: String(ev?.title || "Unknown Event"),
-        evWhen: d ? d.toLocaleString() : "",
+        evWhen: ev?.starts_at ? formatEventDateTime(ev.starts_at) : "",
         evMonthLabel: monthLabel,
         evGroupLabel: String(groupLabel || "all"),
       };
