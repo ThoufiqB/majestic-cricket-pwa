@@ -13,6 +13,7 @@ type Props = {
 
   onToggleAttended: (playerId: string, attended: boolean) => void;
   onSetPaidStatus: (playerId: string, status: PaidStatus) => void;
+  onDeleteAttendee?: (playerId: string, playerName: string) => void;
 };
 
 export function PlayersSection(p: Props) {
@@ -103,6 +104,16 @@ export function PlayersSection(p: Props) {
                       >
                         <XCircle className="h-4 w-4 mr-1" /> Reject
                       </button>
+                      {p.onDeleteAttendee && (
+                        <button
+                          className="inline-flex items-center px-2 py-1 rounded border text-xs font-medium transition-colors bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                          disabled={savingThis}
+                          title="Remove from event"
+                          onClick={() => p.onDeleteAttendee!(r.player_id, r.name)}
+                        >
+                          🗑️ Remove
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="px-3 py-2 text-center">{statusBadge}</td>
