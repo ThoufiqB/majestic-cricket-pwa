@@ -92,7 +92,7 @@ export function PlayersSection(p: Props) {
                   <td className="px-3 py-2 text-center">
                     <div className="flex items-center justify-center gap-2 flex-wrap">
                       <button
-                        className={`inline-flex items-center px-2 py-1 rounded border text-xs font-medium transition-colors ${
+                        className={`inline-flex items-center justify-center p-2 rounded border transition-colors ${
                           r.paid_status === "PENDING" && r.attended 
                             ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200" 
                             : "opacity-50 cursor-not-allowed"
@@ -101,10 +101,10 @@ export function PlayersSection(p: Props) {
                         title={r.paid_status !== "PENDING" ? "Waiting for payment to be marked" : "Confirm payment"}
                         onClick={() => p.onSetPaidStatus(r.player_id, "PAID")}
                       >
-                        <CheckCircle2 className="h-4 w-4 mr-1" /> Confirm
+                        <CheckCircle2 className="h-5 w-5" />
                       </button>
                       <button
-                        className={`inline-flex items-center px-2 py-1 rounded border text-xs font-medium transition-colors ${
+                        className={`inline-flex items-center justify-center p-2 rounded border transition-colors ${
                           r.paid_status === "PENDING" && r.attended 
                             ? "bg-red-50 hover:bg-red-100 text-red-700 border-red-200" 
                             : "opacity-50 cursor-not-allowed"
@@ -113,16 +113,16 @@ export function PlayersSection(p: Props) {
                         title={r.paid_status !== "PENDING" ? "Waiting for payment to be marked" : "Reject payment"}
                         onClick={() => p.onSetPaidStatus(r.player_id, "REJECTED")}
                       >
-                        <XCircle className="h-4 w-4 mr-1" /> Reject
+                        <XCircle className="h-5 w-5" />
                       </button>
                       {p.onDeleteAttendee && (
                         <button
-                          className="inline-flex items-center px-2 py-1 rounded border text-xs font-medium transition-colors bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                          className="inline-flex items-center justify-center p-2 rounded border transition-colors bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
                           disabled={savingThis}
                           title="Remove from event"
                           onClick={() => p.onDeleteAttendee!(r.player_id, r.name || r.full_name || "Unknown")}
                         >
-                          🗑️ Remove
+                          <span className="text-base">🗑️</span>
                         </button>
                       )}
                     </div>
