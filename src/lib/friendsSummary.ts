@@ -7,92 +7,94 @@ function normAttending(v: any) {
   return "UNKNOWN";
 }
 
-export async function getFriendsSummaryForEvent(event: any) {
+/**
+ * Returns a lean summary of YES-count per target group for an event.
+ * Only used for the summary line displayed on each event card (pre-loaded with the events list).
+ * Full modal data (incl. absent) is fetched on-demand by FriendsGoingModal itself.
+ *
+ * Returns: Record<string, { yes: number }>
+ * e.g.  { "Men": { yes: 9 }, "U-15": { yes: 4 } }
+ */
+export async function getFriendsSummaryForEvent(
+  event: any
+): Promise<Record<string, { yes: number }> | undefined> {
   if (!event) return undefined;
+
+  const eventId = event.event_id || event.id;
+  if (!eventId) return undefined;
+
+  const eventTargetGroups: string[] = Array.isArray(event.targetGroups)
+    ? event.targetGroups
+    : [];
+
+  // ── Kids events ────────────────────────────────────────────────────────────
   if (event.kids_event) {
-    // For kids events, get kids attendance with names
-    const kidsAttendanceSnap = await adminDb
+    const kidsSnap = await adminDb
       .collection("events")
-      .doc(event.event_id)
+      .doc(eventId)
       .collection("kids_attendance")
       .get();
 
-    const kidsYesList: { kid_id: string; name: string }[] = [];
-    let totalKids = 0;
-
-    for (const doc of kidsAttendanceSnap.docs) {
-      const data = doc.data();
-      totalKids++;
-      const attending = normAttending(data.attending);
-      if (attending === "YES") {
-        const kidId = doc.id;
-        // Get kid's name from kids_profiles
-        const kidSnap = await adminDb.collection("kids_profiles").doc(kidId).get();
-        const kidData = kidSnap.data();
-        const kidName = kidData?.name || "Unknown Kid";
-        kidsYesList.push({ kid_id: kidId, name: kidName });
-      }
+    let kidsYes = 0;
+    for (const doc of kidsSnap.docs) {
+      if (normAttending(doc.data().attending) === "YES") kidsYes++;
     }
-
-    return {
-      kids: { yes: kidsYesList.length, total: totalKids, people: kidsYesList },
-    };
-  } else {
-    // Adult events - categorize ALL attendees (no filtering - already filtered when marking attendance)
-    const attendeesSnap = await adminDb
-      .collection("events")
-      .doc(event.event_id)
-      .collection("attendees")
-      .get();
-
-    const menYesList: { player_id: string; name: string }[] = [];
-    const womenYesList: { player_id: string; name: string }[] = [];
-    const juniorsYesList: { player_id: string; name: string }[] = [];
-    let totalMen = 0;
-    let totalWomen = 0;
-    let totalJuniors = 0;
-
-    for (const doc of attendeesSnap.docs) {
-      const data = doc.data();
-      const attending = normAttending(data.attending);
-      const playerId = doc.id;
-      
-      // Get player data
-      const playerSnap = await adminDb.collection("players").doc(playerId).get();
-      const playerData = playerSnap.data();
-      const playerName = playerData?.name || "Unknown Player";
-      
-      // Derive category (men/women/juniors)
-      const playerCategory = deriveCategory(
-        playerData?.gender,
-        playerData?.hasPaymentManager,
-        undefined,
-        playerData?.groups
-      );
-
-      // Categorize and count (NO filtering - attendees are pre-filtered!)
-      if (playerCategory === "men") {
-        totalMen++;
-        if (attending === "YES") {
-          menYesList.push({ player_id: playerId, name: playerName });
-        }
-      } else if (playerCategory === "women") {
-        totalWomen++;
-        if (attending === "YES") {
-          womenYesList.push({ player_id: playerId, name: playerName });
-        }
-      } else if (playerCategory === "juniors") {
-        totalJuniors++;
-        if (attending === "YES") {
-          juniorsYesList.push({ player_id: playerId, name: playerName });
-        }
-      }
-    }
-
-    return {
-      men: { yes: menYesList.length, total: totalMen, people: menYesList },
-      women: { yes: womenYesList.length, total: totalWomen, people: womenYesList },
-      juniors: { yes: juniorsYesList.length, total: totalJuniors, people: juniorsYesList },
-    };
+    return { Kids: { yes: kidsYes } };
   }
+
+  // ── Adult events ───────────────────────────────────────────────────────────
+  const attSnap = await adminDb
+    .collection("events")
+    .doc(eventId)
+    .collection("attendees")
+    .get();
+
+  // Initialise result buckets
+  const result: Record<string, { yes: number }> =
+    eventTargetGroups.length > 0
+      ? Object.fromEntries(eventTargetGroups.map((tg) => [tg, { yes: 0 }]))
+      : { Men: { yes: 0 }, Women: { yes: 0 } };
+
+  if (attSnap.empty) return result;
+
+  // Batch-fetch player docs (avoids N+1 queries)
+  const attendeeIds = attSnap.docs.map((d) => d.id);
+  const playerRefs = attendeeIds.map((id) =>
+    adminDb.collection("players").doc(id)
+  );
+  const playerSnaps = await adminDb.getAll(...playerRefs);
+
+  const playersById = new Map<string, any>();
+  playerSnaps.forEach((snap) => {
+    if (snap.exists) playersById.set(snap.id, snap.data());
+  });
+
+  for (const doc of attSnap.docs) {
+    if (normAttending(doc.data().attending) !== "YES") continue;
+
+    const pd = playersById.get(doc.id);
+    if (!pd) continue;
+
+    if (eventTargetGroups.length > 0) {
+      const playerGroups: string[] = Array.isArray(pd.groups) ? pd.groups : [];
+      for (const tg of eventTargetGroups) {
+        if (playerGroups.includes(tg)) {
+          result[tg].yes += 1;
+        }
+      }
+    } else {
+      // Legacy fallback — derive from gender/group
+      const category = deriveCategory(
+        pd.gender,
+        pd.hasPaymentManager,
+        pd.group,
+        pd.groups
+      );
+      const bucket = category === "women" ? "Women" : "Men";
+      if (result[bucket]) result[bucket].yes += 1;
+    }
+  }
+
+  return result;
 }
+

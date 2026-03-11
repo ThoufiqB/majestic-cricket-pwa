@@ -17,7 +17,8 @@ type Props = {
 
   selectedYear: number;
 
-  friendsSummary?: { men: { yes: number; total: number }; women: { yes: number; total: number } };
+  /** Pre-loaded YES counts per target group — e.g. { "Men": { yes: 9 }, "U-15": { yes: 4 } } */
+  friendsSummary?: Record<string, { yes: number }>;
   onOpenFriends: () => void;
 
   onMarkAttendingYes: () => void;
@@ -252,9 +253,11 @@ export function EventCard(p: Props) {
                 <Users className="h-4 w-4 mr-1" />
                 Friends Going
               </Button>
-              {p.friendsSummary ? (
+              {p.friendsSummary && Object.keys(p.friendsSummary).length > 0 ? (
                 <span className="text-sm text-muted-foreground">
-                  Men {p.friendsSummary.men.yes}/{p.friendsSummary.men.total} • Women {p.friendsSummary.women.yes}/{p.friendsSummary.women.total}
+                  {Object.entries(p.friendsSummary)
+                    .map(([grp, data]) => `${grp}(${data.yes})`)
+                    .join(" • ")}
                 </span>
               ) : (
                 <span className="text-sm text-muted-foreground">Tap to view</span>

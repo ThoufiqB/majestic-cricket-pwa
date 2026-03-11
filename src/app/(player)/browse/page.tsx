@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CalendarDays, MapPin, Clock, Users, Check, X } from "lucide-react";
-import type { HomeEvent as HomeEventType, FriendsGoing } from "@/app/home/types";
+import type { HomeEvent as HomeEventType } from "@/app/home/types";
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
 import { apiGet, apiPost } from "@/app/client/api";
 import { toast } from "sonner";
@@ -29,7 +29,8 @@ import { calculateEventFee } from "@/lib/calculateFee";
 
 type HomeEvent = HomeEventType & {
   location?: string;
-  friendsSummary?: FriendsGoing;
+  /** Pre-loaded YES counts per target group — e.g. { Men: { yes: 9 }, 'U-15': { yes: 4 } } */
+  friendsSummary?: Record<string, { yes: number }>;
 };
 
 function buildMonthOptions(count: number) {
@@ -436,7 +437,7 @@ export default function BrowsePage() {
                         </div>
                       )}
 
-                      {event.friendsSummary && (
+                      {event.friendsSummary && Object.keys(event.friendsSummary).length > 0 && (
                         <button
                           type="button"
                           className="flex items-center gap-2 text-xs text-blue-700 mb-1 mt-1 hover:underline focus:outline-none"
@@ -444,34 +445,9 @@ export default function BrowsePage() {
                           title="Show Friends Going"
                         >
                           <Users className="h-3.5 w-3.5 mr-1" />
-                          {event.kids_event ? (
-                            <span>
-                              Kids {event.friendsSummary.kids?.yes || 0}/
-                              {event.friendsSummary.kids?.total || 0}
-                            </span>
-                          ) : (
-                            <>
-                              {(event.group === "men" || event.group === "all") &&
-                                event.friendsSummary.men && (
-                                  <span>
-                                    Men {event.friendsSummary.men.yes}/
-                                    {event.friendsSummary.men.total}
-                                  </span>
-                                )}
-
-                              {event.group === "all" &&
-                                event.friendsSummary.men &&
-                                event.friendsSummary.women && <span> • </span>}
-
-                              {(event.group === "women" || event.group === "all") &&
-                                event.friendsSummary.women && (
-                                  <span>
-                                    Women {event.friendsSummary.women.yes}/
-                                    {event.friendsSummary.women.total}
-                                  </span>
-                                )}
-                            </>
-                          )}
+                          {Object.entries(event.friendsSummary)
+                            .map(([grp, data]) => `${grp}(${data.yes})`)
+                            .join(" • ")}
                         </button>
                       )}
                     </div>
@@ -520,16 +496,7 @@ export default function BrowsePage() {
 
       <FriendsGoingModal
         openEventId={openFriendsEventId}
-        me={me}
-        events={events as any}
-        modalData={
-          openFriendsEventId
-            ? (events.find((ev) => ev.event_id === openFriendsEventId)
-                ?.friendsSummary as FriendsGoing) || null
-            : null
-        }
-        loading={false}
-        err=""
+        events={events as any[]}
         onClose={() => setOpenFriendsEventId(null)}
       />
     </div>
