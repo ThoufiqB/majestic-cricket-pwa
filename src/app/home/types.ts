@@ -1,3 +1,17 @@
+// Lean per-group attendance count embedded in each event (pre-loaded with the events list)
+export type FriendsSummary = Record<string, { yes: number }>;
+
+// Full modal data fetched on-demand when the Friends Going modal is opened
+export type GroupAttendance = {
+  yes: number;
+  people: { player_id: string; name: string }[];
+};
+
+export type FriendsGoing = {
+  groups: Record<string, GroupAttendance>;
+  absent: { player_id: string; name: string }[];
+};
+
 export type HomeEvent = {
   event_id: string;
   title: string;
@@ -9,19 +23,14 @@ export type HomeEvent = {
   year?: number;
   kids_event?: boolean;
   targetGroups?: string[];
+  /** Pre-loaded YES counts per target group — used for the summary line on each event card */
+  friendsSummary?: FriendsSummary;
   my?: {
     attending: "YES" | "NO" | "UNKNOWN";
     attended: boolean;
     paid_status: "PAID" | "UNPAID" | "PENDING" | "REJECTED";
     fee_due?: number | string;
   };
-};
-
-export type FriendsGoing = {
-  men?: { yes: number; total: number; people: { player_id: string; name: string }[] };
-  women?: { yes: number; total: number; people: { player_id: string; name: string }[] };
-  kids?: { yes: number; total: number; people: { player_id: string; name: string }[] };
-  juniors?: { yes: number; total: number; people: { player_id: string; name: string }[] };
 };
 
 export type PaymentRecord = {

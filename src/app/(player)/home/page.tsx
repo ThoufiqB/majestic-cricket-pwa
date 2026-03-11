@@ -52,12 +52,8 @@ type DashboardEvent = {
   group?: string;
   targetGroups?: string[];
   kids_event?: boolean;
-  friendsSummary?: {
-    men?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
-    women?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
-    kids?: { yes: number; total: number; people?: { kid_id: string; name: string }[] };
-    juniors?: { yes: number; total: number; people?: { player_id: string; name: string }[] };
-  };
+  /** Pre-loaded YES counts per target group — e.g. { Men: { yes: 9 }, 'U-15': { yes: 4 } } */
+  friendsSummary?: Record<string, { yes: number }>;
   my: {
     attending: "YES" | "NO" | "UNKNOWN";
     attended: boolean;
@@ -791,7 +787,7 @@ export default function PlayerHomePage() {
                 })()}
               </div>
 
-              {displayedEvent.friendsSummary && (
+              {displayedEvent.friendsSummary && Object.keys(displayedEvent.friendsSummary).length > 0 && (
                 <>
                   <Separator className="mt-4" />
                   <div className="flex items-center justify-between pt-4">
@@ -804,34 +800,9 @@ export default function PlayerHomePage() {
                       Friends Going
                     </Button>
                     <span className="text-sm text-muted-foreground">
-                      {displayedEvent.kids_event ? (
-                        <>
-                          Kids {displayedEvent.friendsSummary.kids?.yes || 0}/{displayedEvent.friendsSummary.kids?.total || 0}
-                        </>
-                      ) : (
-                        <>
-                          {displayedEvent.friendsSummary.men && (
-                            <span>
-                              Men {displayedEvent.friendsSummary.men.yes}/{displayedEvent.friendsSummary.men.total}
-                            </span>
-                          )}
-                          {displayedEvent.friendsSummary.men &&
-                            displayedEvent.friendsSummary.women && <span> • </span>}
-                          {displayedEvent.friendsSummary.women && (
-                              <span>
-                                Women {displayedEvent.friendsSummary.women.yes}/{displayedEvent.friendsSummary.women.total}
-                              </span>
-                            )}
-                          {displayedEvent.friendsSummary.juniors && displayedEvent.friendsSummary.juniors.total > 0 && (
-                            <>
-                              <span> • </span>
-                              <span>
-                                Youth {displayedEvent.friendsSummary.juniors.yes}/{displayedEvent.friendsSummary.juniors.total}
-                              </span>
-                            </>
-                          )}
-                        </>
-                      )}
+                      {Object.entries(displayedEvent.friendsSummary)
+                        .map(([grp, data]) => `${grp}(${data.yes})`)
+                        .join(" • ")}
                     </span>
                   </div>
                 </>
@@ -983,16 +954,7 @@ export default function PlayerHomePage() {
 
       <FriendsGoingModal
         openEventId={openFriendsEventId}
-        me={me}
         events={upcomingEvents as any[]}
-        modalData={
-          (() => {
-            const event = upcomingEvents.find(e => e.event_id === openFriendsEventId);
-            return (event?.friendsSummary as any) || null;
-          })()
-        }
-        loading={false}
-        err=""
         onClose={() => setOpenFriendsEventId(null)}
       />
     </div>

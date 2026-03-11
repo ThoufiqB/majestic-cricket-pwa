@@ -13,7 +13,7 @@ type Props = {
   selectedYear: number;
   selectedMonth: string;
 
-  friendsCache: Record<string, FriendsGoing>;
+  friendsCache?: Record<string, FriendsGoing>;
   onOpenFriends: (eventId: string) => void;
 
   onMarkAttending: (eventId: string, attending: "YES" | "NO") => void;
@@ -53,15 +53,8 @@ export function EventListCard(p: Props) {
         ) : (
           <div className="space-y-4">
             {p.events.map((ev) => {
-              const fg = p.friendsCache[ev.event_id];
-              const isKidsEvent = ev.kids_event === true;
-              const friendsSummary =
-                fg && !isKidsEvent
-                  ? {
-                      men: { yes: fg.men?.yes || 0, total: fg.men?.total || 0 },
-                      women: { yes: fg.women?.yes || 0, total: fg.women?.total || 0 },
-                    }
-                  : undefined;
+              // Use pre-loaded friendsSummary from the event object (Record<string, { yes: number }>)
+              const friendsSummary = ev.friendsSummary;
 
               return (
                 <EventCard

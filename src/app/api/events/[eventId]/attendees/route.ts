@@ -58,11 +58,12 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       kids.sort((a, b) => a.name.localeCompare(b.name));
       
       return NextResponse.json({
-        kids: { yes: kids.length, total: kids.length, people: kids }
+        groups: { Kids: { yes: kids.length, people: kids } },
+        absent: [],
       });
     }
 
-    // For adult events, fetch active players and group by men/women
+    // For adult events, load all active players into a Map for fast lookup
     const activeById = new Map<string, any>();
     const playersSnap = await adminDb.collection("players").get();
     playersSnap.docs.forEach((d) => {
@@ -74,56 +75,83 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     const attSnap = await adminDb.collection("events").doc(id).collection("attendees").get();
 
-    const out = {
-      men: { yes: 0, total: 0, people: [] as { player_id: string; name: string }[] },
-      women: { yes: 0, total: 0, people: [] as { player_id: string; name: string }[] },
-    };
+    // Dynamic group buckets — one per event targetGroup
+    const groups: Record<string, { yes: number; people: { player_id: string; name: string }[] }> = {};
+    const absent: { player_id: string; name: string }[] = [];
 
-    // totals are based on eligible players for that event
-    for (const [pid, pd] of activeById.entries()) {
-      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group, pd.groups);
-      if (category !== "men" && category !== "women") continue;
+    if (eventTargetGroups.length > 0) {
+      // Modern events: bucket by each targetGroup
+      for (const tg of eventTargetGroups) {
+        groups[tg] = { yes: 0, people: [] };
+      }
 
-      // Check if player's groups intersect with event's targetGroups
-      const playerGroups = Array.isArray(pd.groups) ? pd.groups : [];
-      const hasMatchingGroup = eventTargetGroups.length === 0 || 
-        playerGroups.some((pg: string) => eventTargetGroups.includes(pg));
+      attSnap.docs.forEach((d) => {
+        const a: any = d.data() || {};
+        const pid = d.id;
+        const pd = activeById.get(pid);
+        if (!pd) return;
 
-      if (!hasMatchingGroup) continue;
-      out[category as "men" | "women"].total += 1;
+        const attending = String(a.attending || "").toUpperCase();
+        if (attending !== "YES" && attending !== "NO") return;
+
+        const playerGroups = Array.isArray(pd.groups) ? pd.groups : [];
+        const matchingTargetGroups = eventTargetGroups.filter((tg: string) => playerGroups.includes(tg));
+        if (matchingTargetGroups.length === 0) return;
+
+        const nm = safeName(a.name) || safeName(pd?.name) || "Unknown";
+
+        if (attending === "YES") {
+          for (const tg of matchingTargetGroups) {
+            groups[tg].yes += 1;
+            groups[tg].people.push({ player_id: pid, name: nm });
+          }
+        } else {
+          // NO — flat absent list (one entry per player regardless of group count)
+          if (!absent.some((x) => x.player_id === pid)) {
+            absent.push({ player_id: pid, name: nm });
+          }
+        }
+      });
+
+      // Stable ordering per group
+      for (const tg of eventTargetGroups) {
+        groups[tg].people.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    } else {
+      // Legacy events (no targetGroups): fallback to deriveCategory Men/Women buckets
+      groups["Men"] = { yes: 0, people: [] };
+      groups["Women"] = { yes: 0, people: [] };
+
+      attSnap.docs.forEach((d) => {
+        const a: any = d.data() || {};
+        const pid = d.id;
+        const pd = activeById.get(pid);
+        if (!pd) return;
+
+        const attending = String(a.attending || "").toUpperCase();
+        if (attending !== "YES" && attending !== "NO") return;
+
+        const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group, pd.groups);
+        const bucketName = category === "women" ? "Women" : "Men";
+        const nm = safeName(a.name) || safeName(pd?.name) || "Unknown";
+
+        if (attending === "YES") {
+          groups[bucketName].yes += 1;
+          groups[bucketName].people.push({ player_id: pid, name: nm });
+        } else {
+          if (!absent.some((x) => x.player_id === pid)) {
+            absent.push({ player_id: pid, name: nm });
+          }
+        }
+      });
+
+      groups["Men"].people.sort((a, b) => a.name.localeCompare(b.name));
+      groups["Women"].people.sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    // YES names are from attendees docs
-    attSnap.docs.forEach((d) => {
-      const a: any = d.data() || {};
-      const pid = d.id;
+    absent.sort((a, b) => a.name.localeCompare(b.name));
 
-      const pd = activeById.get(pid);
-      if (!pd) return;
-
-      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group, pd.groups);
-      if (category !== "men" && category !== "women") return;
-
-      // Check if player's groups intersect with event's targetGroups
-      const playerGroups = Array.isArray(pd.groups) ? pd.groups : [];
-      const hasMatchingGroup = eventTargetGroups.length === 0 || 
-        playerGroups.some((pg: string) => eventTargetGroups.includes(pg));
-
-      if (!hasMatchingGroup) return;
-
-      const attending = String(a.attending || "").toUpperCase();
-      if (attending !== "YES") return;
-
-      const nm = safeName(a.name) || safeName(pd?.name) || "Unknown";
-      out[category as "men" | "women"].yes += 1;
-      out[category as "men" | "women"].people.push({ player_id: pid, name: nm });
-    });
-
-    // stable ordering
-    out.men.people.sort((a, b) => a.name.localeCompare(b.name));
-    out.women.people.sort((a, b) => a.name.localeCompare(b.name));
-
-    return NextResponse.json(out);
+    return NextResponse.json({ groups, absent });
   } catch (e: any) {
     return NextResponse.json({ error: String(e?.message || e) }, { status: 401 });
   }
