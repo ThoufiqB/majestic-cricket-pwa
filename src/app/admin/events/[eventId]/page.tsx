@@ -15,7 +15,7 @@ export default function AdminEventDetailPage() {
   const params = useParams();
   const eventId = String((params as any)?.eventId || "");
 
-  const { needsAuth, err, msg, event, rows, saving, totals, setAttended, setPaidStatus, bulkMarkAttendedYes } =
+  const { needsAuth, err, msg, event, rows, saving, totals, setAttended, setPaidStatus, bulkMarkAttendedYes, deleteAttendee } =
     useAdminEventDetails(eventId);
 
   if (needsAuth) {
@@ -102,6 +102,7 @@ export default function AdminEventDetailPage() {
             saving={saving}
             onToggleAttended={setAttended}
             onSetPaidStatus={setPaidStatus}
+            onDeleteAttendee={deleteAttendee}
           />
         )}
       </div>

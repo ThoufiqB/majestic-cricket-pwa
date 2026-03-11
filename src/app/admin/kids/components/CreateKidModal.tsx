@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import {
@@ -38,27 +38,45 @@ type CreateKidModalProps = {
   error?: string;
 };
 
+const MONTHS = [
+  { value: 1, label: "January" },
+  { value: 2, label: "February" },
+  { value: 3, label: "March" },
+  { value: 4, label: "April" },
+  { value: 5, label: "May" },
+  { value: 6, label: "June" },
+  { value: 7, label: "July" },
+  { value: 8, label: "August" },
+  { value: 9, label: "September" },
+  { value: 10, label: "October" },
+  { value: 11, label: "November" },
+  { value: 12, label: "December" },
+];
+
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: currentYear - 1990 + 1 }, (_, i) => currentYear - i);
+
 export function CreateKidModal(p: CreateKidModalProps) {
   const [parentEmail, setParentEmail] = useState("");
   const [name, setName] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [yearOfBirth, setYearOfBirth] = useState("");
+  const [monthOfBirth, setMonthOfBirth] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState(p.error);
   const [parents, setParents] = useState<Parent[]>([]);
   const [loadingParents, setLoadingParents] = useState(true);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (p.open) {
       setParentEmail("");
       setName("");
-      setDateOfBirth("");
+      setYearOfBirth("");
+      setMonthOfBirth("");
       setErrors({});
       setSubmitError("");
     }
   }, [p.open]);
 
-  // Fetch parent list on mount
   useEffect(() => {
     const fetchParents = async () => {
       try {
@@ -72,41 +90,24 @@ export function CreateKidModal(p: CreateKidModalProps) {
         setLoadingParents(false);
       }
     };
-
-    if (p.open) {
-      fetchParents();
-    }
+    if (p.open) fetchParents();
   }, [p.open]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    if (!parentEmail.trim()) {
-      newErrors.parentEmail = VALIDATION_MESSAGES.PARENT_EMAIL_REQUIRED;
-    }
-
-    if (!name.trim()) {
-      newErrors.name = VALIDATION_MESSAGES.NAME_REQUIRED;
-    } else if (name.length > VALIDATION_RULES.NAME_MAX) {
-      newErrors.name = VALIDATION_MESSAGES.NAME_TOO_LONG;
-    }
-
-    if (!dateOfBirth) {
-      newErrors.dateOfBirth = VALIDATION_MESSAGES.DOB_REQUIRED;
-    } else {
-      try {
-        const dob = new Date(dateOfBirth + "T00:00:00Z");
-        const today = new Date();
-        if (dob > today) {
-          newErrors.dateOfBirth = VALIDATION_MESSAGES.DOB_FUTURE;
-        } else if (dob.getFullYear() < 1900) {
-          newErrors.dateOfBirth = "Date of birth must be after 1900";
-        }
-      } catch {
-        newErrors.dateOfBirth = "Invalid date";
+    if (!parentEmail.trim()) newErrors.parentEmail = VALIDATION_MESSAGES.PARENT_EMAIL_REQUIRED;
+    if (!name.trim()) newErrors.name = VALIDATION_MESSAGES.NAME_REQUIRED;
+    else if (name.length > VALIDATION_RULES.NAME_MAX) newErrors.name = VALIDATION_MESSAGES.NAME_TOO_LONG;
+    if (!yearOfBirth) newErrors.yearOfBirth = VALIDATION_MESSAGES.YEAR_REQUIRED;
+    if (!monthOfBirth) newErrors.monthOfBirth = VALIDATION_MESSAGES.MONTH_REQUIRED;
+    if (yearOfBirth && monthOfBirth) {
+      const y = Number(yearOfBirth);
+      const m = Number(monthOfBirth);
+      const now = new Date();
+      if (y > now.getFullYear() || (y === now.getFullYear() && m > now.getMonth() + 1)) {
+        newErrors.yearOfBirth = VALIDATION_MESSAGES.DOB_FUTURE;
       }
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -114,14 +115,13 @@ export function CreateKidModal(p: CreateKidModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(undefined);
-
     if (!validateForm()) return;
-
     try {
       await p.onSubmit({
         parent_email: parentEmail.toLowerCase().trim(),
         name: name.trim(),
-        date_of_birth: dateOfBirth,
+        yearOfBirth: Number(yearOfBirth),
+        monthOfBirth: Number(monthOfBirth),
       });
     } catch (e: any) {
       setSubmitError(String(e?.message || e));
@@ -142,7 +142,7 @@ export function CreateKidModal(p: CreateKidModalProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Parent Email Dropdown */}
+          {/* Parent Email */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-muted-foreground" />
@@ -167,9 +167,7 @@ export function CreateKidModal(p: CreateKidModalProps) {
                 </SelectContent>
               </Select>
             )}
-            {errors.parentEmail && (
-              <p className="text-sm text-destructive">{errors.parentEmail}</p>
-            )}
+            {errors.parentEmail && <p className="text-sm text-destructive">{errors.parentEmail}</p>}
           </div>
 
           {/* Name */}
@@ -184,43 +182,55 @@ export function CreateKidModal(p: CreateKidModalProps) {
               placeholder="Tommy"
               className={errors.name ? "border-destructive" : ""}
             />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name}</p>
-            )}
+            {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
           </div>
 
-          {/* Date of Birth */}
+          {/* Birth Month + Year */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              Date of Birth *
+              Month &amp; Year of Birth *
             </Label>
-            <Input
-              type="date"
-              value={dateOfBirth}
-              onChange={(e) => setDateOfBirth(e.target.value)}
-              max={new Date().toISOString().split("T")[0]}
-              className={errors.dateOfBirth ? "border-destructive" : ""}
-            />
-            {errors.dateOfBirth && (
-              <p className="text-sm text-destructive">{errors.dateOfBirth}</p>
-            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Select value={monthOfBirth} onValueChange={setMonthOfBirth}>
+                  <SelectTrigger className={errors.monthOfBirth ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS.map((m) => (
+                      <SelectItem key={m.value} value={String(m.value)}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.monthOfBirth && <p className="text-xs text-destructive mt-1">{errors.monthOfBirth}</p>}
+              </div>
+              <div>
+                <Select value={yearOfBirth} onValueChange={setYearOfBirth}>
+                  <SelectTrigger className={errors.yearOfBirth ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {YEARS.map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.yearOfBirth && <p className="text-xs text-destructive mt-1">{errors.yearOfBirth}</p>}
+              </div>
+            </div>
           </div>
 
-          {/* Submit Error */}
           {submitError && (
-            <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-              {submitError}
-            </p>
+            <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{submitError}</p>
           )}
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={p.onClose}
-              disabled={p.isLoading}
-            >
+            <Button type="button" variant="outline" onClick={p.onClose} disabled={p.isLoading}>
               Cancel
             </Button>
             <Button type="submit" disabled={p.isLoading || loadingParents}>

@@ -25,7 +25,7 @@ import type { HomeEvent as HomeEventType, FriendsGoing } from "@/app/home/types"
 import { FriendsGoingModal } from "@/app/home/components/FriendsGoingModal";
 import { apiGet, apiPost } from "@/app/client/api";
 import { toast } from "sonner";
-import { calculateFee } from "@/lib/calculateFee";
+import { calculateEventFee } from "@/lib/calculateFee";
 
 type HomeEvent = HomeEventType & {
   location?: string;
@@ -133,7 +133,15 @@ export default function BrowsePage() {
   const [me, setMe] = useState<any>(null);
   const [events, setEvents] = useState<HomeEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const { activeProfileId, isKidProfile } = useProfile();
+  const { activeProfileId, isKidProfile, linkedYouth } = useProfile();
+
+  // True only for dependent kids (kids_profiles), NOT for linked youth players
+  const isActualKid = !!(me && activeProfileId && (me.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId));
+  const activeLinkedYouth = !isActualKid && activeProfileId
+    ? (me?.linked_youth_profiles || []).find((y: any) => y.player_id === activeProfileId) ?? null
+    : null;
+  const effectiveGroups: string[] = (activeLinkedYouth?.groups || me?.groups || []) as string[];
+  const effectiveMemberType: string | null = activeLinkedYouth?.member_type || me?.member_type || null;
   const [selectedMonth, setSelectedMonth] = useState(
     monthKeyFromDate(new Date())
   );
@@ -149,7 +157,7 @@ export default function BrowsePage() {
     []
   ) as { value: string; label: string }[];
 
-  const eventTypeOptions = isKidProfile
+  const eventTypeOptions = isActualKid
     ? [{ value: "all", label: "All" }, ...KIDS_EVENT_TYPE_OPTIONS]
     : [
         { value: "all", label: "All" },
@@ -201,13 +209,19 @@ export default function BrowsePage() {
     async function loadEvents() {
       if (!me || !activeProfileId) return;
 
-      const isKid = activeProfileId !== me.player_id;
+      // Only route to kids event endpoint for actual dependent kids, not linked youth
+      const isKid = (me.kids_profiles || []).some((k: any) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !isKid && linkedYouth.some((y) => y.player_id === activeProfileId);
       setLoading(true);
 
       try {
         const q = new URLSearchParams();
         q.set("month", selectedMonth);
-        if (isKid) q.set("group", "all_kids");
+        if (isKid) {
+          q.set("group", "all_kids");
+        } else if (isLinkedYouth && activeProfileId) {
+          q.set("linked_youth_id", activeProfileId);
+        }
 
         const data = await apiGet(`/api/events?${q.toString()}`);
         setEvents(data.events || []);
@@ -228,12 +242,15 @@ export default function BrowsePage() {
     if (!me) return;
 
     setMarkingId(eventId);
+    const isLinkedYouthProfile = !isActualKid && linkedYouth.some((y) => y.player_id === activeProfileId);
     try {
-      if (isKidProfile && activeProfileId) {
+      if (isActualKid && activeProfileId) {
         await apiPost(`/api/kids/${activeProfileId}/attendance`, {
           event_id: eventId,
           attending,
         });
+      } else if (isLinkedYouthProfile && activeProfileId) {
+        await apiPost(`/api/events/${eventId}/attending`, { attending, linked_youth_id: activeProfileId });
       } else {
         await apiPost(`/api/events/${eventId}/attending`, { attending });
       }
@@ -464,7 +481,7 @@ export default function BrowsePage() {
                         {getAttendingBadge(myAttending, isPast)}
                         {event.fee > 0 && (
                           <Badge className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-200">
-                            £{calculateFee(event.fee, me?.member_type)}
+                            £{calculateEventFee(event.fee, effectiveMemberType, effectiveGroups, event.targetGroups || [])}
                           </Badge>
                         )}
                       </div>

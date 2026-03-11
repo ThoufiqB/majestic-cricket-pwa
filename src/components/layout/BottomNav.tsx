@@ -15,6 +15,7 @@ import {
   Search,
   TrendingUp,
   Menu,
+  UserCircle,
 } from "lucide-react";
 
 type NavItem = {
@@ -113,7 +114,7 @@ type Props = {
 
 export function BottomNav({ variant, onMoreClick }: Props) {
   const pathname = usePathname();
-  const { isKidProfile } = useProfile();
+  const { isKidProfile, requestCount } = useProfile();
   const { isHidden } = useScrollDirection({ threshold: 50, mobileOnly: true });
 
   // Select nav items based on variant and profile type
@@ -171,8 +172,9 @@ export function BottomNav({ variant, onMoreClick }: Props) {
                 active && "bg-white/20 border-2 border-white text-white font-bold"
               )}
             >
-              {/* Force icons to white (or gold on hover via group-hover) */}
-              <span className="[&>svg]:text-inherit">{item.icon}</span>
+              <span className="relative [&>svg]:text-inherit">
+                {item.icon}
+              </span>
               <span className="text-[10px] font-medium">{item.label}</span>
             </Link>
           );

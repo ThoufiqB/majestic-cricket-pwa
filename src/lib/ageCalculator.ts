@@ -1,4 +1,22 @@
 /**
+ * Calculate age from birth month and year only (no full date — privacy safe).
+ * Accurate to within the current calendar month.
+ *
+ * @param monthOfBirth - Birth month (1 = Jan … 12 = Dec)
+ * @param yearOfBirth  - Birth year (e.g. 2005)
+ * @returns Age in whole years
+ */
+export function calculateAgeFromMonthYear(
+  monthOfBirth: number,
+  yearOfBirth: number
+): number {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-based
+  return currentYear - yearOfBirth - (currentMonth < monthOfBirth ? 1 : 0);
+}
+
+/**
  * Calculate age from birth date
  * @param birthDate - Birth date as Date or null
  * @returns Age in years, or null if birthDate is invalid

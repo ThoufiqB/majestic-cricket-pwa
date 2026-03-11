@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 type Profile = {
   id: string;
   name: string;
-  type: "player" | "kid";
+  type: "player" | "kid" | "youth";
   avatar?: string;
 };
 
@@ -45,23 +45,28 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
 
   // Get profile context
-  const { playerId, playerName, activeProfileId, isKidProfile, kids, setActiveProfileId } = useProfile();
+  const { playerId, playerName, activeProfileId, isKidProfile, kids, linkedYouth, setActiveProfileId } = useProfile();
 
   // Compose currentProfile and profiles for Header
+  // Detect type by checking each list independently — never rely on isKidProfile
+  // because it is true for BOTH kids and linked youth accounts.
   let currentProfile = undefined;
   let profiles: Profile[] = [];
   if (playerId) {
-    if (isKidProfile) {
-      const kid = kids.find((k) => k.kid_id === activeProfileId);
-      if (kid) {
-        currentProfile = { id: kid.kid_id, name: kid.name, type: "kid" as const };
-      }
+    const activeKid = kids.find((k) => k.kid_id === activeProfileId);
+    const activeYouth = linkedYouth.find((y) => y.player_id === activeProfileId);
+
+    if (activeKid) {
+      currentProfile = { id: activeKid.kid_id, name: activeKid.name, type: "kid" as const };
+    } else if (activeYouth) {
+      currentProfile = { id: activeYouth.player_id, name: activeYouth.name, type: "youth" as const };
     } else {
       currentProfile = { id: playerId, name: playerName || "", type: "player" as const };
     }
     profiles = [
       { id: playerId, name: playerName || "", type: "player" },
       ...kids.map((kid) => ({ id: kid.kid_id, name: kid.name, type: "kid" as const })),
+      ...linkedYouth.map((y) => ({ id: y.player_id, name: y.name, type: "youth" as const })),
     ];
   }
 
@@ -73,13 +78,13 @@ export function AppShell({
     return <>{children}</>;
   }
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
-      <div className="flex">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-primary/5 via-background to-accent/5">
+      <div className="flex h-full">
         {/* Sidebar - Desktop only */}
         <Sidebar variant={variant} />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
           {/* Header */}
           {!hideHeader && (
             <Header
@@ -96,7 +101,7 @@ export function AppShell({
           {/* Page Content */}
           <main
             className={cn(
-              "flex-1 w-full mx-auto px-4 py-6",
+              "flex-1 overflow-y-auto w-full mx-auto px-4 py-6",
               // Add bottom padding for mobile nav
               "pb-24 lg:pb-6"
             )}

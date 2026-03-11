@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Clock, Users, CheckCircle, XCircle, AlertCircle, Loader2, PlusCircle } from "lucide-react";
+import { formatEventDateTime } from "@/lib/dateTimeFormat";
 import type { HomeEvent } from "../types";
 import { EVENT_TYPE_LABEL } from "../constants";
 import { isMembershipEvent, paidLabel } from "../helpers";
 import { calculateAge, isAgeInRange, getAgeEligibilityMessage } from "@/lib/ageCalculator";
-import { calculateFee } from "@/lib/calculateFee";
+import { calculateEventFee, isDiscountApplied } from "@/lib/calculateFee";
 
 type Props = {
   ev: HomeEvent;
@@ -31,6 +32,8 @@ type Props = {
   
   /** User's member type for fee calculation */
   userMemberType?: string | null;
+  /** Player's own groups array e.g. ["U-13"] — used for event-aware fee calculation */
+  playerGroups?: string[];
 };
 
 type Attending = "YES" | "NO" | "UNKNOWN";
@@ -103,7 +106,7 @@ export function EventCard(p: Props) {
   const baseFee = Number((ev as any)?.fee || 0);
 
   // Extract target groups for multi-group display
-  const targetGroups = (ev as any)?.targetGroups || [];
+  const targetGroups = ev.targetGroups || [];
   const legacyGroup = (ev as any)?.group;
 
   const dueRaw = (ev as any)?.my_fee_due ?? (ev as any)?.my?.fee_due;
@@ -139,7 +142,7 @@ export function EventCard(p: Props) {
               ) : (
                 <>
                   <Clock className="h-3.5 w-3.5" />
-                  <span>{new Date((ev as any).starts_at).toLocaleString()}</span>
+                  <span>{formatEventDateTime((ev as any).starts_at)}</span>
                   <span>•</span>
                   <Badge variant="secondary">
                     {EVENT_TYPE_LABEL[(ev as any).event_type] || (ev as any).event_type}
@@ -184,11 +187,14 @@ export function EventCard(p: Props) {
         {/* Fee display */}
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold text-primary">
-            £{(showDue ? (due as number) : calculateFee(baseFee, p.userMemberType)).toFixed(2)}
+            £{(showDue
+              ? (due as number)
+              : calculateEventFee(baseFee, p.userMemberType, p.playerGroups || [], targetGroups)
+            ).toFixed(2)}
           </span>
-          {!showDue && p.userMemberType === "student" && baseFee > 0 && (
+          {!showDue && baseFee > 0 && isDiscountApplied(p.userMemberType, p.playerGroups || [], targetGroups) && (
             <span className="text-xs text-green-600 font-medium">
-              Student rate (25% off)
+              Youth / student rate (25% off)
             </span>
           )}
           {showDue && due !== baseFee && (

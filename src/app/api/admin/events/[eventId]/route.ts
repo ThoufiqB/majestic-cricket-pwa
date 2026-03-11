@@ -101,6 +101,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ eventId: 
       patch.starts_at = dt;
     }
 
+    if (body?.targetGroups !== undefined) {
+      const targetGroups = Array.isArray(body.targetGroups) ? body.targetGroups : [];
+      if (targetGroups.length === 0) {
+        return NextResponse.json({ error: "At least one target group required" }, { status: 400 });
+      }
+      const validGroups = ["Men", "Women", "U-13", "U-15", "U-18", "Kids"];
+      const invalidGroups = targetGroups.filter((g: string) => !validGroups.includes(g));
+      if (invalidGroups.length > 0) {
+        return NextResponse.json({ error: `Invalid groups: ${invalidGroups.join(", ")}` }, { status: 400 });
+      }
+      patch.targetGroups = targetGroups;
+      // Update kids_event flag based on whether "Kids" is in targetGroups
+      patch.kids_event = targetGroups.includes("Kids");
+    }
+
     // IMPORTANT: we do NOT touch attendance / paid tracking anywhere here.
     await ref.update(patch);
 

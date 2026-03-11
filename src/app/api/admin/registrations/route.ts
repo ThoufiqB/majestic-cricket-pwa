@@ -169,14 +169,21 @@ export async function GET(req: NextRequest) {
         .slice(0, limit);
       
     } else {
-      // Query registration_requests for pending or rejected
-      let query;
+      // Query registration_requests for the requested status.
+      // When fetching "pending", also include "pending_admin_approval" (youth requests
+      // where the parent has already approved — these are ready for admin action).
+      const statusesToQuery: string[] =
+        statusFilter === "pending"
+          ? ["pending", "pending_admin_approval"]
+          : [statusFilter];
 
-      query = adminDb.collection("registration_requests")
-        .where("status", "==", statusFilter)
-        .limit(limit * 2);
+      // Firestore `in` query supports up to 10 values
+      const snapshot = await adminDb
+        .collection("registration_requests")
+        .where("status", "in", statusesToQuery)
+        .limit(limit * 2)
+        .get();
 
-      const snapshot = await query.get();
       let docs = snapshot.docs;
       
       // Sort client-side when filtering by status
@@ -224,6 +231,7 @@ export async function GET(req: NextRequest) {
           member_type: data.member_type,
           phone: data.phone,
           yearOfBirth: data.yearOfBirth,
+          monthOfBirth: data.monthOfBirth ?? null,
           gender: data.gender,
           hasPaymentManager: data.hasPaymentManager,
           paymentManagerId: data.paymentManagerId,

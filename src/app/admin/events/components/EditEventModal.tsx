@@ -19,9 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Save, Loader2, Calendar, Clock, Banknote, Type } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, Save, Loader2, Calendar, Clock, Banknote, Type, Users, ChevronDown } from "lucide-react";
 import type { EventRow } from "../services";
-import { EVENT_TYPE_LABEL } from "../constants";
+import { EVENT_TYPE_LABEL, ALL_GROUPS } from "../constants";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -55,12 +62,13 @@ export function EditEventModal(props: {
   open: boolean;
   event: EventRow | null;
   onClose: () => void;
-  onSave: (patch: { title: string; fee: number; starts_at: string }) => Promise<void>;
+  onSave: (patch: { title: string; fee: number; starts_at: string; targetGroups: string[] }) => Promise<void>;
 }) {
   const { open, event, onClose, onSave } = props;
 
   const [title, setTitle] = useState("");
   const [fee, setFee] = useState<number>(0);
+  const [targetGroups, setTargetGroups] = useState<string[]>([]);
 
   const [dateStr, setDateStr] = useState("");
   const [hour12, setHour12] = useState<number>(6);
@@ -82,6 +90,10 @@ export function EditEventModal(props: {
 
     setTitle(String(event.title || ""));
     setFee(Number(event.fee || 0));
+    
+    // Initialize targetGroups from event data
+    const eventTargetGroups = Array.isArray(event.targetGroups) ? event.targetGroups : [];
+    setTargetGroups(eventTargetGroups);
 
     const ds = dateStrFromIso(event.starts_at);
     const tp = timePartsFromIso(event.starts_at);
@@ -107,12 +119,18 @@ export function EditEventModal(props: {
     if (!t) return setErr("Event Banner required");
     if (!Number.isFinite(Number(fee)) || Number(fee) < 0) return setErr("Fee must be valid");
     if (!dateStr) return setErr("Date required");
+    
+    // Validate target groups (unless it's a kids event with legacy group)
+    const isKidsEvent = event?.kids_event === true;
+    if (!isKidsEvent && targetGroups.length === 0) {
+      return setErr("Please select at least one target group");
+    }
 
     const starts_at = isoFromDateAndTime(dateStr, hour12, minute, ampm);
 
     setSaving(true);
     try {
-      await onSave({ title: t, fee: Number(fee), starts_at });
+      await onSave({ title: t, fee: Number(fee), starts_at, targetGroups });
       onClose();
     } catch (e: any) {
       setErr(String(e?.message || e));
@@ -158,6 +176,64 @@ export function EditEventModal(props: {
               placeholder="Event title"
             />
           </div>
+
+          {/* Target Groups (only for non-kids events) */}
+          {!event?.kids_event && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                Target Groups *
+              </Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between h-9" disabled={isPast}>
+                    <span className="flex flex-wrap gap-1">
+                      {targetGroups.length === 0 ? (
+                        <span className="text-muted-foreground">Select groups...</span>
+                      ) : (
+                        targetGroups.map((group) => (
+                          <Badge key={group} variant="secondary" className="text-xs">
+                            {group}
+                          </Badge>
+                        ))
+                      )}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="start" 
+                  className="p-2"
+                  style={{ width: 'var(--radix-dropdown-menu-trigger-width)' }}
+                >
+                  <div className="space-y-2">
+                    {ALL_GROUPS.map((group) => (
+                      <div key={group} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit-group-${group}`}
+                          checked={targetGroups.includes(group)}
+                          disabled={isPast}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setTargetGroups([...targetGroups, group]);
+                            } else {
+                              setTargetGroups(targetGroups.filter((g) => g !== group));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`edit-group-${group}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {group}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
 
           {/* Date + Fee Row */}
           <div className="grid grid-cols-2 gap-3">

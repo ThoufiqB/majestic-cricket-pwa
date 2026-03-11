@@ -55,6 +55,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       paidByName = u.name || "Payment Manager";
     }
 
+    // Support parent marking payment on behalf of linked youth
+    const linkedYouthId: string | null = body?.linked_youth_id ? String(body.linked_youth_id) : null;
+    if (linkedYouthId && !paidOnBehalfOf) {
+      const sessionPlayerSnap = await adminDb.collection("players").doc(u.uid).get();
+      const sessionPlayerData = (sessionPlayerSnap.data() || {}) as any;
+      const parentLinkedYouth: string[] = sessionPlayerData.linked_youth || [];
+      if (!parentLinkedYouth.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      targetUserId = linkedYouthId;
+    }
+
     // Player should only be able to set PENDING
     if (paid_status !== "PENDING") {
       return NextResponse.json({ error: "Invalid paid_status" }, { status: 400 });

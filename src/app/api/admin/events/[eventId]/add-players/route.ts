@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { calculateEventFee } from "@/lib/calculateFee";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 /**
  * POST /api/admin/events/{eventId}/add-players
@@ -43,13 +45,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const eventRef = adminDb.collection("events").doc(id);
     const eventSnap = await eventRef.get();
     const eventData: any = eventSnap.data() || {};
-    const isKidsEvent = eventData?.kids_event === true;
-    const isAllKidsGroup = String(eventData?.group || "").toLowerCase() === "all_kids";
+    
+    // Check both old format (kids_event + group="all_kids") and new format (targetGroups includes "Kids")
+    const isKidsEvent = eventData?.kids_event === true || 
+                        (Array.isArray(eventData?.targetGroups) && eventData.targetGroups.includes("Kids"));
+    
     // Validate that provided IDs match event type
-    if (isKidsEvent && !isAllKidsGroup && kidIds.length > 0) {
-      // Kids events should have group all_kids; if not, reject
-      return NextResponse.json({ error: "Cannot add kids to this event" }, { status: 400 });
-    }
     if (!isKidsEvent && kidIds.length > 0) {
       return NextResponse.json({ error: "This event is not a kids event" }, { status: 400 });
     }
@@ -59,30 +60,69 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // Begin batch update
     const batch = adminDb.batch();
     if (!isKidsEvent) {
-      // Add adult players
-      playerIds.forEach((pid) => {
+      // ✅ FIX: Fetch player data and calculate discounted fees
+      const baseFee = Number(eventData.fee || 0);
+      const eventTargetGroups: string[] = Array.isArray(eventData.targetGroups) ? eventData.targetGroups : [];
+      
+      // Fetch all player documents in parallel
+      const playerRefs = playerIds.map((pid) => adminDb.collection("players").doc(pid));
+      const playerSnaps = playerRefs.length > 0 ? await adminDb.getAll(...playerRefs) : [];
+      
+      // Add adult players with calculated fees
+      playerSnaps.forEach((snap, idx) => {
+        const pid = playerIds[idx];
+        const playerData: any = snap.data() || {};
+        
+        // Get player's groups and member type for discount calculation
+        const playerGroups = Array.isArray(playerData.groups) ? playerData.groups : [];
+        const memberType = playerData.member_type;
+        const category = deriveCategory(playerData.gender, playerData.hasPaymentManager, playerData.group, playerData.groups);
+        
+        // Calculate discounted fee (youth/student discount)
+        const fee_due = calculateEventFee(baseFee, memberType, playerGroups, eventTargetGroups);
+        
         const attendeeRef = eventRef.collection("attendees").doc(pid);
         batch.set(
           attendeeRef,
           {
             player_id: pid,
+            name: String(playerData.name || ""),
+            email: String(playerData.email || ""),
+            category,
+            groups: playerGroups,
             attending: "YES",
             attended: true,
+            fee_due, // ✅ Store calculated discounted fee
             updated_at: adminTs.now(),
           },
           { merge: true }
         );
       });
     } else {
-      // Add kids
-      kidIds.forEach((kid) => {
+      // ✅ FIX: Fetch kid profiles and add complete attendance records
+      const baseFee = Number(eventData.fee || 0);
+      
+      // Fetch kid profiles to get names
+      const kidRefs = kidIds.map((kid) => adminDb.collection("kids_profiles").doc(kid));
+      const kidSnaps = kidRefs.length > 0 ? await adminDb.getAll(...kidRefs) : [];
+      
+      // Add kids with all required fields
+      kidSnaps.forEach((snap, idx) => {
+        const kid = kidIds[idx];
+        const kidData: any = snap.data() || {};
+        
         const kidRef = eventRef.collection("kids_attendance").doc(kid);
         batch.set(
           kidRef,
           {
             kid_id: kid,
+            name: String(kidData.name || "Unknown Kid"),  // ✅ Add name
             attending: true,
+            attended: true,                                 // ✅ Admin confirms attendance by adding
+            fee_due: baseFee,                              // ✅ Add base fee
+            payment_status: "unpaid",                      // ✅ Initialize payment status
             marked_at: new Date(),
+            updated_at: adminTs.now(),
           },
           { merge: true }
         );

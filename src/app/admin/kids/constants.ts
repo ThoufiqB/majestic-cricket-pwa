@@ -15,8 +15,9 @@ export const KID_MESSAGES = {
 export const VALIDATION_RULES = {
   NAME_MIN: 1,
   NAME_MAX: 50,
-  DOB_FORMAT: /^\d{4}-\d{2}-\d{2}$/,
   EMAIL_FORMAT: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  YEAR_MIN: 1990,
+  YEAR_MAX: new Date().getFullYear(),
 };
 
 export const VALIDATION_MESSAGES = {
@@ -24,9 +25,11 @@ export const VALIDATION_MESSAGES = {
   PARENT_EMAIL_INVALID: "Please enter a valid email",
   NAME_REQUIRED: "Kid name is required",
   NAME_TOO_LONG: "Name must be 50 characters or less",
-  DOB_REQUIRED: "Date of birth is required",
-  DOB_INVALID: "Please enter date as YYYY-MM-DD",
-  DOB_FUTURE: "Date of birth cannot be in the future",
+  YEAR_REQUIRED: "Birth year is required",
+  YEAR_INVALID: "Please select a valid birth year",
+  MONTH_REQUIRED: "Birth month is required",
+  MONTH_INVALID: "Please select a valid birth month (1–12)",
+  DOB_FUTURE: "Birth year/month cannot be in the future",
 };
 
 export const UI_CONFIG = {

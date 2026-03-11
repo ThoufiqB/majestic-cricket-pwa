@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { EventInfo, PaidStatus, PlayerAttendanceRow, Totals } from "./types";
 import { normalizePaidStatus } from "./helpers";
-import { adminUpdateKidsEventAttendance, getAdminKidsEventAttendance } from "./services";
+import { adminUpdateKidsEventAttendance, getAdminKidsEventAttendance, adminDeleteKidsAttendee } from "./services";
 
 export function useAdminEventDetails(eventId: string) {
   const [err, setErr] = useState<string>("");
@@ -161,6 +161,31 @@ export function useAdminEventDetails(eventId: string) {
     };
   }, [rows, event]);
 
+  const deleteAttendee = useCallback(
+    async (player_id: string, playerName: string) => {
+      const ok = window.confirm(
+        `Remove ${playerName} from this event?\n\nThis will permanently delete their attendance record.`
+      );
+      if (!ok) return;
+
+      setErr("");
+      setMsg("");
+      setSaving(player_id);
+
+      try {
+        await adminDeleteKidsAttendee(eventId, player_id);
+        await load();
+        setMsg(`${playerName} removed successfully ✅`);
+        setTimeout(() => setMsg(""), 2000);
+      } catch (e: any) {
+        setErr(String(e?.message || e));
+      } finally {
+        setSaving("");
+      }
+    },
+    [eventId, load]
+  );
+
   return {
     needsAuth,
     err,
@@ -173,6 +198,7 @@ export function useAdminEventDetails(eventId: string) {
     setAttended,
     setPaidStatus,
     bulkMarkAttendedYes,
+    deleteAttendee,
     setErr,
     setMsg,
   };

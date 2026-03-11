@@ -41,29 +41,48 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const kidId = searchParams.get("kidId"); // Optional: for kid profiles
-    
+    const kidId = searchParams.get("kidId"); // Optional: for dependent kid profiles
+    const linkedYouthId = searchParams.get("linked_youth_id"); // Optional: for linked youth player accounts
+
     const now = new Date();
     const nowIso = now.toISOString();
 
-    // Get user's profile to determine group (prefer 'players', fallback to 'profiles')
+    // Resolve effective UID — session owner, or linked youth when parent switches to them
+    let effectiveUid = user.uid;
+    if (linkedYouthId) {
+      const sessionPlayerSnap = await adminDb.collection("players").doc(user.uid).get();
+      const sessionPlayerData = (sessionPlayerSnap.data() || {}) as any;
+      const parentLinkedYouth: string[] = sessionPlayerData.linked_youth || [];
+      if (!parentLinkedYouth.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      const youthCheck = await adminDb.collection("players").doc(linkedYouthId).get();
+      if (!youthCheck.exists || youthCheck.data()?.status !== "active") {
+        return NextResponse.json({ error: "Youth account not found" }, { status: 404 });
+      }
+      effectiveUid = linkedYouthId;
+    }
+
+    // Get effective player's profile to determine group
     let profileData: { group?: string; gender?: string; hasPaymentManager?: boolean; name?: string; email?: string } = {};
     let userGroup = "men";
-    let playerSnap = await adminDb.collection("players").doc(user.uid).get();
+    let playerSnap = await adminDb.collection("players").doc(effectiveUid).get();
     if (playerSnap.exists) {
       profileData = (playerSnap.data() || {}) as any;
       userGroup = deriveCategory(
         profileData.gender as "Male" | "Female" | undefined, 
         profileData.hasPaymentManager, 
-        profileData.group
+        profileData.group,
+        (profileData as any).groups
       );
     } else {
-      const profileSnap = await adminDb.collection("profiles").doc(user.uid).get();
+      const profileSnap = await adminDb.collection("profiles").doc(effectiveUid).get();
       profileData = (profileSnap.data() || {}) as any;
       userGroup = deriveCategory(
         profileData.gender as "Male" | "Female" | undefined, 
         profileData.hasPaymentManager, 
-        profileData.group
+        profileData.group,
+        (profileData as any).groups
       );
     }
 
@@ -153,7 +172,7 @@ export async function GET(req: NextRequest) {
           .collection("events")
           .doc(doc.id)
           .collection("attendees")
-          .doc(user.uid)
+          .doc(effectiveUid)
           .get();
 
         if (attendanceSnap.exists) {
@@ -214,7 +233,7 @@ export async function GET(req: NextRequest) {
 
       // Get attendance
       const collectionName = kidId ? "kids_attendance" : "attendees";
-      const profileId = kidId || user.uid;
+      const profileId = kidId || effectiveUid;
       
       const attSnap = await adminDb
         .collection("events")
@@ -304,7 +323,8 @@ export async function GET(req: NextRequest) {
           const playerCategory = deriveCategory(
             playerData?.gender,
             playerData?.hasPaymentManager,
-            undefined
+            undefined,
+            playerData?.groups
           );
 
           // Categorize all attendees (no filtering)

@@ -9,6 +9,7 @@ import {
   type EventRow,
 } from "./services";
 import { EVENT_TYPE_LABEL } from "./constants";
+import { formatEventDateTime } from "@/lib/dateTimeFormat";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -62,7 +63,7 @@ function buildWhatsAppText(ev: EventRow) {
     const y = new Date(ev.starts_at).getUTCFullYear();
     line2 = `🗓️ Year ${y} • ${typeLabel}${g ? ` • ${g}` : ""}`;
   } else {
-    line2 = `🗓️ ${new Date(ev.starts_at).toLocaleString()} • ${typeLabel}${g ? ` • ${g}` : ""}`;
+    line2 = `🗓️ ${formatEventDateTime(ev.starts_at)} • ${typeLabel}${g ? ` • ${g}` : ""}`;
   }
   const line3 = `💷 Fee: £${Number(ev.fee || 0).toFixed(2)}`;
   const line5 = `Please mark attendance in the app:\nhttps://www.majestic-foundation.com/`;
@@ -278,7 +279,7 @@ export function useAdminEvents() {
   const closeEdit = useCallback(() => setEditingEvent(null), []);
 
   const saveEdit = useCallback(
-    async (patch: { title: string; fee: number; starts_at: string }) => {
+    async (patch: { title: string; fee: number; starts_at: string; targetGroups: string[] }) => {
       if (!editingEvent) return;
 
       if (editingEvent._is_past) {

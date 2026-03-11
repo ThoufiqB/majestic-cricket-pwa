@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
 import { deriveCategory } from "@/lib/deriveCategory";
+import { calculateEventFee } from "@/lib/calculateFee";
 
 type Ctx = { params: Promise<{ eventId: string }> };
 
@@ -60,24 +61,44 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       }
     }
 
+    // Resolve effective player — support parent acting as linked youth
+    const linkedYouthId: string | null = body?.linked_youth_id ? String(body.linked_youth_id) : null;
+    const parentSnap = await adminDb.collection("players").doc(u.uid).get();
+    const parentData: any = parentSnap.data() || {};
+    let effectiveUid = u.uid;
+
+    if (linkedYouthId) {
+      const parentLinkedYouth: string[] = parentData.linked_youth || [];
+      if (!parentLinkedYouth.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+      const youthCheck = await adminDb.collection("players").doc(linkedYouthId).get();
+      if (!youthCheck.exists || youthCheck.data()?.status !== "active") {
+        return NextResponse.json({ error: "Youth not found" }, { status: 404 });
+      }
+      effectiveUid = linkedYouthId;
+    }
+
     // pull player profile for consistent group/name
-    const meSnap = await adminDb.collection("players").doc(u.uid).get();
+    const meSnap = effectiveUid !== u.uid
+      ? await adminDb.collection("players").doc(effectiveUid).get()
+      : parentSnap;
     const me: any = meSnap.data() || {};
     
     // Derive category from gender + hasPaymentManager
-    const category = deriveCategory(me.gender, me.hasPaymentManager, me.group);
+    const category = deriveCategory(me.gender, me.hasPaymentManager, me.group, me.groups);
     const groups = Array.isArray(me.groups) ? me.groups : [];
 
-    // Calculate fee_due based on member_type (student gets 25% discount)
-    const memberType = String(me.member_type || "standard").toLowerCase();
+    // Calculate fee_due using event-aware pricing rules
     const baseFee = Number(ev.fee || 0);
-    const fee_due = memberType === "student" ? baseFee * 0.75 : baseFee;
+    const eventTargetGroups: string[] = Array.isArray(ev.targetGroups) ? ev.targetGroups : [];
+    const fee_due = calculateEventFee(baseFee, me.member_type, groups, eventTargetGroups);
 
-    const ref = adminDb.collection("events").doc(id).collection("attendees").doc(u.uid);
+    const ref = adminDb.collection("events").doc(id).collection("attendees").doc(effectiveUid);
 
     await ref.set(
       {
-        player_id: u.uid,
+        player_id: effectiveUid,
         name: String(me.name || u.name || ""),
         email: String(me.email || u.email || ""),
         category, // Derived category (men/women/juniors)

@@ -81,7 +81,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     // totals are based on eligible players for that event
     for (const [pid, pd] of activeById.entries()) {
-      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group);
+      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group, pd.groups);
       if (category !== "men" && category !== "women") continue;
 
       // Check if player's groups intersect with event's targetGroups
@@ -101,7 +101,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       const pd = activeById.get(pid);
       if (!pd) return;
 
-      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group);
+      const category = deriveCategory(pd.gender, pd.hasPaymentManager, pd.group, pd.groups);
       if (category !== "men" && category !== "women") return;
 
       // Check if player's groups intersect with event's targetGroups

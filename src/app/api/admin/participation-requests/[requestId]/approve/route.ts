@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminTs } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
+import { calculateEventFee } from "@/lib/calculateFee";
+import { deriveCategory } from "@/lib/deriveCategory";
 
 /**
  * POST /api/admin/participation-requests/{requestId}/approve
@@ -42,6 +44,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const eventId = String(data.event_id);
     const subjectId = String(data.subject_id);
     const type = String(data.type);
+    
+    // ✅ FIX: Fetch event data for fee calculation
+    const eventRef = adminDb.collection("events").doc(eventId);
+    const eventSnap = await eventRef.get();
+    if (!eventSnap.exists) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+    const eventData: any = eventSnap.data() || {};
+    const baseFee = Number(eventData.fee || 0);
+    const eventTargetGroups: string[] = Array.isArray(eventData.targetGroups) ? eventData.targetGroups : [];
+    
     // Approve the request and update attendance.
     // Wrap updates in a batch so that state remains consistent.
     const batch = adminDb.batch();
@@ -51,27 +64,45 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       resolved_at: adminTs.now(),
       resolved_by: u.uid,
     });
-    const eventRef = adminDb.collection("events").doc(eventId);
+    
     if (type === "adult") {
+      // ✅ FIX: Fetch player data and calculate discounted fee
+      const playerSnap = await adminDb.collection("players").doc(subjectId).get();
+      const playerData: any = playerSnap.data() || {};
+      
+      const playerGroups = Array.isArray(playerData.groups) ? playerData.groups : [];
+      const memberType = playerData.member_type;
+      const category = deriveCategory(playerData.gender, playerData.hasPaymentManager, playerData.group, playerData.groups);
+      
+      // Calculate discounted fee (youth/student discount)
+      const fee_due = calculateEventFee(baseFee, memberType, playerGroups, eventTargetGroups);
+      
       const attendeeRef = eventRef.collection("attendees").doc(subjectId);
       batch.set(
         attendeeRef,
         {
           player_id: subjectId,
+          name: String(playerData.name || ""),
+          email: String(playerData.email || ""),
+          category,
+          groups: playerGroups,
           attending: "YES",
           attended: true,
+          fee_due, // ✅ Store calculated discounted fee
           updated_at: adminTs.now(),
         },
         { merge: true }
       );
     } else {
-      // kid
+      // kid - kids events typically have the youth price already set
       const kidRef = eventRef.collection("kids_attendance").doc(subjectId);
       batch.set(
         kidRef,
         {
           kid_id: subjectId,
           attending: true,
+          attended: true,
+          fee_due: baseFee, // Kids events already have youth pricing
           marked_at: new Date(),
         },
         { merge: true }

@@ -94,9 +94,15 @@ export async function POST(
 
     const eventData = eventSnap.data() || {};
     const isKidsEvent = eventData?.kids_event === true;
-    const isAllKidsGroup = String(eventData?.group || "").toLowerCase() === "all_kids";
+    
+    // Support both old and new data models for backward compatibility
+    const legacyGroup = String(eventData?.group || "").toLowerCase() === "all_kids";
+    const hasKidsInTargetGroups = Array.isArray(eventData?.targetGroups) && 
+      eventData.targetGroups.some((g: string) => String(g).toLowerCase() === "kids");
+    
+    const isValidKidsEvent = isKidsEvent && (legacyGroup || hasKidsInTargetGroups);
 
-    if (!isKidsEvent || !isAllKidsGroup) {
+    if (!isValidKidsEvent) {
       return NextResponse.json({ error: "This event is not a kids event" }, { status: 400 });
     }
 

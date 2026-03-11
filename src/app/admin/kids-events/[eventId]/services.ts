@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@/app/client/api";
+import { apiGet, apiPost, apiDelete } from "@/app/client/api";
 import type { EventInfo, PaidStatus, PlayerAttendanceRow } from "./types";
 
 export async function getAdminKidsEventAttendance(
@@ -17,4 +17,11 @@ export async function adminUpdateKidsEventAttendance(
     player_id: playerId,
     ...patch,
   });
+}
+
+export async function adminDeleteKidsAttendee(
+  eventId: string,
+  playerId: string
+) {
+  return apiDelete(`/api/admin/kids-events/${encodeURIComponent(eventId)}/attendees/${encodeURIComponent(playerId)}`);
 }

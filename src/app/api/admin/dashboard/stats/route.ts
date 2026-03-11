@@ -43,7 +43,7 @@ export async function GET() {
 
     playersSnap.docs.forEach((doc) => {
       const data = doc.data();
-      const category = deriveCategory(data.gender, data.hasPaymentManager, data.group);
+      const category = deriveCategory(data.gender, data.hasPaymentManager, data.group, data.groups);
       
       if (category === "men") menCount++;
       else if (category === "women") womenCount++;

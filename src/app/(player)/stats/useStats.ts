@@ -57,7 +57,7 @@ export type PaymentStatsData = {
 };
 
 export function useStats() {
-  const { activeProfileId, playerId, loading: profileLoading } = useProfile();
+  const { activeProfileId, playerId, kids, linkedYouth, loading: profileLoading } = useProfile();
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -79,15 +79,17 @@ export function useStats() {
     setEventStatsError(null);
     
     try {
-      // Only pass profile_id for kid profiles, not for player's own profile
-      const isKid = activeProfileId !== playerId;
-      const url = isKid 
+      const isKid = !!activeProfileId && kids.some((k) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !!activeProfileId && linkedYouth.some((y) => y.player_id === activeProfileId);
+      const url = isKid
         ? `/api/stats/events?profile_id=${activeProfileId}&year=${selectedYear}`
+        : isLinkedYouth
+        ? `/api/stats/events?linked_youth_id=${activeProfileId}&year=${selectedYear}`
         : `/api/stats/events?year=${selectedYear}`;
-      
+
       const data = await apiGet(url);
       setEventStats(data);
-      
+
       // Update available years from response
       if (data.available_years?.length > 0) {
         setAvailableYears(data.available_years);
@@ -98,7 +100,7 @@ export function useStats() {
     } finally {
       setEventStatsLoading(false);
     }
-  }, [activeProfileId, playerId, selectedYear, profileLoading]);
+  }, [activeProfileId, playerId, kids, linkedYouth, selectedYear, profileLoading]);
 
   const fetchPaymentStats = useCallback(async () => {
     if (profileLoading || !activeProfileId) return;
@@ -107,12 +109,14 @@ export function useStats() {
     setPaymentStatsError(null);
     
     try {
-      // Only pass profile_id for kid profiles, not for player's own profile
-      const isKid = activeProfileId !== playerId;
-      const url = isKid 
+      const isKid = !!activeProfileId && kids.some((k) => k.kid_id === activeProfileId);
+      const isLinkedYouth = !!activeProfileId && linkedYouth.some((y) => y.player_id === activeProfileId);
+      const url = isKid
         ? `/api/stats/payments?profile_id=${activeProfileId}&year=${selectedYear}`
+        : isLinkedYouth
+        ? `/api/stats/payments?linked_youth_id=${activeProfileId}&year=${selectedYear}`
         : `/api/stats/payments?year=${selectedYear}`;
-      
+
       const data = await apiGet(url);
       setPaymentStats(data);
     } catch (error: any) {
@@ -121,7 +125,7 @@ export function useStats() {
     } finally {
       setPaymentStatsLoading(false);
     }
-  }, [activeProfileId, selectedYear, profileLoading]);
+  }, [activeProfileId, kids, linkedYouth, selectedYear, profileLoading]);
 
   // Fetch data when profile or year changes
   useEffect(() => {
@@ -155,6 +159,6 @@ export function useStats() {
     
     // Profile info
     activeProfileId,
-    isKidProfile: activeProfileId !== playerId,
+    isKidProfile: !!activeProfileId && (kids.some((k) => k.kid_id === activeProfileId) || linkedYouth.some((y) => y.player_id === activeProfileId)),
   };
 }

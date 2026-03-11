@@ -78,8 +78,11 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
         return;
       }
 
-      // Show selector if user has kids
-      if (Array.isArray(playerWithKids.kids_profiles) && playerWithKids.kids_profiles.length > 0) {
+      // Show selector if user has kids or linked youth
+      if (
+        (Array.isArray(playerWithKids.kids_profiles) && playerWithKids.kids_profiles.length > 0) ||
+        (Array.isArray(playerWithKids.linked_youth_profiles) && playerWithKids.linked_youth_profiles.length > 0)
+      ) {
         setUser(playerWithKids);
         setShowProfileSelector(true);
       } else {
@@ -109,6 +112,7 @@ export default function Login({ onSignedIn }: { onSignedIn: () => void }) {
         playerName={user.name}
         playerEmail={user.email}
         kids={user.kids_profiles || []}
+        linkedYouth={user.linked_youth_profiles || []}
         onSelect={handleSelectProfile}
       />
     );

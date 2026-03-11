@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { requireSessionUser } from "@/lib/requireSession";
 import { handleApiError, badRequest, ok } from "@/app/api/_util";
 import { FieldValue } from "firebase-admin/firestore";
+import { calculateAgeFromMonthYear } from "@/lib/ageCalculator";
 
 function normEmail(s: string) {
   return String(s || "").trim().toLowerCase();
@@ -16,17 +17,6 @@ async function requireAdmin(uid: string) {
   return me;
 }
 
-function calculateAge(dateOfBirth: string): number {
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-}
-
 // PATCH /api/admin/kids/{kidId}
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ kidId: string }> }) {
   try {
@@ -36,7 +26,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ki
     const { kidId } = await params;
     const body = await req.json().catch(() => ({}));
     const name = body.name ? String(body.name).trim() : undefined;
-    const dateOfBirth = body.date_of_birth ? String(body.date_of_birth).trim() : undefined;
+    const yearOfBirth = body.year_of_birth !== undefined ? Number(body.year_of_birth) : undefined;
+    const monthOfBirth = body.month_of_birth !== undefined ? Number(body.month_of_birth) : undefined;
 
     if (!kidId) throw badRequest("kidId is required");
 
@@ -53,12 +44,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ki
       updateData.name = name;
     }
 
-    if (dateOfBirth) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
-        throw badRequest("date_of_birth must be in YYYY-MM-DD format");
+    if (yearOfBirth !== undefined || monthOfBirth !== undefined) {
+      // Both must be provided together
+      const existingData = kidSnap.data() as any;
+      const resolvedYear = yearOfBirth ?? existingData.yearOfBirth;
+      const resolvedMonth = monthOfBirth ?? existingData.monthOfBirth;
+
+      if (!Number.isInteger(resolvedYear) || resolvedYear < 1990 || resolvedYear > new Date().getFullYear()) {
+        throw badRequest("year_of_birth must be a valid year (1990–present)");
       }
-      updateData.date_of_birth = dateOfBirth;
-      updateData.age = calculateAge(dateOfBirth);
+      if (!Number.isInteger(resolvedMonth) || resolvedMonth < 1 || resolvedMonth > 12) {
+        throw badRequest("month_of_birth must be between 1 and 12");
+      }
+      const now = new Date();
+      if (resolvedYear > now.getFullYear() || (resolvedYear === now.getFullYear() && resolvedMonth > now.getMonth() + 1)) {
+        throw badRequest("Birth year/month cannot be in the future");
+      }
+      updateData.yearOfBirth = resolvedYear;
+      updateData.monthOfBirth = resolvedMonth;
+      updateData.age = calculateAgeFromMonthYear(resolvedMonth, resolvedYear);
     }
 
     await kidRef.set(updateData, { merge: true });

@@ -135,10 +135,15 @@ export async function GET(req: NextRequest) {
           confirmed_by: data.confirmed_by,
         };
 
-        basePayments.push(item);
-
-        // Stats semantics: count unpaid only if billable
-        if (billable && status === "unpaid") billableUnpaidIds.add(item.id);
+        // ✅ FIX: Only add billable records to payment list
+        if (billable) {
+          basePayments.push(item);
+          
+          // Track unpaid specifically
+          if (status === "unpaid") {
+            billableUnpaidIds.add(item.id);
+          }
+        }
       }
     }
 
@@ -189,10 +194,15 @@ export async function GET(req: NextRequest) {
           confirmed_by: data.confirmed_by,
         };
 
-        basePayments.push(item);
-
-        // Stats semantics: count unpaid only if billable
-        if (billable && status === "unpaid") billableUnpaidIds.add(item.id);
+        // ✅ FIX: Only add billable records to payment list
+        if (billable) {
+          basePayments.push(item);
+          
+          // Track unpaid specifically
+          if (status === "unpaid") {
+            billableUnpaidIds.add(item.id);
+          }
+        }
       }
     }
 

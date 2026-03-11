@@ -19,6 +19,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const body = await req.json().catch(() => ({}));
     const kidId: string | null = body?.kid_id ? String(body.kid_id) : null;
+    const linkedYouthId: string | null = body?.linked_youth_id ? String(body.linked_youth_id) : null;
 
     // Fetch the event and compute the attendance cut-off.
     const eventSnap = await adminDb.collection("events").doc(id).get();
@@ -75,6 +76,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       subjectName = String(
         kidData?.name || kidData?.first_name || `Kid ${kidId.substring(0, 8)}`
       );
+    } else if (linkedYouthId) {
+      const sessionPlayerSnap = await adminDb.collection("players").doc(user.uid).get();
+      const sessionPlayerData = (sessionPlayerSnap.data() || {}) as any;
+      const parentLinkedYouth: string[] = sessionPlayerData.linked_youth || [];
+      if (!parentLinkedYouth.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Not authorized to request for this youth" }, { status: 403 });
+      }
+      subjectId = linkedYouthId;
+      const youthSnap = await adminDb.collection("players").doc(linkedYouthId).get();
+      subjectName = String(youthSnap.data()?.name || linkedYouthId);
     } else {
       const playerSnap = await adminDb.collection("players").doc(user.uid).get();
       const playerData: any = playerSnap.data() || {};
@@ -124,6 +135,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const url = new URL(req.url);
     const kidIdRaw = url.searchParams.get("kid_id");
     const kidId = kidIdRaw ? String(kidIdRaw) : null;
+    const linkedYouthIdRaw = url.searchParams.get("linked_youth_id");
+    const linkedYouthId = linkedYouthIdRaw ? String(linkedYouthIdRaw) : null;
 
     let subjectId = user.uid;
 
@@ -136,6 +149,14 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         return NextResponse.json({ error: "Not authorized" }, { status: 403 });
       }
       subjectId = kidId;
+    } else if (linkedYouthId) {
+      const sessionPlayerSnap = await adminDb.collection("players").doc(user.uid).get();
+      const sessionPlayerData = (sessionPlayerSnap.data() || {}) as any;
+      const parentLinkedYouth: string[] = sessionPlayerData.linked_youth || [];
+      if (!parentLinkedYouth.includes(linkedYouthId)) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+      }
+      subjectId = linkedYouthId;
     }
 
     const docId = `${id}_${subjectId}`;

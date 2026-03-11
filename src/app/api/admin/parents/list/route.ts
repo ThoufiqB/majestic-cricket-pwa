@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
 
     const snap = await adminDb.collection("players").get();
     
+    const currentYear = new Date().getFullYear();
+
     const parents = snap.docs
       .map((doc) => {
         const data = doc.data() as any;
@@ -27,9 +29,16 @@ export async function GET(req: NextRequest) {
           player_id: doc.id,
           email: data.email || "",
           name: data.name || "Unknown",
+          yearOfBirth: data.yearOfBirth as number | undefined,
         };
       })
-      .filter((p) => p.email) // Only include records with email
+      .filter((p) => {
+        if (!p.email) return false;
+        // Exclude accounts under 18 — they should not be listed as parents
+        if (p.yearOfBirth && currentYear - p.yearOfBirth < 18) return false;
+        return true;
+      })
+      .map(({ player_id, email, name }) => ({ player_id, email, name }))
       .sort((a, b) => a.email.localeCompare(b.email));
 
     return ok({

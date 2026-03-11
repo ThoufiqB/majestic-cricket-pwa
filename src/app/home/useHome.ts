@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../client/api";
 import type { FriendsGoing, HomeEvent } from "./types";
 import { buildMonthOptions, clampPct, isMembershipEvent, isProfileComplete, monthKeyFromDate } from "./helpers";
-import { calculateAge, isAgeInRange, getAgeEligibilityMessage } from "@/lib/ageCalculator";
+import { calculateAgeFromMonthYear, isAgeInRange, getAgeEligibilityMessage } from "@/lib/ageCalculator";
 
 type Attending = "YES" | "NO" | "UNKNOWN";
 type PaidStatus = "UNPAID" | "PENDING" | "PAID" | "REJECTED";
@@ -210,9 +210,10 @@ export function useHome(activeProfileId?: string) {
 
         if (ageRange) {
           const kidData = (me as any)?.kids_profiles?.find((k: any) => k.kid_id === activeProfileId);
-          // ✅ Use date_of_birth (field name from Firestore) instead of birth_date
-          const kidBirthDate = kidData?.date_of_birth;
-          const kidAge = calculateAge(kidBirthDate ? new Date(kidBirthDate) : null);
+          // Use monthOfBirth + yearOfBirth (matches player model)
+          const kidAge = kidData?.yearOfBirth
+            ? calculateAgeFromMonthYear(kidData.monthOfBirth ?? 1, kidData.yearOfBirth)
+            : null;
 
           if (!isAgeInRange(kidAge, ageRange.min, ageRange.max)) {
             const msg = getAgeEligibilityMessage(kidAge, ageRange.min, ageRange.max);

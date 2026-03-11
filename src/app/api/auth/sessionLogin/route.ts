@@ -88,6 +88,20 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Youth waiting on parent, or parent-approved waiting on admin
+      if (
+        requestStatus === "pending_parent_approval" ||
+        requestStatus === "pending_admin_approval"
+      ) {
+        return NextResponse.json(
+          {
+            status: "pending_approval",
+            message: "Your registration is awaiting approval.",
+          },
+          { status: 403 }
+        );
+      }
+
       // ARCHITECTURE NOTE (Feb 2026):
       // This case should NEVER happen with the new architecture because:
       // - When admin approves, registration_request is DELETED (batch write)

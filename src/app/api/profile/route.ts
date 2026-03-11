@@ -20,6 +20,24 @@ export async function POST(req: NextRequest) {
     const group = norm(body.group);
     const member_type = norm(body.member_type);
     const phone = String(body.phone || "").trim();
+    const name = String(body.name || "").trim();
+
+    // Validate name if provided
+    if (name) {
+      if (name.length < 2 || name.length > 100) {
+        throw badRequest("Name must be between 2 and 100 characters.");
+      }
+      if (!/^[a-zA-Z ]+$/.test(name)) {
+        throw badRequest("Name must contain only letters and spaces.");
+      }
+    }
+
+    // Validate phone if provided
+    if (phone) {
+      if (!/^\+44\d{10}$/.test(phone)) {
+        throw badRequest("Phone must be in format +44 followed by 10 digits.");
+      }
+    }
 
     if (group !== "men" && group !== "women") {
       throw badRequest("Invalid group. Must be 'men' or 'women'.");
@@ -32,10 +50,12 @@ export async function POST(req: NextRequest) {
     const snap = await ref.get();
     if (!snap.exists) throw badRequest("Player profile not found. Try signing out and in again.");
 
-    await ref.set(
-      { group, member_type, phone, updated_at: adminTs.now() },
-      { merge: true }
-    );
+    const updateData: any = { group, member_type, phone, updated_at: adminTs.now() };
+    if (name) {
+      updateData.name = name;
+    }
+
+    await ref.set(updateData, { merge: true });
 
     const snap2 = await ref.get();
     return ok({ me: { player_id: uid, ...(snap2.data() as any) } });
