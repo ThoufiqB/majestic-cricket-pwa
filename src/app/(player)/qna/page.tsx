@@ -146,8 +146,6 @@ export default function QnaPage() {
     }
   }
 
-  const filteredQuestions =
-    filter === "all" ? questions : questions.filter((q) => q.status === filter);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
@@ -220,7 +218,7 @@ export default function QnaPage() {
             </Card>
           ))}
         </div>
-      ) : filteredQuestions.length === 0 ? (
+      ) : questions.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
             <MessageCircleQuestion className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -229,7 +227,7 @@ export default function QnaPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredQuestions.map((q) => (
+          {questions.map((q) => (
             <QuestionCard key={q.id} q={q} />
           ))}
         </div>

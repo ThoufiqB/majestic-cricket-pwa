@@ -114,9 +114,6 @@ export default function AdminQnaPage() {
     }
   }
 
-  const filteredQuestions =
-    filter === "all" ? questions : questions.filter((q) => q.status === filter);
-
   const openCount = questions.filter((q) => q.status === "open").length;
 
   return (
@@ -163,7 +160,7 @@ export default function AdminQnaPage() {
             </Card>
           ))}
         </div>
-      ) : filteredQuestions.length === 0 ? (
+      ) : questions.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
             <MessageCircleQuestion className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -172,7 +169,7 @@ export default function AdminQnaPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredQuestions.map((q) => (
+          {questions.map((q) => (
             <Card key={q.id} className="overflow-hidden">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">

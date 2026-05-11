@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status"); // "open" | "answered" | null (all)
     const limitStr = searchParams.get("limit");
-    const limit = Math.min(Number.isFinite(Number(limitStr)) ? Number(limitStr) : 50, 100);
+    const parsedLimit = limitStr ? parseInt(limitStr, 10) : 50;
+    const limit = Math.min(Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 50, 100);
 
     let q: FirebaseFirestore.Query = adminDb.collection("qna").orderBy("asked_at", "desc");
 
