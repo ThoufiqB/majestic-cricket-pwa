@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X, CreditCard, Settings, ClipboardList, UserPlus } from "lucide-react";
+import { X, CreditCard, Settings, ClipboardList, UserPlus, MessageCircleQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
@@ -34,6 +34,12 @@ export function AdminMoreMenu({ open, onClose }: Props) {
       label: "Manage events",
       icon: <ClipboardList className="h-5 w-5" />,
       description: "Edit & organize events",
+    },
+    {
+      href: "/admin/qna",
+      label: "Q&A",
+      icon: <MessageCircleQuestion className="h-5 w-5" />,
+      description: "Answer member questions",
     },
     {
       href: "/admin/payments",

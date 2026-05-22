@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Menu,
   UserCircle,
+  MessageCircleQuestion,
 } from "lucide-react";
 
 type NavItem = {
@@ -81,6 +82,11 @@ const playerNavItems: NavItem[] = [
     label: "Payments",
     icon: <CreditCard className="h-5 w-5" />,
   },
+  {
+    href: "/qna",
+    label: "Q&A",
+    icon: <MessageCircleQuestion className="h-5 w-5" />,
+  },
 ];
 
 // Nav items for kids profile - same as adult now (My Parents moved to header)
@@ -104,6 +110,11 @@ const playerNavItemsKid: NavItem[] = [
     href: "/payments",
     label: "Payments",
     icon: <CreditCard className="h-5 w-5" />,
+  },
+  {
+    href: "/qna",
+    label: "Q&A",
+    icon: <MessageCircleQuestion className="h-5 w-5" />,
   },
 ];
 
